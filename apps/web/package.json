@@ -14,6 +14,7 @@
   "dependencies": {
     "@fluffmind/design-system": "workspace:*",
     "gray-matter": "^4.0.3",
+    "mdast-util-to-string": "^4.0.0",
     "nuxt": "^4.4.8",
     "remark": "^15.0.1",
     "unist-util-visit": "^5.1.0",
