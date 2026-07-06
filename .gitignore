@@ -1,7 +1,13 @@
-# Dirs
+# Dependencies
 node_modules
 
-# Local env files
+# Build output
+dist
+.output
+.nuxt
+.nitro
+
+# Env files
 .env
 .env.*
 !.env.example
@@ -10,5 +16,11 @@ node_modules
 logs
 *.log
 
-# Editor directories and files
+# Editor / OS
 .DS_Store
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Turborepo
+.turbo
