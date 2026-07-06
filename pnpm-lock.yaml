@@ -35,6 +35,9 @@ importers:
       remark:
         specifier: ^15.0.1
         version: 15.0.1
+      unist-util-visit:
+        specifier: ^5.1.0
+        version: 5.1.0
       vue:
         specifier: ^3.5.39
         version: 3.5.39(typescript@5.9.3)
