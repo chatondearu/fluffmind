@@ -1,0 +1,16 @@
+{
+  "name": "@fluffmind/integrations",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "echo \"@fluffmind/integrations: nothing to build yet (P1)\"",
+    "lint": "echo \"@fluffmind/integrations: no linter configured yet\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
