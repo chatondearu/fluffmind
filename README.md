@@ -12,9 +12,12 @@ Fluffmind is a self-hostable, git-backed personal knowledge management (PKM) app
 
 ## Status
 
-Early planning — no application code yet. This repo previously held an unrelated first attempt (Nuxt + Supabase scaffold); it's been cleared to restart on the current architecture.
+P0 (foundations: read-only vault engine, design system, viewer) is done. See the
+[Project board](../../projects) and [Milestones](../../milestones) for the roadmap and
+current work.
 
-See the [Project board](../../projects) and [Milestones](../../milestones) for the roadmap and current work. Design decisions and the full PRD live in project notes (not in this repo yet).
+Architecture decisions and rationale: `DESIGN.md`. Conventions and gotchas for anyone
+(human or agent) working in this repo: `AGENTS.md`.
 
 ## Planned stack
 
@@ -39,7 +42,7 @@ docker compose up
 Runs the Nuxt dev server (hot reload, source bind-mounted) plus a Postgres instance —
 Postgres isn't consumed by the app yet (auth/workspaces land in P2), it's there so the
 local stack already matches the target self-hosting shape: the same Docker image runs
-locally or on a public server (see the PRD).
+locally or on a public server (see `DESIGN.md`).
 
 ### Deploying (Coolify)
 
