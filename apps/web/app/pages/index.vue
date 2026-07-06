@@ -23,7 +23,10 @@ function formatDate(value: unknown): string | null {
 
 <template>
   <main class="mx-auto max-w-2xl p-6">
-    <h1 class="mb-4 text-2xl font-semibold text-on-surface">Fluffmind</h1>
+    <div class="mb-4 flex items-baseline justify-between">
+      <h1 class="text-2xl font-semibold text-on-surface">Fluffmind</h1>
+      <NuxtLink to="/graph" class="text-sm text-primary hover:underline">Graph →</NuxtLink>
+    </div>
     <input
       v-model="search"
       type="search"
