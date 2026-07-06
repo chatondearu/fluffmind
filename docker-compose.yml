@@ -1,0 +1,51 @@
+# Local development stack. `pnpm install && pnpm dev` directly on the host is still
+# the fastest inner loop (instant HMR, no container overhead) — this exists for a
+# consistent, no-local-Node-required path, and to develop against a real Postgres
+# without installing it on the host.
+#
+# Usage: copy .env.example to .env (set VAULT_PATH to a real markdown vault, e.g. this
+# Foam vault), then `docker compose up`.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    command: pnpm --filter @fluffmind/web dev
+    ports:
+      - '3000:3000'
+    environment:
+      VAULT_PATH: /vault
+      NUXT_HOST: 0.0.0.0
+      NUXT_PORT: '3000'
+    volumes:
+      - .:/app
+      - ${VAULT_PATH}:/vault:ro
+      # Anonymous volumes so the image's own (Linux-native) node_modules aren't
+      # shadowed by the bind mount above — needed for every workspace package since
+      # pnpm installs a node_modules per package, not just at the repo root.
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/web/.nuxt
+      - /app/packages/design-system/node_modules
+      - /app/packages/editor-blocks/node_modules
+      - /app/packages/integrations/node_modules
+      - /app/packages/db/node_modules
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fluffmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fluffmind}
+      POSTGRES_DB: ${POSTGRES_DB:-fluffmind}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:

@@ -1,0 +1,47 @@
+# Coolify deployment (Docker Compose resource type). Coolify scans this file for its
+# "magic" environment variables and substitutes generated values at deploy time —
+# nothing here needs to be filled in by hand in Coolify's UI:
+#   - SERVICE_FQDN_<NAME>_<PORT>   declares that a domain should be generated and
+#                                  routed (through Coolify's proxy) to <NAME> on <PORT>.
+#                                  Must be a bare key (no value) for Coolify to pick it
+#                                  up and configure routing, not just substitute text.
+#   - SERVICE_USER_<NAME> / SERVICE_PASSWORD_<NAME>
+#                                  random credentials, generated once and persisted
+#                                  across redeploys.
+# See https://coolify.io/docs/knowledge-base/environment-variables.
+#
+# Current limitation: there's no Git sync yet (P1) or auth/workspaces yet (P2), so a
+# freshly deployed instance has an empty vault — `vault-data` needs to be populated
+# manually for now (e.g. `docker compose exec web sh` and clone/copy notes into
+# /data/vault) until P1 ships.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - SERVICE_FQDN_WEB_3000
+      - VAULT_PATH=/data/vault
+      # Reserved for P2 (auth/workspaces) — not read by the app yet, wired here so the
+      # deployment shape already matches the target architecture (see the PRD).
+      - DATABASE_URL=postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/fluffmind
+    volumes:
+      - vault-data:/data/vault
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_DB: fluffmind
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  vault-data:
+  postgres-data:
