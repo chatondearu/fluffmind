@@ -19,3 +19,32 @@ See the [Project board](../../projects) and [Milestones](../../milestones) for t
 ## Planned stack
 
 Nuxt 3 · pnpm workspaces + Turborepo · Reka UI · UnoCSS · Material Design 3 · Drizzle ORM · Postgres · Better Auth · Model Context Protocol (MCP)
+
+## Running it
+
+### Directly (fastest inner loop)
+
+```sh
+pnpm install
+VAULT_PATH=/absolute/path/to/a/markdown/vault pnpm --filter @fluffmind/web dev
+```
+
+### With Docker
+
+```sh
+cp .env.example .env   # set VAULT_PATH to a real markdown vault
+docker compose up
+```
+
+Runs the Nuxt dev server (hot reload, source bind-mounted) plus a Postgres instance —
+Postgres isn't consumed by the app yet (auth/workspaces land in P2), it's there so the
+local stack already matches the target self-hosting shape: the same Docker image runs
+locally or on a public server (see the PRD).
+
+### Deploying (Coolify)
+
+`docker-compose.coolify.yml` is meant to be used as a Coolify "Docker Compose" resource
+— Coolify substitutes its own magic environment variables (domain generation, random
+Postgres credentials) at deploy time, nothing to fill in by hand. See the comments in
+that file. Note: there's no Git sync yet (P1), so a freshly deployed instance starts
+with an empty vault volume.
