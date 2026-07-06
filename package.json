@@ -1,0 +1,21 @@
+{
+  "name": "fluffmind",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Fluffmind is a Fluffy second brain for your thoughts and ideas.",
+  "license": "ISC",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.7.0"
+  }
+}
