@@ -24,3 +24,6 @@ logs
 
 # Turborepo
 .turbo
+
+# pnpm local store (seen created at repo root when running pnpm inside Docker)
+.pnpm-store
