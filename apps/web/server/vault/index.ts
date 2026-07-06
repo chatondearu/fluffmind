@@ -99,10 +99,17 @@ export async function buildVaultIndex(vaultPath: string): Promise<VaultIndex> {
 
   for (const filePath of files) {
     const id = toNoteId(vaultPath, filePath)
-    const raw = await readFile(filePath, 'utf-8')
-    const { frontmatter, ast } = parseNote(raw)
-    notes.set(id, { id, title: extractTitle(ast, id), frontmatter, filePath })
-    rawLinksByNote.set(id, extractWikilinks(ast))
+    try {
+      const raw = await readFile(filePath, 'utf-8')
+      const { frontmatter, ast } = parseNote(raw)
+      notes.set(id, { id, title: extractTitle(ast, id), frontmatter, filePath })
+      rawLinksByNote.set(id, extractWikilinks(ast))
+    } catch (error) {
+      // A single malformed file (e.g. invalid YAML frontmatter) must not take down the
+      // whole vault — skip it and keep indexing the rest. Found for real against this
+      // vault's own data (a note with `## date: ...` inside its frontmatter block).
+      console.warn(`[vault] skipping "${id}" — failed to parse: ${(error as Error).message}`)
+    }
   }
 
   const noteIds = [...notes.keys()]
