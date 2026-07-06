@@ -7,7 +7,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "build": "echo \"@fluffmind/integrations: nothing to build yet (P1)\"",
-    "lint": "echo \"@fluffmind/integrations: no linter configured yet\"",
+    "lint": "eslint src",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
