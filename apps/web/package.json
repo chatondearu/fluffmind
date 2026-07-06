@@ -12,12 +12,14 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@fluffmind/design-system": "workspace:*",
     "nuxt": "^4.4.8",
     "vue": "^3.5.39",
     "vue-router": "^5.1.0"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.16.0",
+    "@unocss/nuxt": "^66.7.4",
     "eslint": "^10.6.0",
     "vue-tsc": "^3.3.6"
   }
