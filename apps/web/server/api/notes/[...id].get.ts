@@ -1,6 +1,7 @@
 import { getVaultIndex } from '../../vault/service'
 import { readNote } from '../../vault/reader'
 import { renderNoteHtml } from '../../vault/render'
+import { linkifyWikilinks } from '../../vault/wikilink-render'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -10,6 +11,7 @@ export default defineEventHandler(async (event) => {
   const note = await readNote(index, id)
   if (!note) throw createError({ statusCode: 404, statusMessage: `Note not found: ${id}` })
 
+  const links = index.links.get(id) ?? []
   const backlinks = (index.backlinks.get(id) ?? [])
     .map((backlinkId) => index.notes.get(backlinkId)!)
     .sort((a, b) => a.title.localeCompare(b.title))
@@ -19,9 +21,9 @@ export default defineEventHandler(async (event) => {
       id: note.id,
       title: note.title,
       frontmatter: note.frontmatter,
-      html: renderNoteHtml(note.ast)
+      html: renderNoteHtml(linkifyWikilinks(note.ast, links))
     },
-    links: index.links.get(id) ?? [],
+    links,
     backlinks
   }
 })
