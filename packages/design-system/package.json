@@ -1,0 +1,19 @@
+{
+  "name": "@fluffmind/design-system",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "echo \"@fluffmind/design-system: nothing to build yet, source-only package\"",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@material/material-color-utilities": "^0.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
