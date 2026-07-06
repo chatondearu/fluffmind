@@ -1,6 +1,6 @@
 import type { Md3Role, Md3TokenSet, Md3Tokens } from './md3.ts'
 
-function cssVarName(role: Md3Role): string {
+export function cssVarName(role: Md3Role): string {
   return `--md-${role.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()}`
 }
 
