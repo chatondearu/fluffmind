@@ -17,7 +17,10 @@
     "gray-matter": "^4.0.3",
     "mdast-util-to-string": "^4.0.0",
     "nuxt": "^4.4.8",
+    "rehype-stringify": "^10.0.1",
     "remark": "^15.0.1",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",
     "vue": "^3.5.39",
     "vue-router": "^5.1.0"
