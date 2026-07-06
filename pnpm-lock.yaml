@@ -26,6 +26,9 @@ importers:
       '@fluffmind/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
+      chokidar:
+        specifier: ^5.0.0
+        version: 5.0.0
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
