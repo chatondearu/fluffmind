@@ -7,6 +7,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "build": "echo \"@fluffmind/design-system: nothing to build yet, source-only package\"",
+    "generate:css": "node --experimental-strip-types scripts/generate-tokens-css.ts",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
