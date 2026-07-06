@@ -7,7 +7,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "build": "echo \"@fluffmind/editor-blocks: nothing to build yet (P3)\"",
-    "lint": "echo \"@fluffmind/editor-blocks: no linter configured yet\"",
+    "lint": "eslint src",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
