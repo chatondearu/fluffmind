@@ -13,12 +13,15 @@
   },
   "dependencies": {
     "@fluffmind/design-system": "workspace:*",
+    "gray-matter": "^4.0.3",
     "nuxt": "^4.4.8",
+    "remark": "^15.0.1",
     "vue": "^3.5.39",
     "vue-router": "^5.1.0"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.16.0",
+    "@types/mdast": "^4.0.4",
     "@unocss/nuxt": "^66.7.4",
     "eslint": "^10.6.0",
     "vue-tsc": "^3.3.6"
