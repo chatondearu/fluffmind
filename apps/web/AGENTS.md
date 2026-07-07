@@ -4,10 +4,6 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
 
 ## Vault engine (`server/vault/`)
 
-Strictly read-only — **no write function exists anywhere in this module**, on
-purpose. Git sync and the single-writer `writeToWorkspace` path land in P1; don't add
-a write path here before then without checking `DESIGN.md`'s Git sync section first.
-
 - `parser.ts` — markdown + frontmatter parsing (gray-matter + remark). Produces one
   mdast AST, reused for both indexing and rendering — don't add a second, independent
   markdown→HTML renderer.
@@ -27,6 +23,11 @@ a write path here before then without checking `DESIGN.md`'s Git sync section fi
   `render.ts`, not merged into it — keeps the generic renderer generic.
 - `service.ts` — `getVaultIndex()` memoizes the index; in dev, a chokidar watcher
   invalidates the cache on file changes so external edits show up without a restart.
+  `invalidateVaultIndex()` drops the cache — called by `write.ts` after a commit.
+- `write.ts` — `writeToWorkspace(workspaceId, id, content)`, the single write path
+  (P1 spike — see `DESIGN.md`'s Git sync section). Per-workspace in-memory lock,
+  editing existing notes only (no note creation yet). Git plumbing itself
+  (`ensureWorkingCopy`/`commitAndPush`) lives in `@fluffmind/integrations`, not here.
 
 ## Config
 
@@ -49,3 +50,16 @@ a write path here before then without checking `DESIGN.md`'s Git sync section fi
 Standard Nuxt file-based routing: `app/pages/**/*.vue`, `server/api/**/*.ts`. Catch-all
 routes (note ids contain slashes) use the `[...param]` naming, e.g.
 `server/api/notes/[...id].get.ts` / `app/pages/notes/[...slug].vue`.
+
+- **Don't use the auto-imported `readBody` on a route that receives a body.** This
+  monorepo resolves two copies of `h3` (Nitro's own 1.x, and a 2.x-rc pulled in
+  transitively by `@nuxt/eslint`'s devtools config-inspector) — the auto-import binds
+  to the 2.x-rc build, which expects a Web `Request`-style `event.req.text()` that
+  doesn't exist on the 1.x Node-based event Nitro actually constructs, crashing with
+  `event.req.text is not a function`. Read the body off `event.node.req` directly
+  instead (see `server/api/notes/[...id].put.ts`) until the duplicate `h3` resolution
+  is fixed at the dependency level.
+- **`createError`'s `statusMessage` becomes the raw HTTP reason phrase** — a
+  restricted charset that silently mangles non-ASCII characters (e.g. an em dash).
+  Keep `statusMessage` short and ASCII-only; put real detail in `message`, which
+  flows into the JSON error body untouched.

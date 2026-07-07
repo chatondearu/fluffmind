@@ -61,6 +61,26 @@ time. Scaling out horizontally per workspace would need a distributed lock (Post
 advisory lock or Redis) — deliberately out of scope until the need is proven (see the
 P7 milestone).
 
+**Spike shipped**: `writeToWorkspace` exists (`apps/web/server/vault/write.ts` +
+`packages/integrations/src/git.ts`), validated against a disposable GitHub repo —
+concurrent writes serialize without loss, a clean external edit rebases automatically,
+a real conflict aborts the rebase and surfaces a 409 with the local commit intact
+(never lost, only unpushed). Still spike-scoped: a single hardcoded workspace (real
+multi-workspace resolution needs P2's Postgres), editing existing notes only (no
+creation yet), and no detection of a workspace left in a diverged state across a
+server restart.
+
+- **`simple-git` (shells to the real `git` binary), not `isomorphic-git`.** Rebase-on-
+  rejected-push needs to be reliable — a real, battle-tested `git` beats trusting
+  isomorphic-git's lower-level rebase support. Cost: the runtime image needs the `git`
+  binary installed (`apk add git` in the `dev`/`runner` Dockerfile stages), and every
+  working copy gets a repo-local `user.name`/`user.email` set explicitly (the server
+  commits on behalf of users — it can't assume a human's global git config exists in
+  whatever environment it runs in).
+- **Commit always happens before push is attempted.** This is what makes "no data
+  loss" simple: a rejected push or a real rebase conflict (`git rebase --abort`) never
+  discards the commit, it only leaves the workspace unsynced with the remote.
+
 ## Auth & workspaces (P2)
 
 Better Auth + Drizzle + Postgres, using Better Auth's `organization` plugin rather
