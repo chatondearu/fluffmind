@@ -22,10 +22,12 @@ pnpm workspaces + Turborepo.
 - `apps/web` — the Nuxt app. Everything runnable today lives here.
 - `packages/design-system` — Reka UI + UnoCSS + Material Design 3 tokens. Has real
   content.
-- `packages/editor-blocks`, `packages/integrations`, `packages/db` — empty shells on
-  purpose (P0 scaffolding to lock in the monorepo shape). Each `src/index.ts` says
-  which phase fills it in (P3, P1, P2 respectively). Don't add content there until
-  that phase's plan says so — check the milestone first.
+- `packages/editor-blocks`, `packages/db` — still empty shells on purpose (P0
+  scaffolding to lock in the monorepo shape; `src/index.ts` says which phase fills
+  each in — P3, P2). Don't add content there until that phase's plan says so.
+- `packages/integrations` — has real content since P1: Git plumbing
+  (`ensureWorkingCopy`/`commitAndPush`, backing `writeToWorkspace`) via `simple-git`.
+  GitHub OAuth/API and the MCP SDK wrapper are still unimplemented (P2/P5).
 
 There is deliberately **no separate `vault-engine` package**: that logic lives in
 `apps/web/server/vault/` because it currently has exactly one consumer. Don't extract
@@ -79,3 +81,9 @@ vault, including this repo's own future docs if you add one).
   `editor-blocks` when that phase starts — the PRD deliberately scopes rich text down
   to contenteditable + markdown-as-you-type to contain that risk. Check `DESIGN.md`
   and the P3 milestone before expanding scope.
+- **`writeToWorkspace` (P1) shells out to a real `git` binary** via `simple-git` — the
+  Alpine-based `dev` and `runner` Dockerfile stages install it explicitly
+  (`apk add git`); a new stage that also runs writes needs the same. Every working
+  copy also gets a repo-local `user.name`/`user.email` set programmatically (see
+  `packages/integrations/src/git.ts`) — don't assume a global git config exists in
+  whatever environment the server runs in.
