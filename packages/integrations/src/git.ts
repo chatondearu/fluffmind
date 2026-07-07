@@ -22,6 +22,17 @@ function hasGitDir(path: string): boolean {
 }
 
 /**
+ * Sets a repo-local commit identity, idempotently. The server commits on behalf of
+ * users — it can't rely on a human's global `git config` existing in whatever
+ * environment it runs in (bare Docker image, CI, ...), so every working copy gets one
+ * set explicitly rather than failing on "please tell me who you are".
+ */
+async function ensureCommitIdentity(git: SimpleGit): Promise<void> {
+  await git.addConfig('user.name', 'Fluffmind', false, 'local')
+  await git.addConfig('user.email', 'fluffmind@localhost', false, 'local')
+}
+
+/**
  * Prepares the server-side working copy for a workspace:
  * - empty/missing path + remote configured: clone.
  * - empty/missing path, no remote: `git init` a fresh local repo.
@@ -33,35 +44,34 @@ function hasGitDir(path: string): boolean {
  */
 export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<SimpleGit> {
   const { path, remoteUrl, branch } = config
+  let git: SimpleGit
 
   if (await isEmptyDir(path)) {
     if (remoteUrl) {
-      const git = simpleGit()
-      await git.clone(remoteUrl, path, ['--branch', branch, '--single-branch'])
-      return simpleGit(path)
-    }
-    await mkdir(path, { recursive: true })
-    const git = simpleGit(path)
-    await git.init(['--initial-branch', branch])
-    return git
-  }
-
-  if (!hasGitDir(path)) {
-    const git = simpleGit(path)
-    await git.init(['--initial-branch', branch])
-    return git
-  }
-
-  const git = simpleGit(path)
-  if (remoteUrl) {
-    await git.fetch('origin', branch)
-    const localBranches = await git.branchLocal()
-    if (localBranches.all.includes(branch)) {
-      await git.checkout(branch)
+      await simpleGit().clone(remoteUrl, path, ['--branch', branch, '--single-branch'])
+      git = simpleGit(path)
     } else {
-      await git.checkoutBranch(branch, `origin/${branch}`)
+      await mkdir(path, { recursive: true })
+      git = simpleGit(path)
+      await git.init(['--initial-branch', branch])
+    }
+  } else if (!hasGitDir(path)) {
+    git = simpleGit(path)
+    await git.init(['--initial-branch', branch])
+  } else {
+    git = simpleGit(path)
+    if (remoteUrl) {
+      await git.fetch('origin', branch)
+      const localBranches = await git.branchLocal()
+      if (localBranches.all.includes(branch)) {
+        await git.checkout(branch)
+      } else {
+        await git.checkoutBranch(branch, `origin/${branch}`)
+      }
     }
   }
+
+  await ensureCommitIdentity(git)
   return git
 }
 
