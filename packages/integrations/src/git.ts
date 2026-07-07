@@ -47,3 +47,61 @@ export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<Simp
   }
   return git
 }
+
+/** Thrown when a rebase-on-push-rejected hits a real conflict. The local commit is
+ * always left intact (rebase is aborted, not left half-applied) — this only means the
+ * workspace is out of sync with the remote, never that a write was lost. */
+export class GitConflictError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'GitConflictError'
+  }
+}
+
+export interface CommitPushOptions {
+  branch: string
+  message: string
+  /** Whether this working copy has a remote configured at all — skips push entirely
+   * for local-only self-hosting (no GitHub). */
+  remoteConfigured: boolean
+}
+
+export interface CommitPushResult {
+  /** False if the working tree had no changes to commit. */
+  committed: boolean
+  pushed: boolean
+}
+
+/**
+ * Commits whatever is currently in the working copy, then pushes. On a rejected push
+ * (remote has diverged), fetches and rebases on top of the remote branch and retries
+ * the push once. A real rebase conflict aborts cleanly and throws GitConflictError —
+ * the commit made here is never lost, only left unpushed.
+ */
+export async function commitAndPush(git: SimpleGit, options: CommitPushOptions): Promise<CommitPushResult> {
+  const { branch, message, remoteConfigured } = options
+
+  await git.add(['-A'])
+  const status = await git.status()
+  const committed = status.files.length > 0
+  if (committed) await git.commit(message)
+
+  if (!remoteConfigured) return { committed, pushed: false }
+
+  try {
+    await git.push('origin', branch)
+    return { committed, pushed: true }
+  } catch {
+    await git.fetch('origin', branch)
+    try {
+      await git.rebase([`origin/${branch}`])
+    } catch {
+      await git.rebase(['--abort']).catch(() => {})
+      throw new GitConflictError(
+        `Rebase conflict syncing branch "${branch}" — local commit is intact but not pushed.`
+      )
+    }
+    await git.push('origin', branch)
+    return { committed, pushed: true }
+  }
+}
