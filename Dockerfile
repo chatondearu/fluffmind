@@ -37,7 +37,7 @@ RUN pnpm turbo run build --filter=@fluffmind/web
 # mounts the full host repo over /app at runtime, and pnpm aborts (no TTY to confirm
 # purging node_modules) if the installed lockfile scope doesn't match what's mounted.
 FROM base AS dev
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat git
 WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile
@@ -46,6 +46,9 @@ RUN pnpm install --frozen-lockfile
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# writeToWorkspace shells out to the real git binary (via simple-git) — not part of
+# Nitro's self-contained output, has to be installed explicitly.
+RUN apk add --no-cache git
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 fluffmind
 COPY --from=builder --chown=fluffmind:nodejs /app/apps/web/.output ./.output
 USER fluffmind
