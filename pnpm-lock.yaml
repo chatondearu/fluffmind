@@ -26,6 +26,9 @@ importers:
       '@fluffmind/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
+      '@fluffmind/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       chokidar:
         specifier: ^5.0.0
         version: 5.0.0
