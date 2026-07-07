@@ -30,6 +30,15 @@ export function getVaultIndex(): Promise<VaultIndex> {
   return cachedIndex
 }
 
+/**
+ * Drops the cached index so the next `getVaultIndex()` call rebuilds from disk. Called
+ * by `writeToWorkspace` after a successful commit — a full rebuild, not an incremental
+ * one, matching `buildVaultIndex`'s existing all-at-once behavior.
+ */
+export function invalidateVaultIndex(): void {
+  cachedIndex = null
+}
+
 function startWatcher(vaultPath: string): void {
   const watcher = watch(vaultPath, { ignored: IGNORED_RE, ignoreInitial: true })
   const rebuild = () => {
