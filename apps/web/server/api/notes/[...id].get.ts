@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
       id: note.id,
       title: note.title,
       frontmatter: note.frontmatter,
+      content: note.content,
       html: renderNoteHtml(linkifyWikilinks(note.ast, links))
     },
     links,
