@@ -6,7 +6,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "build": "echo \"@fluffmind/integrations: nothing to build yet (P1)\"",
+    "build": "echo \"@fluffmind/integrations: nothing to build yet, source-only package\"",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
