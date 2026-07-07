@@ -30,7 +30,12 @@ a write path here before then without checking `DESIGN.md`'s Git sync section fi
 
 ## Config
 
-- `VAULT_PATH` (required) — absolute path to a folder of markdown notes.
+- `VAULT_PATH` (required) — absolute path to a folder of markdown notes. Also the
+  server's Git working copy since P1 — needs to be writable (no `:ro` mount).
+- `GIT_REMOTE_URL` (optional) — if unset, writes still commit locally (`git init`'d
+  automatically), just never pushed. If set, `writeToWorkspace` pushes and rebases
+  automatically on a rejected push.
+- `GIT_BRANCH` (optional, default `main`).
 - Import convention: **extensionless** relative imports (`./parser`, not
   `./parser.ts`) — this app's own generated tsconfig doesn't set
   `allowImportingTsExtensions` (unlike `packages/*`, see root `AGENTS.md`).
