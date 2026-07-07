@@ -17,11 +17,14 @@ services:
       - '3000:3000'
     environment:
       VAULT_PATH: /vault
+      GIT_REMOTE_URL: ${GIT_REMOTE_URL:-}
+      GIT_BRANCH: ${GIT_BRANCH:-main}
       NUXT_HOST: 0.0.0.0
       NUXT_PORT: '3000'
     volumes:
       - .:/app
-      - ${VAULT_PATH}:/vault:ro
+      # Read-write since P1: writeToWorkspace commits (and optionally pushes) here.
+      - ${VAULT_PATH}:/vault
       # Anonymous volumes so the image's own (Linux-native) node_modules aren't
       # shadowed by the bind mount above — needed for every workspace package since
       # pnpm installs a node_modules per package, not just at the repo root.
