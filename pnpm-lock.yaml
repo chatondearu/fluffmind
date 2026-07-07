@@ -111,6 +111,10 @@ importers:
         version: 5.9.3
 
   packages/integrations:
+    dependencies:
+      simple-git:
+        specifier: ^3.36.0
+        version: 3.36.0
     devDependencies:
       typescript:
         specifier: ^5.7.0
