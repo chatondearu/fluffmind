@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
-import { readdir } from 'node:fs/promises'
+import { mkdir, readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { simpleGit } from 'simple-git'
 import type { SimpleGit } from 'simple-git'
 
@@ -16,10 +17,19 @@ async function isEmptyDir(path: string): Promise<boolean> {
   return (await readdir(path)).length === 0
 }
 
+function hasGitDir(path: string): boolean {
+  return existsSync(join(path, '.git'))
+}
+
 /**
- * Prepares the server-side working copy for a workspace: clones it if a remote is
- * configured and the path is empty, `git init`s a fresh local repo otherwise, or just
- * fetches/checks out the target branch if the working copy already exists.
+ * Prepares the server-side working copy for a workspace:
+ * - empty/missing path + remote configured: clone.
+ * - empty/missing path, no remote: `git init` a fresh local repo.
+ * - existing files but not yet a repo, no remote: `git init` in place, adopting the
+ *   existing files (local-only self-hosting on top of a pre-existing plain folder).
+ *   Attaching a remote to a non-empty not-yet-a-repo directory isn't supported here —
+ *   merging unrelated histories is out of scope for this spike.
+ * - already a repo: fetch/checkout the target branch if a remote is configured.
  */
 export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<SimpleGit> {
   const { path, remoteUrl, branch } = config
@@ -30,6 +40,13 @@ export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<Simp
       await git.clone(remoteUrl, path, ['--branch', branch, '--single-branch'])
       return simpleGit(path)
     }
+    await mkdir(path, { recursive: true })
+    const git = simpleGit(path)
+    await git.init(['--initial-branch', branch])
+    return git
+  }
+
+  if (!hasGitDir(path)) {
     const git = simpleGit(path)
     await git.init(['--initial-branch', branch])
     return git
