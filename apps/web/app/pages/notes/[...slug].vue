@@ -31,8 +31,8 @@ function startEditing() {
 }
 
 function extractErrorMessage(err: unknown): string {
-  const asRecord = err as { statusMessage?: string, data?: { statusMessage?: string } }
-  return asRecord?.statusMessage ?? asRecord?.data?.statusMessage ?? 'Save failed.'
+  const asRecord = err as { data?: { message?: string, statusMessage?: string }, statusMessage?: string }
+  return asRecord?.data?.message ?? asRecord?.data?.statusMessage ?? asRecord?.statusMessage ?? 'Save failed.'
 }
 
 async function save() {
