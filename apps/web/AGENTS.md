@@ -21,13 +21,19 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
 - `wikilink-render.ts` — turns `[[...]]` into real `<a>` links (or a styled dead link
   if unresolved), using the index's already-resolved link data. Called right before
   `render.ts`, not merged into it — keeps the generic renderer generic.
-- `service.ts` — `getVaultIndex()` memoizes the index; in dev, a chokidar watcher
-  invalidates the cache on file changes so external edits show up without a restart.
-  `invalidateVaultIndex()` drops the cache — called by `write.ts` after a commit.
+- `service.ts` — `getVaultIndex()` memoizes the index; awaits `bootstrapWorkspace()`
+  first so a fresh clone happens before the index is built. In dev, a chokidar watcher
+  invalidates the cache on file changes. `invalidateVaultIndex()` drops the cache —
+  called by `write.ts` after a commit.
+- `sync.ts` — `bootstrapWorkspace()` (clone/init/fetch + sync warnings at boot) and
+  `getWorkspaceSyncStatus()` for `GET /api/sync-status`.
+- `workspace.ts` — env-based workspace config resolution (single hardcoded workspace
+  until P2).
 - `write.ts` — `writeToWorkspace(workspaceId, id, content)`, the single write path
   (P1 spike — see `DESIGN.md`'s Git sync section). Per-workspace in-memory lock,
-  editing existing notes only (no note creation yet). Git plumbing itself
-  (`ensureWorkingCopy`/`commitAndPush`) lives in `@fluffmind/integrations`, not here.
+  updates existing notes or creates new ones (`note-id.ts` validates ids on create).
+  Git plumbing itself (`ensureWorkingCopy`/`commitAndPush`) lives in
+  `@fluffmind/integrations`, not here.
 
 ## Config
 
@@ -51,14 +57,12 @@ Standard Nuxt file-based routing: `app/pages/**/*.vue`, `server/api/**/*.ts`. Ca
 routes (note ids contain slashes) use the `[...param]` naming, e.g.
 `server/api/notes/[...id].get.ts` / `app/pages/notes/[...slug].vue`.
 
-- **Don't use the auto-imported `readBody` on a route that receives a body.** This
-  monorepo resolves two copies of `h3` (Nitro's own 1.x, and a 2.x-rc pulled in
-  transitively by `@nuxt/eslint`'s devtools config-inspector) — the auto-import binds
-  to the 2.x-rc build, which expects a Web `Request`-style `event.req.text()` that
-  doesn't exist on the 1.x Node-based event Nitro actually constructs, crashing with
-  `event.req.text is not a function`. Read the body off `event.node.req` directly
-  instead (see `server/api/notes/[...id].put.ts`) until the duplicate `h3` resolution
-  is fixed at the dependency level.
+- **Prefer reading the body off `event.node.req` on write routes** (see
+  `server/api/notes/[...id].put.ts`). A root `pnpm.overrides` pins `h3` to Nitro's
+  1.x (fixing the duplicate 2.x-rc from `@nuxt/eslint`'s config-inspector that used to
+  break the auto-imported `readBody` — see root `pnpm-workspace.yaml` `overrides`), but the manual stream read is kept as defense
+  in depth — it bypasses any future `h3` dedup drift and works regardless of which
+  copy Nitro's auto-import resolves to.
 - **`createError`'s `statusMessage` becomes the raw HTTP reason phrase** — a
   restricted charset that silently mangles non-ASCII characters (e.g. an em dash).
   Keep `statusMessage` short and ASCII-only; put real detail in `message`, which

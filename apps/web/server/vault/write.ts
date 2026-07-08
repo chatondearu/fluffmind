@@ -1,30 +1,11 @@
-import { writeFile } from 'node:fs/promises'
+import { access, mkdir, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { ensureWorkingCopy, commitAndPush, GitConflictError } from '@fluffmind/integrations'
+import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { getVaultIndex, invalidateVaultIndex } from './service'
+import { resolveWorkspaceConfig } from './workspace'
 
-export { GitConflictError }
-
-interface WorkspaceConfig {
-  path: string
-  remoteUrl?: string
-  branch: string
-}
-
-/**
- * Resolves a workspace id to its working-copy config. A single workspace, sourced from
- * env vars, until real multi-workspace resolution (Postgres-backed) lands in P2 — the
- * `workspaceId` parameter is kept on `writeToWorkspace` to match the target signature
- * from DESIGN.md rather than break it later.
- */
-function resolveWorkspaceConfig(_workspaceId: string): WorkspaceConfig {
-  const path = process.env.VAULT_PATH
-  if (!path) throw new Error('VAULT_PATH environment variable is not set')
-  return {
-    path,
-    remoteUrl: process.env.GIT_REMOTE_URL || undefined,
-    branch: process.env.GIT_BRANCH || 'main'
-  }
-}
+export { GitConflictError, InvalidNoteIdError }
 
 // In-memory lock per workspace: a chain of promises, so writes to the same workspace
 // are strictly sequential. A failed write never poisons the chain — the next write
@@ -53,25 +34,41 @@ export interface WriteResult {
 /**
  * The single write path for the vault: acquire the workspace lock, apply the change to
  * the server's working copy, commit + push (rebasing automatically on a rejected
- * push), release the lock, invalidate the read index. Editing an existing note only —
- * creating new notes isn't supported by this spike.
+ * push), release the lock, invalidate the read index. Updates an existing note or
+ * creates a new one when `id` is not yet in the index.
  *
- * Assumes `VAULT_PATH` already contains the note being edited (either a pre-existing
- * local vault, or a working copy cloned there ahead of time) — auto-bootstrapping a
- * fresh clone before the read index's first build isn't handled here yet.
+ * Assumes `VAULT_PATH` is set. The working copy is bootstrapped at server start (and
+ * before the first index build) via `bootstrapWorkspace` — see `sync.ts` / #52.
  */
 export async function writeToWorkspace(workspaceId: string, id: string, content: string): Promise<WriteResult> {
   return withWorkspaceLock(workspaceId, async () => {
     const config = resolveWorkspaceConfig(workspaceId)
     const index = await getVaultIndex()
-    const note = index.notes.get(id)
-    if (!note) throw new Error(`Cannot write "${id}": note does not exist (creating new notes isn't supported yet)`)
+    const existing = index.notes.get(id)
+
+    let filePath: string
+    let isCreate: boolean
+
+    if (existing) {
+      filePath = existing.filePath
+      isCreate = false
+    } else {
+      filePath = resolveNoteFilePath(config.path, id)
+      try {
+        await access(filePath)
+        throw new Error(`Cannot create "${id}": a file already exists at that path`)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
+      await mkdir(dirname(filePath), { recursive: true })
+      isCreate = true
+    }
 
     const git = await ensureWorkingCopy(config)
-    await writeFile(note.filePath, content, 'utf-8')
+    await writeFile(filePath, content, 'utf-8')
     const result = await commitAndPush(git, {
       branch: config.branch,
-      message: `Update ${id}`,
+      message: isCreate ? `Create ${id}` : `Update ${id}`,
       remoteConfigured: Boolean(config.remoteUrl)
     })
     invalidateVaultIndex()

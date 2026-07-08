@@ -1,27 +1,30 @@
 import { readJsonBody } from '../../utils/read-json-body'
 import { writeToWorkspace, GitConflictError, InvalidNoteIdError } from '../../vault/write'
+import { getVaultIndex } from '../../vault/service'
 
 /**
- * Minimal, raw write endpoint for the P1 Git sync spike — not the real editor write
- * path (that comes with the block editor in P3). Just enough surface to exercise
- * writeToWorkspace end to end. Creates the note when `id` does not exist yet.
+ * Creates a new note via writeToWorkspace. Existing ids are rejected — updates go
+ * through PUT /api/notes/:id.
  */
 export default defineEventHandler(async (event) => {
-  const id = getRouterParam(event, 'id')
-  if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing note id' })
-
-  const body = await readJsonBody<{ content?: string }>(event)
+  const body = await readJsonBody<{ id?: string, content?: string }>(event)
+  if (typeof body?.id !== 'string' || !body.id.trim()) {
+    throw createError({ statusCode: 400, statusMessage: 'Missing "id" in request body' })
+  }
   if (typeof body?.content !== 'string') {
     throw createError({ statusCode: 400, statusMessage: 'Missing "content" in request body' })
   }
 
+  const id = body.id.trim()
+
   try {
+    const index = await getVaultIndex()
+    if (index.notes.has(id)) {
+      throw createError({ statusCode: 409, statusMessage: 'Note already exists' })
+    }
     return await writeToWorkspace('default', id, body.content)
   } catch (error) {
     if (error instanceof GitConflictError) {
-      // statusMessage becomes the raw HTTP reason phrase (restricted charset — Node
-      // mangles non-ASCII like the em dash in error.message); keep it short and put
-      // the real detail in `message`, which flows into the JSON body untouched.
       throw createError({ statusCode: 409, statusMessage: 'Conflict', message: error.message })
     }
     if (error instanceof InvalidNoteIdError) {
