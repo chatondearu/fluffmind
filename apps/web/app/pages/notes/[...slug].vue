@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { $fetch } from 'ofetch'
 import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import type { NoteSummary, ResolvedLink } from '../../../server/vault/index'
 

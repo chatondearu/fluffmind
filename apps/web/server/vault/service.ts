@@ -1,6 +1,7 @@
 import { watch } from 'chokidar'
 import { buildVaultIndex } from './index'
 import type { VaultIndex } from './index'
+import { bootstrapWorkspace } from './sync'
 
 function getVaultPath(): string {
   const vaultPath = process.env.VAULT_PATH
@@ -20,7 +21,8 @@ const IGNORED_RE = /(^|[/\\])(\.git|node_modules|\.obsidian|\.vscode|\.foam)([/\
  * restart. Nice-to-have for the dogfooding loop — not required for correctness, since
  * every call rebuilds from disk whenever the cache is empty.
  */
-export function getVaultIndex(): Promise<VaultIndex> {
+export async function getVaultIndex(): Promise<VaultIndex> {
+  await bootstrapWorkspace()
   const vaultPath = getVaultPath()
   cachedIndex ??= buildVaultIndex(vaultPath)
   if (import.meta.dev && !watcherStarted) {

@@ -99,6 +99,54 @@ export interface CommitPushResult {
   pushed: boolean
 }
 
+export interface SyncStatus {
+  remoteConfigured: boolean
+  branch: string
+  /** Local commits not on the remote tracking branch. */
+  ahead: number
+  /** Remote commits not merged locally. */
+  behind: number
+  /** True when there are unpushed local commits (e.g. after a rejected push / conflict abort). */
+  diverged: boolean
+}
+
+/**
+ * Compares the current branch to its remote tracking ref. Local-only workspaces
+ * (no remote configured) always report zero ahead/behind.
+ */
+export async function getSyncStatus(
+  git: SimpleGit,
+  options: { branch: string, remoteConfigured: boolean }
+): Promise<SyncStatus> {
+  const { branch, remoteConfigured } = options
+
+  if (!remoteConfigured) {
+    return { remoteConfigured: false, branch, ahead: 0, behind: 0, diverged: false }
+  }
+
+  let ahead = 0
+  let behind = 0
+
+  try {
+    const output = await git.raw(['rev-list', '--left-right', '--count', `${branch}...origin/${branch}`])
+    const [aheadStr, behindStr] = output.trim().split(/\s+/)
+    ahead = Number(aheadStr) || 0
+    behind = Number(behindStr) || 0
+  } catch {
+    const status = await git.status()
+    ahead = status.ahead ?? 0
+    behind = status.behind ?? 0
+  }
+
+  return {
+    remoteConfigured: true,
+    branch,
+    ahead,
+    behind,
+    diverged: ahead > 0
+  }
+}
+
 /**
  * Commits whatever is currently in the working copy, then pushes. On a rejected push
  * (remote has diverged), fetches and rebases on top of the remote branch and retries

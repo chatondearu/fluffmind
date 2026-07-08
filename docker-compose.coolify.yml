@@ -10,10 +10,13 @@
 #                                  across redeploys.
 # See https://coolify.io/docs/knowledge-base/environment-variables.
 #
-# Current limitation: there's no Git sync yet (P1) or auth/workspaces yet (P2), so a
-# freshly deployed instance has an empty vault — `vault-data` needs to be populated
-# manually for now (e.g. `docker compose exec web sh` and clone/copy notes into
-# /data/vault) until P1 ships.
+# Git sync (P1): set GIT_REMOTE_URL in Coolify's environment UI to clone/push a remote
+# vault repo into vault-data at boot (see .env.example for the HTTPS + token format).
+# Without it, the server still git-inits /data/vault locally — notes persist in the
+# vault-data volume, but nothing is pushed to GitHub.
+#
+# Auth/workspaces (P2) are not implemented yet — DATABASE_URL is wired here so the
+# deployment shape already matches the target architecture.
 
 services:
   web:
@@ -24,6 +27,8 @@ services:
     environment:
       - SERVICE_FQDN_WEB_3000
       - VAULT_PATH=/data/vault
+      - GIT_REMOTE_URL=${GIT_REMOTE_URL:-}
+      - GIT_BRANCH=${GIT_BRANCH:-main}
       # Reserved for P2 (auth/workspaces) — not read by the app yet, wired here so the
       # deployment shape already matches the target architecture (see the PRD).
       - DATABASE_URL=postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/fluffmind

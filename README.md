@@ -12,7 +12,8 @@ Fluffmind is a self-hostable, git-backed personal knowledge management (PKM) app
 
 ## Status
 
-P0 (foundations: read-only vault engine, design system, viewer) is done. See the
+P0 (foundations: read-only vault engine, design system, viewer) and P1 (server-side
+Git sync — `writeToWorkspace`, note creation, sync status) are done. See the
 [Project board](../../projects) and [Milestones](../../milestones) for the roadmap and
 current work.
 
@@ -48,6 +49,7 @@ locally or on a public server (see `DESIGN.md`).
 
 `docker-compose.coolify.yml` is meant to be used as a Coolify "Docker Compose" resource
 — Coolify substitutes its own magic environment variables (domain generation, random
-Postgres credentials) at deploy time, nothing to fill in by hand. See the comments in
-that file. Note: there's no Git sync yet (P1), so a freshly deployed instance starts
-with an empty vault volume.
+Postgres credentials) at deploy time. Set `GIT_REMOTE_URL` in Coolify's environment
+UI to clone and push a remote vault repo; without it, notes still persist locally in
+the `vault-data` volume (git-inited on first write). See the comments in that file and
+`.env.example` for the HTTPS + token format.

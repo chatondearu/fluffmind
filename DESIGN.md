@@ -37,7 +37,7 @@ extraction, and the in-memory index (`apps/web/server/vault/`) have exactly one
 consumer today. It gets extracted into its own package the day a second consumer
 (e.g. a standalone MCP process, see below) actually needs it — not before.
 
-## Git sync (P1 — the project's #1 technical risk)
+## Git sync (P1 — shipped, spike scope)
 
 The naive model — every client (browser tab, MCP agent) does its own `git` operations
 — doesn't survive multi-account/multi-device: concurrent writers on the same repo risk
@@ -61,14 +61,15 @@ time. Scaling out horizontally per workspace would need a distributed lock (Post
 advisory lock or Redis) — deliberately out of scope until the need is proven (see the
 P7 milestone).
 
-**Spike shipped**: `writeToWorkspace` exists (`apps/web/server/vault/write.ts` +
+**P1 shipped** (spike scope): `writeToWorkspace` exists (`apps/web/server/vault/write.ts` +
 `packages/integrations/src/git.ts`), validated against a disposable GitHub repo —
 concurrent writes serialize without loss, a clean external edit rebases automatically,
 a real conflict aborts the rebase and surfaces a 409 with the local commit intact
-(never lost, only unpushed). Still spike-scoped: a single hardcoded workspace (real
-multi-workspace resolution needs P2's Postgres), editing existing notes only (no
-creation yet), and no detection of a workspace left in a diverged state across a
-server restart.
+(never lost, only unpushed). Remaining MVP limits until P2/P7: a single hardcoded
+workspace (real multi-workspace resolution needs P2's Postgres), no distributed lock
+across server instances (P7), and a minimal textarea editor rather than the real block
+editor (P3). Boot-time `bootstrapWorkspace` clones or adopts the working copy before the
+read index is built; `GET /api/sync-status` surfaces unpushed commits after a restart.
 
 - **`simple-git` (shells to the real `git` binary), not `isomorphic-git`.** Rebase-on-
   rejected-push needs to be reliable — a real, battle-tested `git` beats trusting
@@ -149,8 +150,8 @@ need reworking later.
 
 ## Roadmap
 
-P0 (foundations — read-only vault engine + viewer + design system) is done. Next:
-P1 (Git sync) → P2 (auth/workspaces) → P3 (block editor) → P4 (Kanban) → P5 (MCP) →
-P6 (hardening) → P7 (stretch: multi-instance scale-out, static publishing). P1 is
+P0 (foundations — read-only vault engine + viewer + design system) and P1 (Git sync)
+are done. Next: P2 (auth/workspaces) → P3 (block editor) → P4 (Kanban) → P5 (MCP) →
+P6 (hardening) → P7 (stretch: multi-instance scale-out, static publishing). P1 was
 sequenced before P3 despite being less visible, because it's the higher technical
 risk of the two.
