@@ -4,7 +4,7 @@ import { isKanbanBoard } from '@fluffmind/kanban'
 import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import type { NoteSummary } from '../../server/vault/index'
 
-const { data, refresh } = await useFetch<{ notes: NoteSummary[] }>('/api/notes')
+const { data, error, refresh, pending } = await useFetch<{ notes: NoteSummary[] }>('/api/notes')
 const notes = computed(() => data.value?.notes ?? [])
 
 const search = ref('')
@@ -126,6 +126,18 @@ async function createNote() {
       placeholder="Search notes…"
       class="mb-4 w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
     >
+    <p v-if="pending" class="mb-4 text-sm text-on-surface-variant">
+      Loading notes…
+    </p>
+    <div v-else-if="error" class="mb-4 rounded-lg border border-outline-variant p-4">
+      <p class="text-sm text-error">
+        Failed to load notes.
+      </p>
+      <FluffmindButton variant="outlined" class="mt-3" @click="refresh()">
+        Retry
+      </FluffmindButton>
+    </div>
+    <template v-else>
     <ul class="flex flex-col gap-1">
       <li v-for="note in filteredNotes" :key="note.id">
         <NuxtLink :to="noteHref(note)" class="flex items-baseline justify-between rounded-lg px-3 py-2 hover:bg-primary/10">
@@ -145,5 +157,6 @@ async function createNote() {
     <p v-if="filteredNotes.length === 0" class="text-on-surface-variant">
       No notes found.
     </p>
+    </template>
   </main>
 </template>

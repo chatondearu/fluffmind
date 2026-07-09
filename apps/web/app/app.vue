@@ -157,6 +157,7 @@ watch(
     <NuxtRouteAnnouncer />
     <header class="sticky top-0 z-10 border-b border-outline/70 bg-surface/95 backdrop-blur">
       <div class="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-end gap-2 px-4 py-3">
+        <SyncStatusBar />
         <div v-if="showWorkspaceSwitcher" class="flex items-center gap-2">
           <label class="text-sm text-on-surface-variant" for="workspace-switcher">Workspace</label>
           <select
