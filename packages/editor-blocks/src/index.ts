@@ -1,8 +1,5 @@
-// Custom Notion-style block editor for Vue — see PRD "Design system (MD3 + UnoCSS + Reka UI)"
-// and plan-p0-fondations.md.
-//
-// Not implemented yet: this package is scaffolded in P0 to lock in the monorepo shape
-// (see PRD: no separate `vault-engine` package, this one stays dedicated to the block
-// editor). The block model, `defineBlock()` registry and drag & drop engine land in P3.
-
-export {}
+// P3 block editor — spike #55 exports the round-trip pipeline for follow-up issues.
+export { blocksToMarkdown } from './blocks-to-markdown.ts'
+export { mdastToBlocks } from './mdast-to-blocks.ts'
+export { normalizeMarkdown, roundTripMarkdown } from './round-trip.ts'
+export type { BlockNode, BlockType, InlineNode, InlineType, RoundTripResult } from './types.ts'
