@@ -20,6 +20,14 @@ interface WorkspaceInvitation {
   expiresAt: string | null
 }
 
+interface GitHubSyncState {
+  linked: boolean
+  owner: string | null
+  repo: string | null
+  lastSyncedAt: string | null
+  localOverrides: Record<string, boolean>
+}
+
 const roleOptions: Array<{ value: WorkspaceRole, label: string }> = [
   { value: 'read', label: 'Lecture' },
   { value: 'write', label: 'Écriture' },
@@ -37,6 +45,20 @@ const inviteRole = ref<WorkspaceRole>('read')
 const pageError = ref<string | null>(null)
 const inviteSuccess = ref<string | null>(null)
 const inviteError = ref<string | null>(null)
+const workspaceRole = ref<string>('read')
+const githubRepository = ref('')
+const githubToken = ref('')
+const githubLinked = ref(false)
+const githubLastSyncedAt = ref<string | null>(null)
+const githubLinkError = ref<string | null>(null)
+const githubLinkSuccess = ref<string | null>(null)
+const githubSyncError = ref<string | null>(null)
+const githubSyncSuccess = ref<string | null>(null)
+const linkingGitHub = ref(false)
+const syncingGitHub = ref(false)
+const localOverrides = ref<Record<string, boolean>>({})
+
+const canManageGitHub = computed(() => workspaceRole.value === 'owner')
 
 function formatDate(value: string | null): string {
   if (!value) return 'Inconnue'
@@ -94,6 +116,134 @@ function normalizeInvitations(input: unknown): WorkspaceInvitation[] {
   })
 }
 
+function syncLocalOverrideModel(): void {
+  const next: Record<string, boolean> = {}
+  for (const workspaceMember of members.value)
+    next[workspaceMember.id] = Boolean(localOverrides.value[workspaceMember.id])
+  localOverrides.value = next
+}
+
+function applyGitHubState(state: Partial<GitHubSyncState> | null): void {
+  if (!state)
+    return
+
+  githubLinked.value = Boolean(state.linked)
+  githubLastSyncedAt.value = typeof state.lastSyncedAt === 'string' ? state.lastSyncedAt : null
+
+  if (typeof state.owner === 'string' && typeof state.repo === 'string')
+    githubRepository.value = `${state.owner}/${state.repo}`
+
+  if (state.localOverrides && typeof state.localOverrides === 'object') {
+    localOverrides.value = {
+      ...localOverrides.value,
+      ...state.localOverrides,
+    }
+    syncLocalOverrideModel()
+  }
+}
+
+async function loadGitHubState(): Promise<void> {
+  githubLinkError.value = null
+  try {
+    const response = await $fetch<GitHubSyncState>('/api/workspaces/github/sync', {
+      method: 'POST',
+      body: { run: false },
+    })
+    applyGitHubState(response)
+  } catch (error) {
+    const asRecordError = error as { data?: { message?: string }, message?: string }
+    githubLinkError.value = asRecordError.data?.message || asRecordError.message || 'Impossible de charger l’état GitHub.'
+  }
+}
+
+async function linkGitHubRepository() {
+  if (!canManageGitHub.value) {
+    githubLinkError.value = 'Seul un propriétaire peut lier un dépôt GitHub.'
+    githubLinkSuccess.value = null
+    return
+  }
+
+  const repository = githubRepository.value.trim()
+  const syncToken = githubToken.value.trim()
+
+  if (!repository || !syncToken) {
+    githubLinkError.value = 'Renseignez le dépôt (owner/repo) et le token GitHub.'
+    githubLinkSuccess.value = null
+    return
+  }
+
+  githubLinkError.value = null
+  githubLinkSuccess.value = null
+  linkingGitHub.value = true
+  try {
+    const response = await $fetch<GitHubSyncState>('/api/workspaces/github/link', {
+      method: 'POST',
+      body: {
+        repository,
+        syncToken,
+      },
+    })
+    applyGitHubState(response)
+    githubToken.value = ''
+    githubLinkSuccess.value = 'Dépôt GitHub lié avec succès.'
+  } catch (error) {
+    const asRecordError = error as { data?: { message?: string }, message?: string }
+    githubLinkError.value = asRecordError.data?.message || asRecordError.message || 'Liaison GitHub impossible.'
+  } finally {
+    linkingGitHub.value = false
+  }
+}
+
+function setLocalOverride(memberId: string, value: boolean): void {
+  localOverrides.value = {
+    ...localOverrides.value,
+    [memberId]: value,
+  }
+}
+
+function onLocalOverrideToggle(memberId: string, event: Event): void {
+  const target = event.target
+  const checked = target instanceof HTMLInputElement ? target.checked : false
+  setLocalOverride(memberId, checked)
+}
+
+async function syncNowFromGitHub() {
+  if (!canManageGitHub.value) {
+    githubSyncError.value = 'Seul un propriétaire peut lancer la synchronisation.'
+    githubSyncSuccess.value = null
+    return
+  }
+
+  githubSyncError.value = null
+  githubSyncSuccess.value = null
+  syncingGitHub.value = true
+  try {
+    const response = await $fetch<GitHubSyncState & { result: Record<string, number> }>('/api/workspaces/github/sync', {
+      method: 'POST',
+      body: {
+        run: true,
+        localOverrides: Object.entries(localOverrides.value).map(([memberId, localOverride]) => ({
+          memberId,
+          localOverride,
+        })),
+      },
+    })
+    applyGitHubState(response)
+    const result = response.result
+    githubSyncSuccess.value = [
+      `${result.created} créé(s)`,
+      `${result.updated} mis à jour`,
+      `${result.deleted} supprimé(s)`,
+    ].join(' · ')
+    await loadWorkspaceData(true)
+  } catch (error) {
+    const asRecordError = error as { data?: { message?: string }, message?: string }
+    githubSyncError.value = asRecordError.data?.message || asRecordError.message || 'Synchronisation GitHub impossible.'
+  } finally {
+    syncingGitHub.value = false
+  }
+}
+
 async function loadWorkspaceData(isManualReload = false) {
   if (isManualReload) reloading.value = true
   else loading.value = true
@@ -102,10 +252,11 @@ async function loadWorkspaceData(isManualReload = false) {
   inviteSuccess.value = null
 
   try {
-    const [fullOrganizationResponse, membersResponse, invitationsResponse] = await Promise.all([
+    const [fullOrganizationResponse, membersResponse, invitationsResponse, activeWorkspace] = await Promise.all([
       authClient.organization.getFullOrganization(),
       authClient.organization.listMembers({}),
       authClient.organization.listInvitations({}),
+      $fetch<{ member?: { role?: string | null } | null }>('/api/workspaces/active'),
     ])
 
     const fullOrganizationError = extractErrorMessage(fullOrganizationResponse, 'Impossible de charger le workspace.')
@@ -119,6 +270,7 @@ async function loadWorkspaceData(isManualReload = false) {
 
     const fullOrganization = asRecord(extractData(fullOrganizationResponse))
     organizationName.value = asString(fullOrganization.name, 'Workspace')
+    workspaceRole.value = asString(activeWorkspace.member?.role, 'read')
 
     const fullMembers = fullOrganization.members
     const fullInvitations = fullOrganization.invitations
@@ -127,6 +279,8 @@ async function loadWorkspaceData(isManualReload = false) {
 
     members.value = normalizeMembers(Array.isArray(fullMembers) && fullMembers.length > 0 ? fullMembers : fallbackMembers)
     invitations.value = normalizeInvitations(Array.isArray(fullInvitations) ? fullInvitations : fallbackInvitations)
+    syncLocalOverrideModel()
+    await loadGitHubState()
   } catch (error) {
     const asRecordError = error as { message?: string }
     pageError.value = asRecordError.message || 'Chargement du workspace impossible.'
@@ -237,6 +391,58 @@ await loadWorkspaceData()
 
     <section class="mb-6 rounded-lg border border-outline p-4">
       <h2 class="mb-3 text-lg font-medium text-on-surface">
+        Synchronisation GitHub
+      </h2>
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="block">
+          <span class="mb-1 block text-sm text-on-surface-variant">Dépôt</span>
+          <input
+            v-model="githubRepository"
+            type="text"
+            placeholder="owner/repo"
+            class="w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
+          >
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-sm text-on-surface-variant">Token GitHub (PAT)</span>
+          <input
+            v-model="githubToken"
+            type="password"
+            placeholder="ghp_..."
+            class="w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
+          >
+        </label>
+      </div>
+      <p class="mt-2 text-sm text-on-surface-variant">
+        Dernière synchro: {{ githubLastSyncedAt ? formatDate(githubLastSyncedAt) : 'Jamais' }}
+      </p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <FluffmindButton :disabled="linkingGitHub || !canManageGitHub" @click="linkGitHubRepository">
+          {{ linkingGitHub ? 'Liaison…' : 'Lier le dépôt' }}
+        </FluffmindButton>
+        <FluffmindButton variant="outlined" :disabled="syncingGitHub || !githubLinked || !canManageGitHub" @click="syncNowFromGitHub">
+          {{ syncingGitHub ? 'Synchro…' : 'Sync now' }}
+        </FluffmindButton>
+      </div>
+      <p v-if="!canManageGitHub" class="mt-2 text-sm text-on-surface-variant">
+        Seuls les propriétaires peuvent gérer la liaison et la synchronisation GitHub.
+      </p>
+      <p v-if="githubLinkSuccess" class="mt-2 text-sm text-tertiary">
+        {{ githubLinkSuccess }}
+      </p>
+      <p v-if="githubLinkError" class="mt-2 text-sm text-error">
+        {{ githubLinkError }}
+      </p>
+      <p v-if="githubSyncSuccess" class="mt-2 text-sm text-tertiary">
+        {{ githubSyncSuccess }}
+      </p>
+      <p v-if="githubSyncError" class="mt-2 text-sm text-error">
+        {{ githubSyncError }}
+      </p>
+    </section>
+
+    <section class="mb-6 rounded-lg border border-outline p-4">
+      <h2 class="mb-3 text-lg font-medium text-on-surface">
         Membres
       </h2>
       <div v-if="loading" class="text-sm text-on-surface-variant">
@@ -258,6 +464,16 @@ await loadWorkspaceData()
             </p>
             <p>Ajouté le {{ formatDate(workspaceMember.createdAt) }}</p>
           </div>
+          <label class="flex items-center gap-2 text-sm text-on-surface-variant">
+            <input
+              :checked="localOverrides[workspaceMember.id] ?? false"
+              type="checkbox"
+              :disabled="!canManageGitHub"
+              class="h-4 w-4 rounded border border-outline"
+              @change="onLocalOverrideToggle(workspaceMember.id, $event)"
+            >
+            Override local
+          </label>
         </li>
       </ul>
       <p v-if="!loading && members.length === 0" class="text-sm text-on-surface-variant">
