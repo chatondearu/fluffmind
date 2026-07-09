@@ -1,6 +1,7 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
 import { organization } from 'better-auth/plugins'
+import { count, eq } from 'drizzle-orm'
 
 import { db } from './client.ts'
 import { ac, roles } from './permissions.ts'
@@ -40,4 +41,23 @@ export const auth = betterAuth({
       },
     }),
   ],
+  databaseHooks: {
+    user: {
+      create: {
+        async after(user) {
+          const [{ total }] = await db
+            .select({ total: count() })
+            .from(schema.user)
+
+          if (Number(total) !== 1)
+            return
+
+          await db
+            .update(schema.user)
+            .set({ role: 'admin' })
+            .where(eq(schema.user.id, user.id))
+        },
+      },
+    },
+  },
 })
