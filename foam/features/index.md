@@ -25,3 +25,4 @@ See [[../architecture/roadmap|Roadmap (P0–P7)]] for milestone descriptions and
 | PRD | Phase | Status |
 | --- | ----- | ------ |
 | [[../../prd/PRD-023-p2-auth-workspaces|PRD-023]] | P2 | shipped |
+| [[../../prd/PRD-024-p3-block-editor|PRD-024]] | P3 | approved — issues #55–#65 |
