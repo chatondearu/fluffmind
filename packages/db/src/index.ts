@@ -7,4 +7,7 @@
 // with an implicit single local workspace (VAULT_PATH env var), no Postgres involved.
 
 export { ac, roles } from './permissions.ts'
+export { auth } from './auth.ts'
+export { db, getDb } from './client.ts'
+export * from './schema/auth.ts'
 export * from './schema/workspace.ts'
