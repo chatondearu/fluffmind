@@ -8,11 +8,13 @@
   "scripts": {
     "build": "echo \"@fluffmind/integrations: nothing to build yet, source-only package\"",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "simple-git": "^3.36.0"
