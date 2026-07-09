@@ -12,8 +12,10 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@fluffmind/db": "workspace:*",
     "@fluffmind/design-system": "workspace:*",
     "@fluffmind/integrations": "workspace:*",
+    "better-auth": "^1.6.23",
     "chokidar": "^5.0.0",
     "gray-matter": "^4.0.3",
     "mdast-util-to-string": "^4.0.0",

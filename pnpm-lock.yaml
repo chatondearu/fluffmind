@@ -26,12 +26,18 @@ importers:
 
   apps/web:
     dependencies:
+      '@fluffmind/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@fluffmind/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
       '@fluffmind/integrations':
         specifier: workspace:*
         version: link:../../packages/integrations
+      better-auth:
+        specifier: ^1.6.23
+        version: 1.6.23(drizzle-kit@0.31.10)(drizzle-orm@0.44.7(@types/pg@8.20.0)(kysely@0.29.3)(pg@8.22.0))(pg@8.22.0)(vue@3.5.39(typescript@5.9.3))
       chokidar:
         specifier: ^5.0.0
         version: 5.0.0
