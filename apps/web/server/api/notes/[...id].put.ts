@@ -1,6 +1,6 @@
 import { readJsonBody } from '../../utils/read-json-body'
+import { requireWorkspacePermission } from '../../utils/auth'
 import { writeToWorkspace, GitConflictError, InvalidNoteIdError } from '../../vault/write'
-import { resolveActiveWorkspaceId } from '../../vault/workspace'
 
 /**
  * Minimal, raw write endpoint for the P1 Git sync spike — not the real editor write
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   if (typeof body?.content !== 'string') {
     throw createError({ statusCode: 400, statusMessage: 'Missing "content" in request body' })
   }
-  const workspaceId = await resolveActiveWorkspaceId(event)
+  const workspaceId = await requireWorkspacePermission(event, 'note', 'write')
 
   try {
     return await writeToWorkspace(workspaceId, id, body.content)
