@@ -2,10 +2,17 @@
 import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import { authClient } from '../composables/useAuth'
 
+const route = useRoute()
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const errorMessage = ref<string | null>(null)
+const callbackUrl = computed(() => {
+  const redirect = route.query.redirect
+  if (typeof redirect === 'string' && redirect.startsWith('/'))
+    return redirect
+  return '/'
+})
 
 function extractErrorMessage(error: unknown): string {
   const asRecord = error as { message?: string, statusText?: string }
@@ -19,7 +26,7 @@ async function loginWithEmail() {
   const response = await authClient.signIn.email({
     email: email.value.trim(),
     password: password.value,
-    callbackURL: '/',
+    callbackURL: callbackUrl.value,
   })
 
   if (response.error) {
@@ -28,7 +35,7 @@ async function loginWithEmail() {
     return
   }
 
-  await navigateTo('/')
+  await navigateTo(callbackUrl.value)
 }
 
 async function loginWithGitHub() {
@@ -37,7 +44,7 @@ async function loginWithGitHub() {
 
   const response = await authClient.signIn.social({
     provider: 'github',
-    callbackURL: '/',
+    callbackURL: callbackUrl.value,
   })
 
   if (response.error) {
