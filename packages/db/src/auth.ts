@@ -3,9 +3,9 @@ import { betterAuth } from 'better-auth'
 import { organization } from 'better-auth/plugins'
 import { count, eq } from 'drizzle-orm'
 
-import { db } from './client.ts'
-import { ac, roles } from './permissions.ts'
-import * as schema from './schema/index.ts'
+import { db } from './client'
+import { ac, roles } from './permissions'
+import * as schema from './schema/index'
 
 function getInvitationBaseUrl(): string {
   const configured = process.env.BETTER_AUTH_URL || process.env.APP_BASE_URL || 'http://localhost:3000'
@@ -76,7 +76,7 @@ export const auth = betterAuth({
     user: {
       create: {
         async after(user) {
-          const [{ total }] = await db
+          const [{ total } = { total: 0 }] = await db
             .select({ total: count() })
             .from(schema.user)
 

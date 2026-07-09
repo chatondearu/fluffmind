@@ -17,8 +17,13 @@ export async function getSession(event: H3Event) {
 }
 
 export async function requireSession(event: H3Event) {
-  if (!isAuthEnabled())
-    return null
+  if (!isAuthEnabled()) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Auth disabled',
+      message: 'Authentication is disabled for this environment.',
+    })
+  }
 
   const session = await getSession(event)
 

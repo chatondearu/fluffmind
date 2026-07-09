@@ -3,7 +3,7 @@ import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import { authClient, useAuth } from '../../composables/useAuth'
 
 const route = useRoute()
-const { data: authSession, isPending } = useAuth()
+const { data: authSession, isPending } = await useAuth()
 
 const invitationId = computed(() => {
   const rawId = route.params.id
@@ -50,7 +50,7 @@ async function acceptInvitation() {
 }
 
 watchEffect(() => {
-  if (isPending.value)
+  if (isPending)
     return
   void acceptInvitation()
 })

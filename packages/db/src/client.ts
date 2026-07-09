@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 
-import * as schema from './schema/index.ts'
+import * as schema from './schema/index'
 
 export type DbClient = ReturnType<typeof drizzle<typeof schema>>
 

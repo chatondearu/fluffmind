@@ -1,2 +1,2 @@
-export * from './workspace.ts'
-export * from './auth.ts'
+export * from './workspace'
+export * from './auth'

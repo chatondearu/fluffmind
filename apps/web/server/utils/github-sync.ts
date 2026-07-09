@@ -91,10 +91,13 @@ export function parseRepoIdentifier(input: string): { owner: string, repo: strin
   const match = input.trim().match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/)
   if (!match)
     return null
+  const [, owner, repo] = match
+  if (!owner || !repo)
+    return null
 
   return {
-    owner: match[1],
-    repo: match[2],
+    owner,
+    repo,
   }
 }
 
@@ -286,6 +289,8 @@ export async function syncWorkspaceMembersForOrganization(
 
   if (!link)
     throw new Error('Workspace is not linked to a GitHub repository.')
+  if (!link.owner || !link.repo)
+    throw new Error('Workspace GitHub link is incomplete.')
 
   await applyLocalOverrides(organizationId, overrides)
 

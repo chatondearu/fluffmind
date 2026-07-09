@@ -6,7 +6,7 @@ import type { ThemePreference } from './composables/useTheme'
 const { preference, setPreference } = useTheme()
 const route = useRoute()
 const { public: { authEnabled } } = useRuntimeConfig()
-const { data: authSession, isPending } = useAuth()
+const { data: authSession, isPending } = await useAuth()
 
 const CYCLE: ThemePreference[] = ['system', 'light', 'dark']
 const organizations = ref<Array<{ id: string, name: string }>>([])
@@ -122,7 +122,7 @@ function handleWorkspaceSelection(event: Event) {
 }
 
 watch(
-  () => [authEnabled, isPending.value, authSession.value?.session?.id] as const,
+  () => [authEnabled, isPending, authSession.value?.session?.id] as const,
   async ([enabled, pending, sessionId]) => {
     if (!enabled || pending || !sessionId)
       return

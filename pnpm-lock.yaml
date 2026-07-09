@@ -41,6 +41,9 @@ importers:
       chokidar:
         specifier: ^5.0.0
         version: 5.0.0
+      drizzle-orm:
+        specifier: ^0.44.2
+        version: 0.44.7(@types/pg@8.20.0)(kysely@0.29.3)(pg@8.22.0)
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3

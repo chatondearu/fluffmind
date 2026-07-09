@@ -1,5 +1,5 @@
-import { fetchCollaborators, mapGitHubPermission } from './collaborators.ts'
-import type { GitHubCollaborator, WorkspaceMemberPermission } from './collaborators.ts'
+import { fetchCollaborators, mapGitHubPermission } from './collaborators'
+import type { GitHubCollaborator, WorkspaceMemberPermission } from './collaborators'
 
 export type MemberSyncSource = 'github' | 'manual'
 
