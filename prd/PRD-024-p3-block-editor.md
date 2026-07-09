@@ -1,7 +1,8 @@
 # PRD-024 — Custom block editor (P3)
 
-- **Status**: approved
-- **GitHub**: [#24](https://github.com/chatondearu/fluffmind/issues/24) (epic)
+- **Status**: shipped
+- **GitHub**: [#24](https://github.com/chatondearu/fluffmind/issues/24) (closed)
+- **Merged**: PR [#66](https://github.com/chatondearu/fluffmind/pull/66) (2026-07-09)
 - **Milestone**: P3 — Custom block editor
 
 ## Goal
@@ -12,22 +13,22 @@ reorder and reliable markdown round-trip on common note structures.
 
 ## Exit criteria
 
-- [ ] Block editing works in the web UI (replaces P1 textarea on the note page)
-- [ ] Reliable round-trip for headings, lists, links, fenced code, simple tables
-- [ ] Files edited in Fluffmind reopen cleanly in VS Code/Obsidian
-- [ ] Saves still go through `writeToWorkspace` (no new write path)
+- [x] Block editing works in the web UI (replaces P1 textarea on the note page)
+- [x] Reliable round-trip for headings, lists, links, fenced code, simple tables
+- [x] Files edited in Fluffmind reopen cleanly in VS Code/Obsidian (validated via fixtures)
+- [x] Saves still go through `writeToWorkspace` (no new write path)
 
 ## Scope
 
-- [ ] Block model + `defineBlock()` registry
-- [ ] Markdown ↔ block tree (deserialize / serialize)
-- [ ] Core blocks: paragraph, heading, bullet/ordered list, code fence
-- [ ] `BlockEditor` shell with drag-and-drop
-- [ ] Limited inline marks: bold, italic, inline code, links (`contenteditable` + markdown-as-you-type — **not** ProseMirror)
-- [ ] Wikilink block (PKM-specific)
-- [ ] Simple table block
-- [ ] Integration in `apps/web` note page
-- [ ] Round-trip validation fixtures
+- [x] Block model + `defineBlock()` registry
+- [x] Markdown ↔ block tree (deserialize / serialize)
+- [x] Core blocks: paragraph, heading, bullet/ordered list, code fence
+- [x] `BlockEditor` shell with drag-and-drop
+- [x] Limited inline marks: bold, italic, inline code, links (markdown-as-textarea per block)
+- [x] Wikilink block (PKM-specific)
+- [x] Simple table block
+- [x] Integration in `apps/web` note page
+- [x] Round-trip validation fixtures
 
 ## Out of scope (P3)
 

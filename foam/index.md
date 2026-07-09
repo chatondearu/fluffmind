@@ -36,7 +36,7 @@ Index: [[decisions/index|All ADRs]]
 | PRD | Plan | Status |
 | --- | ---- | ------ |
 | [[../prd/PRD-023-p2-auth-workspaces|PRD-023 P2 auth]] | [[../plans/PLAN-023-p2-auth-workspaces|PLAN-023]] | shipped |
-| [[../prd/PRD-024-p3-block-editor|PRD-024 P3 editor]] | _(plan TBD)_ | approved |
+| [[../prd/PRD-024-p3-block-editor|PRD-024 P3 editor]] | _(plan TBD)_ | shipped |
 
 - PRD template: `prd/template.md`
 - Plan template: `plans/template.md`
