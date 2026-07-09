@@ -13,10 +13,10 @@ and epics on the [Fluffmind board](https://github.com/users/chatondearu/projects
 | P3 | Custom block editor | [#24](https://github.com/chatondearu/fluffmind/issues/24) | **Shipped** | [[../../prd/PRD-024-p3-block-editor|PRD-024]], PR [#66](https://github.com/chatondearu/fluffmind/pull/66) |
 | P4 | Kanban | [#25](https://github.com/chatondearu/fluffmind/issues/25) | **Shipped** | [[../../prd/PRD-025-p4-kanban|PRD-025]], PR [#72](https://github.com/chatondearu/fluffmind/pull/72) |
 | P5 | MCP server | [#26](https://github.com/chatondearu/fluffmind/issues/26) | **Shipped** | [[../../prd/PRD-026-p5-mcp-server|PRD-026]], PR [#78](https://github.com/chatondearu/fluffmind/pull/78) |
-| P6 | Hardening | [#27](https://github.com/chatondearu/fluffmind/issues/27) | In Progress | [[../../prd/PRD-027-p6-hardening|PRD-027]] |
+| P6 | Hardening | [#27](https://github.com/chatondearu/fluffmind/issues/27) | **Shipped** | [[../../prd/PRD-027-p6-hardening|PRD-027]], PR [#85](https://github.com/chatondearu/fluffmind/pull/85) |
 | P7 | Stretch | [#28](https://github.com/chatondearu/fluffmind/issues/28) | Backlog | Scale-out, static publishing |
 
-**Next agent pick:** finish PR for **#27** (P6 Hardening, issues #80–#84).
+**Next agent pick:** decompose epic **#28** (P7 Stretch) into Todo issues on the board.
 
 ## Superpowers archive
 

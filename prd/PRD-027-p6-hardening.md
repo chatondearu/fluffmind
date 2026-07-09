@@ -1,7 +1,8 @@
 # PRD-027 — Hardening (P6)
 
-- **Status**: approved
-- **GitHub**: [#27](https://github.com/chatondearu/fluffmind/issues/27) (epic)
+- **Status**: shipped
+- **GitHub**: [#27](https://github.com/chatondearu/fluffmind/issues/27) (closed)
+- **Merged**: PR [#85](https://github.com/chatondearu/fluffmind/pull/85) (2026-07-09)
 - **Milestone**: P6 — Hardening
 
 ## Goal
