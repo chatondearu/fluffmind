@@ -28,6 +28,11 @@ logs
 
 # pnpm local store (seen created at repo root when running pnpm inside Docker)
 .pnpm-store
+# pnpm home when using `nix develop` (flake shellHook sets PNPM_HOME=$PWD/.pnpm)
+.pnpm/
+
+# Nix + direnv development shell
+.direnv/
 
 # Kanban orchestrator cursor / status snapshots (github-kanban-orchestrator)
 .tmp/
