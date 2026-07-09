@@ -5,7 +5,7 @@ export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@unocss/nuxt'],
   css: ['@fluffmind/design-system/src/tokens/md3.css'],
   build: {
-    transpile: ['@fluffmind/editor-blocks'],
+    transpile: ['@fluffmind/editor-blocks', '@fluffmind/kanban'],
   },
   runtimeConfig: {
     public: {

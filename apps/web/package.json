@@ -16,6 +16,7 @@
     "@fluffmind/design-system": "workspace:*",
     "@fluffmind/editor-blocks": "workspace:*",
     "@fluffmind/integrations": "workspace:*",
+    "@fluffmind/kanban": "workspace:*",
     "better-auth": "^1.6.23",
     "chokidar": "^5.0.0",
     "drizzle-orm": "^0.44.2",
