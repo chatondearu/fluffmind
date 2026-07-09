@@ -4,6 +4,11 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxt/eslint', '@unocss/nuxt'],
   css: ['@fluffmind/design-system/src/tokens/md3.css'],
+  runtimeConfig: {
+    public: {
+      authEnabled: process.env.AUTH_DISABLED !== 'true' && Boolean(process.env.DATABASE_URL),
+    },
+  },
   typescript: {
     strict: true
   },
