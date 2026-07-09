@@ -39,6 +39,7 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
 
 - `VAULT_PATH` (required) — absolute path to a folder of markdown notes. Also the
   server's Git working copy since P1 — needs to be writable (no `:ro` mount).
+- `POST /api/workspaces/adopt` lets an owner (or `workspace:manage`) copy legacy `VAULT_PATH` contents into the active workspace vault when it is still empty (or only has `.git`).
 - `GIT_REMOTE_URL` (optional) — if unset, writes still commit locally (`git init`'d
   automatically), just never pushed. If set, `writeToWorkspace` pushes and rebases
   automatically on a rejected push.
