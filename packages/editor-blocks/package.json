@@ -8,9 +8,15 @@
   "scripts": {
     "build": "echo \"@fluffmind/editor-blocks: nothing to build yet (P3)\"",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "remark": "^15.0.1"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "@types/mdast": "^4.0.4",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   }
 }

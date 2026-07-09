@@ -139,10 +139,20 @@ importers:
         version: 3.5.39(typescript@5.9.3)
 
   packages/editor-blocks:
+    dependencies:
+      remark:
+        specifier: ^15.0.1
+        version: 15.0.1
     devDependencies:
+      '@types/mdast':
+        specifier: ^4.0.4
+        version: 4.0.4
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.1.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0)
 
   packages/integrations:
     dependencies:
