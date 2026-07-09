@@ -1,5 +1,22 @@
-// P3 block editor — spike #55 exports the round-trip pipeline for follow-up issues.
-export { blocksToMarkdown } from './blocks-to-markdown.ts'
-export { mdastToBlocks } from './mdast-to-blocks.ts'
-export { normalizeMarkdown, roundTripMarkdown } from './round-trip.ts'
-export type { BlockNode, BlockType, InlineNode, InlineType, RoundTripResult } from './types.ts'
+export { blocksToMarkdown } from './blocks-to-markdown'
+export { BlockEditor, BlockRenderer } from './components'
+export {
+  assignBlockIds,
+  normalizeMarkdown,
+  parseMarkdownToDocument,
+  roundTripMarkdown,
+  serializeDocument,
+} from './document'
+export { defineBlock, getBlockDefinition, getRegisteredBlockTypes } from './registry'
+export { registerDefaultBlocks } from './register-defaults'
+export { mdastToBlocks } from './mdast-to-blocks'
+export type { BlockDefinition } from './registry'
+export type {
+  BlockDocument,
+  BlockNode,
+  BlockType,
+  InlineNode,
+  InlineType,
+  RoundTripResult,
+  TableRow,
+} from './types'

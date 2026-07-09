@@ -30,3 +30,10 @@ export function hello(name: string): string {
 Paragraph after code.`
 
 export const FIXTURE_INLINE_MARKS = `Inline **bold**, *italic*, \`code\`, and [a link](https://example.com).`
+
+export const FIXTURE_WIKILINK = `See [[foam/index|Feature catalog]] and [[ADR-001]].`
+
+export const FIXTURE_TABLE = `| Col A | Col B |
+| --- | --- |
+| **one** | two |
+| three | four |`

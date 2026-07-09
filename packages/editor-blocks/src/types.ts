@@ -1,4 +1,4 @@
-/** Spike block document model for P3 round-trip validation (#55). */
+/** Block document model for P3 editor (#56+). */
 
 export type BlockType =
   | 'paragraph'
@@ -7,31 +7,44 @@ export type BlockType =
   | 'orderedList'
   | 'listItem'
   | 'code'
+  | 'table'
   | 'fallback'
 
-export type InlineType = 'text' | 'strong' | 'emphasis' | 'inlineCode' | 'link'
+export type InlineType =
+  | 'text'
+  | 'strong'
+  | 'emphasis'
+  | 'inlineCode'
+  | 'link'
+  | 'wikilink'
 
 export interface InlineNode {
   type: InlineType
   value: string
   url?: string
+  target?: string
+  alias?: string
   children?: InlineNode[]
 }
 
+export interface TableRow {
+  cells: InlineNode[][]
+}
+
 export interface BlockNode {
+  id: string
   type: BlockType
-  /** Heading depth 1–6. */
   level?: number
-  /** Fenced code language tag. */
   lang?: string | null
-  /** Paragraph, heading, or code body text. */
   text?: string
-  /** Inline content for paragraph / heading. */
   inlines?: InlineNode[]
-  /** Nested blocks (lists, fallback). */
   children?: BlockNode[]
-  /** Raw markdown preserved for unknown mdast nodes. */
+  rows?: TableRow[]
   raw?: string
+}
+
+export interface BlockDocument {
+  blocks: BlockNode[]
 }
 
 export interface RoundTripResult {

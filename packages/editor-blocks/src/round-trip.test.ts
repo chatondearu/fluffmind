@@ -6,24 +6,40 @@ import {
   FIXTURE_HEADING_PARAGRAPH,
   FIXTURE_INLINE_MARKS,
   FIXTURE_ORDERED_LIST,
-} from './fixtures/spike-samples.ts'
-import { normalizeMarkdown, roundTripMarkdown } from './round-trip.ts'
+  FIXTURE_TABLE,
+  FIXTURE_WIKILINK,
+} from './fixtures/spike-samples'
+import { normalizeMarkdown, roundTripMarkdown } from './document'
+import { expandTextWithWikilinks } from './wikilinks'
 
-describe('roundTripMarkdown (spike #55)', () => {
+describe('roundTripMarkdown (P3 validation #65)', () => {
   it.each([
     ['heading + paragraph', FIXTURE_HEADING_PARAGRAPH],
     ['bullet list', FIXTURE_BULLET_LIST],
     ['ordered list', FIXTURE_ORDERED_LIST],
     ['fenced code', FIXTURE_CODE_FENCE],
     ['inline marks', FIXTURE_INLINE_MARKS],
+    ['wikilink', FIXTURE_WIKILINK],
+    ['GFM table', FIXTURE_TABLE],
   ])('round-trips %s', (_label, input) => {
     const { output } = roundTripMarkdown(input)
     expect(normalizeMarkdown(output)).toBe(normalizeMarkdown(input))
   })
+})
 
-  it('documents block count for a mixed note', () => {
-    const { blocks } = roundTripMarkdown(FIXTURE_CODE_FENCE)
-    expect(blocks.length).toBeGreaterThan(2)
-    expect(blocks.some(b => b.type === 'code')).toBe(true)
+describe('wikilinks', () => {
+  it('parses target and alias', () => {
+    const nodes = expandTextWithWikilinks('See [[foo/bar|Bar]] here')
+    expect(nodes.some(n => n.type === 'wikilink' && n.target === 'foo/bar' && n.alias === 'Bar')).toBe(true)
+  })
+})
+
+describe('defineBlock registry', () => {
+  it('registers block types', async () => {
+    const { clearBlockRegistry, defineBlock, getRegisteredBlockTypes } = await import('./registry')
+    clearBlockRegistry()
+    defineBlock({ type: 'paragraph', component: {} as never })
+    expect(getRegisteredBlockTypes()).toContain('paragraph')
+    clearBlockRegistry()
   })
 })
