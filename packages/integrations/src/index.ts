@@ -1,8 +1,7 @@
 // Third-party service clients: GitHub OAuth/API, Git plumbing (clone/pull/commit/push/
-// rebase), MCP SDK wrapper. See the PRD's "packages/integrations" section.
+// rebase). MCP server lives in apps/web/server/mcp (P5).
 //
-// GitHub OAuth/API and the MCP SDK wrapper aren't implemented yet (P2/P5) — the Git
-// plumbing (writeToWorkspace's underlying primitives) is the P1 spike.
+// GitHub OAuth/API is implemented (P2). MCP stdio + HTTP transports ship in P5.
 
 export { ensureWorkingCopy, commitAndPush, getSyncStatus, GitConflictError } from './git'
 export type { WorkingCopyConfig, CommitPushOptions, CommitPushResult, SyncStatus } from './git'
