@@ -1,7 +1,8 @@
 # PRD-026 — MCP server (P5)
 
-- **Status**: approved
-- **GitHub**: [#26](https://github.com/chatondearu/fluffmind/issues/26) (epic)
+- **Status**: shipped
+- **GitHub**: [#26](https://github.com/chatondearu/fluffmind/issues/26) (closed)
+- **Merged**: PR [#78](https://github.com/chatondearu/fluffmind/pull/78) (2026-07-09)
 - **Milestone**: P5 — MCP server
 
 ## Goal
