@@ -4,7 +4,7 @@ import { syncWorkspaceMembersForOrganization } from '../utils/github-sync'
 const ONE_HOUR_MS = 60 * 60 * 1000
 
 export default defineNitroPlugin(() => {
-  if (!process.env.DATABASE_URL)
+  if (!process.env.DATABASE_URL || process.env.AUTH_DISABLED === 'true')
     return
 
   let running = false

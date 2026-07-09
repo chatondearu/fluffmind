@@ -39,13 +39,11 @@ VAULT_PATH=/absolute/path/to/a/markdown/vault pnpm --filter @fluffmind/web dev
 
 ```sh
 cp .env.example .env   # set VAULT_PATH to a real markdown vault
-docker compose up
+./scripts/stack-local.sh
 ```
 
-Runs the Nuxt dev server (hot reload, source bind-mounted) plus a Postgres instance —
-Postgres isn't consumed by the app yet (auth/workspaces land in P2), it's there so the
-local stack already matches the target self-hosting shape: the same Docker image runs
-locally or on a public server (see `DESIGN.md`).
+Or manually: `docker compose up --build`. Opens http://localhost:3000 with Postgres +
+hot-reload dev server inside the container.
 
 ### Deploying (Coolify)
 

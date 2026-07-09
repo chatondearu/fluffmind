@@ -1,5 +1,3 @@
-import { authClient } from '../composables/useAuth'
-
 const PUBLIC_ROUTES = new Set(['/login', '/signup'])
 const PUBLIC_ROUTE_PREFIXES = ['/accept-invitation/']
 
@@ -15,6 +13,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (PUBLIC_ROUTE_PREFIXES.some(prefix => to.path.startsWith(prefix)))
     return
 
+  const { authClient } = await import('../composables/useAuth')
   const session = await authClient.getSession()
 
   if (!session.data?.session)
