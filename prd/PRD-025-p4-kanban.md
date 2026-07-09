@@ -1,7 +1,8 @@
 # PRD-025 — Kanban boards (P4)
 
-- **Status**: approved
-- **GitHub**: [#25](https://github.com/chatondearu/fluffmind/issues/25) (epic)
+- **Status**: shipped
+- **GitHub**: [#25](https://github.com/chatondearu/fluffmind/issues/25) (closed)
+- **Merged**: PR [#72](https://github.com/chatondearu/fluffmind/pull/72) (2026-07-09)
 - **Milestone**: P4 — Kanban
 
 ## Goal

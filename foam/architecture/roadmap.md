@@ -11,12 +11,12 @@ and epics on the [Fluffmind board](https://github.com/users/chatondearu/projects
 | P1 | Server-side Git sync | [#22](https://github.com/chatondearu/fluffmind/issues/22) | Shipped (board: In Progress — reconcile) | Issues #35–#52, PRs [#49](https://github.com/chatondearu/fluffmind/pull/49) [#53](https://github.com/chatondearu/fluffmind/pull/53) |
 | P2 | Auth & workspaces | [#23](https://github.com/chatondearu/fluffmind/issues/23) | Shipped | [[../../prd/PRD-023-p2-auth-workspaces|PRD-023]], [[../../plans/PLAN-023-p2-auth-workspaces|PLAN-023]], PR [#54](https://github.com/chatondearu/fluffmind/pull/54) |
 | P3 | Custom block editor | [#24](https://github.com/chatondearu/fluffmind/issues/24) | **Shipped** | [[../../prd/PRD-024-p3-block-editor|PRD-024]], PR [#66](https://github.com/chatondearu/fluffmind/pull/66) |
-| P4 | Kanban | [#25](https://github.com/chatondearu/fluffmind/issues/25) | In Progress | Obsidian Kanban markdown convention |
+| P4 | Kanban | [#25](https://github.com/chatondearu/fluffmind/issues/25) | **Shipped** | [[../../prd/PRD-025-p4-kanban|PRD-025]], PR [#72](https://github.com/chatondearu/fluffmind/pull/72) |
 | P5 | MCP server | [#26](https://github.com/chatondearu/fluffmind/issues/26) | Backlog | Same `writeToWorkspace` path as UI |
 | P6 | Hardening | [#27](https://github.com/chatondearu/fluffmind/issues/27) | Backlog | Webhooks, large vaults, polish |
 | P7 | Stretch | [#28](https://github.com/chatondearu/fluffmind/issues/28) | Backlog | Scale-out, static publishing |
 
-**Next agent pick:** finish PR for **#25** (P4 Kanban, issues #67–#71).
+**Next agent pick:** decompose epic **#26** (P5 MCP server) into Todo issues on the board.
 
 ## Superpowers archive
 
