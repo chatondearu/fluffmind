@@ -55,6 +55,13 @@ see the Dockerfile/compose files' own comments for what each stage/service is fo
 anything useful (there's no bundled sample vault — point it at any Foam/Obsidian-style
 vault, including this repo's own future docs if you add one).
 
+P2 env vars are now part of the standard environment shape:
+
+- `AUTH_DISABLED` (optional, default `true` in examples) — force P1 no-auth behavior.
+- `WORKSPACES_ROOT` (optional, default `/data/workspaces`) — per-workspace vault root.
+- `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` (required when auth is enabled).
+- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` (required for GitHub OAuth login).
+
 ## Cross-cutting gotchas
 
 - **pnpm blocks native build scripts by default.** If a new dependency needs one,
@@ -87,3 +94,7 @@ vault, including this repo's own future docs if you add one).
   copy also gets a repo-local `user.name`/`user.email` set programmatically (see
   `packages/integrations/src/git.ts`) — don't assume a global git config exists in
   whatever environment the server runs in.
+- **Compose parity matters for P2 rollout.** Keep `.env.example`,
+  `docker-compose.yml`, and `docker-compose.coolify.yml` aligned whenever auth or
+  workspace-related env vars change (`AUTH_DISABLED`, `WORKSPACES_ROOT`,
+  `BETTER_AUTH_*`, `GITHUB_CLIENT_*`).

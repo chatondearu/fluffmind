@@ -15,8 +15,8 @@
 # Without it, the server still git-inits /data/vault locally — notes persist in the
 # vault-data volume, but nothing is pushed to GitHub.
 #
-# Auth/workspaces (P2) are not implemented yet — DATABASE_URL is wired here so the
-# deployment shape already matches the target architecture.
+# P2 auth/workspaces env is wired here ahead of full feature rollout so deployment
+# shape does not need another compose change later.
 
 services:
   web:
@@ -29,11 +29,16 @@ services:
       - VAULT_PATH=/data/vault
       - GIT_REMOTE_URL=${GIT_REMOTE_URL:-}
       - GIT_BRANCH=${GIT_BRANCH:-main}
-      # Reserved for P2 (auth/workspaces) — not read by the app yet, wired here so the
-      # deployment shape already matches the target architecture (see the PRD).
+      - AUTH_DISABLED=${AUTH_DISABLED:-true}
+      - WORKSPACES_ROOT=/data/workspaces
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
       - DATABASE_URL=postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/fluffmind
     volumes:
       - vault-data:/data/vault
+      - workspaces-data:/data/workspaces
     depends_on:
       - postgres
 
@@ -49,4 +54,5 @@ services:
 
 volumes:
   vault-data:
+  workspaces-data:
   postgres-data:

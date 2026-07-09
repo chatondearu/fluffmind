@@ -13,7 +13,8 @@ Fluffmind is a self-hostable, git-backed personal knowledge management (PKM) app
 ## Status
 
 P0 (foundations: read-only vault engine, design system, viewer) and P1 (server-side
-Git sync — `writeToWorkspace`, note creation, sync status) are done. See the
+Git sync — `writeToWorkspace`, note creation, sync status) are done. P2
+(auth/workspaces) is in progress. See the
 [Project board](../../projects) and [Milestones](../../milestones) for the roadmap and
 current work.
 

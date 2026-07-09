@@ -91,10 +91,10 @@ than a hand-rolled workspace schema.
   that instance's admin — detected by "no user exists yet," not a separate setup
   wizard.
 - **Roles:** three per workspace — `read` / `write` / `owner`.
-- **Permission source:** if a workspace is linked to a GitHub repo, its members'
-  roles are synced from that repo's GitHub collaborators (GitHub is the source of
-  truth while linked — no parallel manual editing). If not linked, an owner/admin
-  manages permissions manually.
+- **Permission source:** when linked to GitHub, collaborator roles are synced
+  automatically. Owners may also invite members manually (`source: manual`) and pin
+  roles (`localOverride`) so sync does not overwrite them. If not linked, an
+  owner/admin manages permissions manually.
 
 ## Editor (P3 — the project's #2 technical risk)
 
