@@ -1,8 +1,9 @@
 import { access } from 'node:fs/promises'
 import { readJsonBody } from '../../utils/read-json-body'
+import { requireWorkspacePermission } from '../../utils/auth'
 import { writeToWorkspace, GitConflictError, InvalidNoteIdError } from '../../vault/write'
 import { resolveNoteFilePath } from '../../vault/note-id'
-import { resolveActiveWorkspaceId, resolveWorkspaceConfig } from '../../vault/workspace'
+import { resolveWorkspaceConfig } from '../../vault/workspace'
 
 /**
  * Creates a new note via writeToWorkspace. Existing ids are rejected — updates go
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const id = body.id.trim()
-  const workspaceId = await resolveActiveWorkspaceId(event)
+  const workspaceId = await requireWorkspacePermission(event, 'note', 'write')
 
   try {
     const workspace = await resolveWorkspaceConfig(workspaceId)
