@@ -38,7 +38,15 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
 ## Config
 
 - `VAULT_PATH` (required) — absolute path to a folder of markdown notes. Also the
-  server's Git working copy since P1 — needs to be writable (no `:ro` mount).
+  server's Git working copy when auth is disabled (P1 mode) — needs to be writable
+  (no `:ro` mount).
+- `AUTH_DISABLED` (optional) — when `true`, force legacy P1 behavior (no auth, single
+  workspace).
+- `WORKSPACES_ROOT` (optional, default `/data/workspaces`) — root dir for per-org
+  workspaces when auth is enabled.
+- `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` — required when auth is enabled.
+- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — required for GitHub OAuth login when
+  auth is enabled.
 - `POST /api/workspaces/adopt` lets an owner (or `workspace:manage`) copy legacy `VAULT_PATH` contents into the active workspace vault when it is still empty (or only has `.git`).
 - `GIT_REMOTE_URL` (optional) — if unset, writes still commit locally (`git init`'d
   automatically), just never pushed. If set, `writeToWorkspace` pushes and rebases
