@@ -6,11 +6,21 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "build": "echo \"@fluffmind/db: nothing to build yet (P2)\"",
+    "build": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "better-auth": "^1.6.23",
+    "@better-auth/drizzle-adapter": "^1.6.23",
+    "drizzle-orm": "^0.44.2",
+    "pg": "^8.16.0"
   },
   "devDependencies": {
+    "drizzle-kit": "^0.31.4",
+    "@types/pg": "^8.15.4",
     "typescript": "^5.7.0"
   }
 }
