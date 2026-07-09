@@ -11,8 +11,14 @@ function getVaultPath(): string {
 
 let cachedIndex: Promise<VaultIndex> | null = null
 let watcherStarted = false
+let rebuildTimer: ReturnType<typeof setTimeout> | null = null
 
 const IGNORED_RE = /(^|[/\\])(\.git|node_modules|\.obsidian|\.vscode|\.foam)([/\\]|$)/
+const REBUILD_DEBOUNCE_MS = 400
+
+function shouldWatchFilesystem(): boolean {
+  return process.env.VAULT_WATCH !== 'false'
+}
 
 /**
  * Returns the current vault index, building it on first access. In dev, also starts a
@@ -25,7 +31,7 @@ export async function getVaultIndex(): Promise<VaultIndex> {
   await bootstrapWorkspace()
   const vaultPath = getVaultPath()
   cachedIndex ??= buildVaultIndex(vaultPath)
-  if (import.meta.dev && !watcherStarted) {
+  if (shouldWatchFilesystem() && !watcherStarted) {
     watcherStarted = true
     startWatcher(vaultPath)
   }
@@ -41,10 +47,20 @@ export function invalidateVaultIndex(): void {
   cachedIndex = null
 }
 
+function scheduleRebuild(vaultPath: string) {
+  if (rebuildTimer) {
+    clearTimeout(rebuildTimer)
+  }
+  rebuildTimer = setTimeout(() => {
+    rebuildTimer = null
+    cachedIndex = buildVaultIndex(vaultPath)
+  }, REBUILD_DEBOUNCE_MS)
+}
+
 function startWatcher(vaultPath: string): void {
   const watcher = watch(vaultPath, { ignored: IGNORED_RE, ignoreInitial: true })
   const rebuild = () => {
-    cachedIndex = buildVaultIndex(vaultPath)
+    scheduleRebuild(vaultPath)
   }
   watcher.on('add', rebuild).on('change', rebuild).on('unlink', rebuild)
 }

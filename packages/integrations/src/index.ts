@@ -3,8 +3,8 @@
 //
 // GitHub OAuth/API is implemented (P2). MCP stdio + HTTP transports ship in P5.
 
-export { ensureWorkingCopy, commitAndPush, getSyncStatus, GitConflictError } from './git'
-export type { WorkingCopyConfig, CommitPushOptions, CommitPushResult, SyncStatus } from './git'
+export { ensureWorkingCopy, commitAndPush, getSyncStatus, pullFromRemote, GitConflictError } from './git'
+export type { WorkingCopyConfig, CommitPushOptions, CommitPushResult, SyncStatus, PullFromRemoteResult } from './git'
 
 export { fetchCollaborators, mapGitHubPermission } from './github/collaborators'
 export type {

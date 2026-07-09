@@ -29,6 +29,7 @@ services:
       - VAULT_PATH=/data/vault
       - GIT_REMOTE_URL=${GIT_REMOTE_URL:-}
       - GIT_BRANCH=${GIT_BRANCH:-main}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
       - AUTH_DISABLED=${AUTH_DISABLED:-true}
       - WORKSPACES_ROOT=/data/workspaces
       # Required when AUTH_DISABLED=false — set in Coolify UI to your public app URL.

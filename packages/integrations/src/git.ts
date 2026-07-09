@@ -147,6 +147,34 @@ export async function getSyncStatus(
   }
 }
 
+export interface PullFromRemoteResult {
+  updated: boolean
+  behindBefore: number
+}
+
+/**
+ * Fetches and fast-forwards the local branch to match origin when the remote is ahead.
+ * No-op when already up to date or when no remote is configured.
+ */
+export async function pullFromRemote(
+  git: SimpleGit,
+  options: { branch: string, remoteConfigured: boolean },
+): Promise<PullFromRemoteResult> {
+  const { branch, remoteConfigured } = options
+  if (!remoteConfigured) {
+    return { updated: false, behindBefore: 0 }
+  }
+
+  await git.fetch('origin', branch)
+  const before = await getSyncStatus(git, { branch, remoteConfigured })
+  if (before.behind === 0) {
+    return { updated: false, behindBefore: 0 }
+  }
+
+  await git.pull('origin', branch)
+  return { updated: true, behindBefore: before.behind }
+}
+
 /**
  * Commits whatever is currently in the working copy, then pushes. On a rejected push
  * (remote has diverged), fetches and rebases on top of the remote branch and retries
