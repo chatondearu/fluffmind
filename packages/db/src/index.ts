@@ -6,4 +6,5 @@
 // Auth/workspaces land in P2 and have no runtime dependency on it before then — P0 runs
 // with an implicit single local workspace (VAULT_PATH env var), no Postgres involved.
 
-export {}
+export { ac, roles } from './permissions.ts'
+export * from './schema/workspace.ts'
