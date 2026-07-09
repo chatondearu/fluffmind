@@ -2,7 +2,7 @@ import { access, mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { ensureWorkingCopy, commitAndPush, GitConflictError } from '@fluffmind/integrations'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
-import { getVaultIndex, invalidateVaultIndex } from './service'
+import { invalidateVaultIndex } from './service'
 import { resolveWorkspaceConfig } from './workspace'
 
 export { GitConflictError, InvalidNoteIdError }
@@ -42,24 +42,14 @@ export interface WriteResult {
  */
 export async function writeToWorkspace(workspaceId: string, id: string, content: string): Promise<WriteResult> {
   return withWorkspaceLock(workspaceId, async () => {
-    const config = resolveWorkspaceConfig(workspaceId)
-    const index = await getVaultIndex()
-    const existing = index.notes.get(id)
+    const config = await resolveWorkspaceConfig(workspaceId)
+    const filePath = resolveNoteFilePath(config.path, id)
 
-    let filePath: string
-    let isCreate: boolean
-
-    if (existing) {
-      filePath = existing.filePath
-      isCreate = false
-    } else {
-      filePath = resolveNoteFilePath(config.path, id)
-      try {
-        await access(filePath)
-        throw new Error(`Cannot create "${id}": a file already exists at that path`)
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      }
+    let isCreate = false
+    try {
+      await access(filePath)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       await mkdir(dirname(filePath), { recursive: true })
       isCreate = true
     }
