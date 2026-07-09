@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { $fetch } from 'ofetch'
+import { isKanbanBoard } from '@fluffmind/kanban'
 import { BlockEditor, parseMarkdownToDocument, serializeDocument } from '@fluffmind/editor-blocks'
 import type { BlockNode } from '@fluffmind/editor-blocks'
 import { FluffmindButton } from '@fluffmind/design-system/src/components'
@@ -18,6 +19,16 @@ const id = computed(() => {
 })
 
 const { data, error, refresh } = await useFetch<NoteDetailResponse>(() => `/api/notes/${id.value}`)
+
+watch(
+  data,
+  (value) => {
+    if (value?.note.frontmatter && isKanbanBoard(value.note.frontmatter)) {
+      navigateTo(`/boards/${id.value}`, { replace: true })
+    }
+  },
+  { immediate: true },
+)
 
 const editing = ref(false)
 const blocks = ref<BlockNode[]>([])

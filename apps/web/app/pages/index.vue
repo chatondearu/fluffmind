@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { $fetch } from 'ofetch'
+import { isKanbanBoard } from '@fluffmind/kanban'
 import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import type { NoteSummary } from '../../server/vault/index'
 
@@ -37,6 +38,13 @@ function openCreateForm() {
   newNoteContent.value = ''
   createError.value = null
   showCreateForm.value = true
+}
+
+function noteHref(note: NoteSummary): string {
+  if (isKanbanBoard(note.frontmatter)) {
+    return `/boards/${note.id}`
+  }
+  return `/notes/${note.id}`
 }
 
 function extractErrorMessage(err: unknown): string {
@@ -120,8 +128,16 @@ async function createNote() {
     >
     <ul class="flex flex-col gap-1">
       <li v-for="note in filteredNotes" :key="note.id">
-        <NuxtLink :to="`/notes/${note.id}`" class="flex items-baseline justify-between rounded-lg px-3 py-2 hover:bg-primary/10">
-          <span class="font-medium text-on-surface">{{ note.title }}</span>
+        <NuxtLink :to="noteHref(note)" class="flex items-baseline justify-between rounded-lg px-3 py-2 hover:bg-primary/10">
+          <span class="flex items-center gap-2 font-medium text-on-surface">
+            {{ note.title }}
+            <span
+              v-if="isKanbanBoard(note.frontmatter)"
+              class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-normal text-primary"
+            >
+              Board
+            </span>
+          </span>
           <span v-if="formatDate(note.frontmatter.date)" class="text-sm text-on-surface-variant">{{ formatDate(note.frontmatter.date) }}</span>
         </NuxtLink>
       </li>
