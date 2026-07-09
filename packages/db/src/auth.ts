@@ -7,6 +7,11 @@ import { db } from './client.ts'
 import { ac, roles } from './permissions.ts'
 import * as schema from './schema/index.ts'
 
+function getInvitationBaseUrl(): string {
+  const configured = process.env.BETTER_AUTH_URL || process.env.APP_BASE_URL || 'http://localhost:3000'
+  return configured.replace(/\/+$/, '')
+}
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: 'pg',
@@ -36,8 +41,34 @@ export const auth = betterAuth({
       ac,
       roles,
       async sendInvitationEmail(data) {
+        const invitationLink = `${getInvitationBaseUrl()}/accept-invitation/${data.id}`
         // Placeholder for transactional email integration.
-        console.log('[auth] invitation', data.id, data.email)
+        console.log(
+          '[auth] invitation link',
+          JSON.stringify({
+            invitationId: data.id,
+            email: data.email,
+            role: data.role,
+            organizationId: data.organization.id,
+            invitationLink,
+          }),
+        )
+      },
+      organizationHooks: {
+        async afterAcceptInvitation({ member }) {
+          await db
+            .insert(schema.memberSyncMeta)
+            .values({
+              memberId: member.id,
+              source: 'manual',
+            })
+            .onConflictDoUpdate({
+              target: schema.memberSyncMeta.memberId,
+              set: {
+                source: 'manual',
+              },
+            })
+        },
       },
     }),
   ],

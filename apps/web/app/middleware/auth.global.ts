@@ -1,6 +1,7 @@
 import { authClient } from '../composables/useAuth'
 
 const PUBLIC_ROUTES = new Set(['/login', '/signup'])
+const PUBLIC_ROUTE_PREFIXES = ['/accept-invitation/']
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const { public: { authEnabled } } = useRuntimeConfig()
@@ -9,6 +10,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
 
   if (PUBLIC_ROUTES.has(to.path))
+    return
+
+  if (PUBLIC_ROUTE_PREFIXES.some(prefix => to.path.startsWith(prefix)))
     return
 
   const session = await authClient.getSession()
