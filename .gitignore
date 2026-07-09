@@ -11,6 +11,7 @@ dist
 .env
 .env.*
 !.env.example
+.envrc.local
 
 # Logs
 logs
@@ -27,3 +28,6 @@ logs
 
 # pnpm local store (seen created at repo root when running pnpm inside Docker)
 .pnpm-store
+
+# Kanban orchestrator cursor / status snapshots (github-kanban-orchestrator)
+.tmp/
