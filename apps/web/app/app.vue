@@ -1,20 +1,40 @@
 <script setup lang="ts">
 import { FluffmindButton } from '@fluffmind/design-system/src/components'
-import { authClient, useAuth } from './composables/useAuth'
 import type { ThemePreference } from './composables/useTheme'
 
-const { preference, setPreference } = useTheme()
-const route = useRoute()
 const { public: { authEnabled } } = useRuntimeConfig()
-const { data: authSession, isPending } = await useAuth()
+const route = useRoute()
 
-const CYCLE: ThemePreference[] = ['system', 'light', 'dark']
+type AuthModule = typeof import('./composables/useAuth')
+const authModule: AuthModule | null = authEnabled ? await import('./composables/useAuth') : null
+
+const authSession = ref<{ session?: { id: string, activeOrganizationId?: string | null } } | null>(null)
+const isPending = ref(false)
+
+const authSessionState = authModule ? await authModule.useAuth() : null
+
+if (authSessionState) {
+  authSession.value = authSessionState.data.value
+  isPending.value = authSessionState.isPending
+  watch(authSessionState.data, (value) => {
+    authSession.value = value
+  })
+  watch(
+    () => authSessionState.isPending,
+    (value) => {
+      isPending.value = value
+    },
+  )
+}
+
+const { preference, setPreference } = useTheme()
 const organizations = ref<Array<{ id: string, name: string }>>([])
 const selectedWorkspaceId = ref('')
 const workspaceLoading = ref(false)
 const workspaceError = ref<string | null>(null)
 
 const hideWorkspaceControls = computed(() => route.path === '/login' || route.path === '/signup')
+const CYCLE: ThemePreference[] = ['system', 'light', 'dark']
 const showWorkspaceSwitcher = computed(() =>
   authEnabled
   && !hideWorkspaceControls.value
@@ -54,14 +74,14 @@ function extractOrganizations(data: unknown): Array<{ id: string, name: string }
 }
 
 async function loadOrganizations() {
-  if (!authEnabled || !authSession.value?.session) {
+  if (!authModule || !authEnabled || !authSession.value?.session) {
     organizations.value = []
     selectedWorkspaceId.value = ''
     return
   }
 
   workspaceError.value = null
-  const listResponse = await authClient.organization.list()
+  const listResponse = await authModule.authClient.organization.list()
   const listError = extractErrorMessage(listResponse)
   if (listError) {
     workspaceError.value = listError
@@ -81,14 +101,14 @@ async function loadOrganizations() {
 }
 
 async function setActiveWorkspace(workspaceId: string) {
-  if (!workspaceId || workspaceId === selectedWorkspaceId.value)
+  if (!authModule || !workspaceId || workspaceId === selectedWorkspaceId.value)
     return
 
   workspaceLoading.value = true
   workspaceError.value = null
 
   try {
-    const setActiveResponse = await authClient.organization.setActive({
+    const setActiveResponse = await authModule.authClient.organization.setActive({
       organizationId: workspaceId,
     })
 

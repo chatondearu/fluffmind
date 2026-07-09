@@ -31,6 +31,7 @@ services:
       - GIT_BRANCH=${GIT_BRANCH:-main}
       - AUTH_DISABLED=${AUTH_DISABLED:-true}
       - WORKSPACES_ROOT=/data/workspaces
+      # Required when AUTH_DISABLED=false — set in Coolify UI to your public app URL.
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}

@@ -48,13 +48,17 @@ WORKDIR /app
 ENV NODE_ENV=production
 # writeToWorkspace shells out to the real git binary (via simple-git) — not part of
 # Nitro's self-contained output, has to be installed explicitly.
-RUN apk add --no-cache git
+RUN apk add --no-cache git su-exec
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 fluffmind
 COPY --from=builder --chown=fluffmind:nodejs /app/apps/web/.output ./.output
-USER fluffmind
+COPY --from=builder /app/packages/db/drizzle ./drizzle
+COPY scripts/run-migrations.mjs ./run-migrations.mjs
+COPY scripts/docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ENV PORT=3000
 ENV HOST=0.0.0.0
 EXPOSE 3000
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", ".output/server/index.mjs"]
