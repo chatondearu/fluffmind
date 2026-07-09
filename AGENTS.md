@@ -98,3 +98,28 @@ P2 env vars are now part of the standard environment shape:
   `docker-compose.yml`, and `docker-compose.coolify.yml` aligned whenever auth or
   workspace-related env vars change (`AUTH_DISABLED`, `WORKSPACES_ROOT`,
   `BETTER_AUTH_*`, `GITHUB_CLIENT_*`).
+
+## Project memory
+
+Structured memory under **`foam/`** at the repo root — read before product or
+architecture decisions:
+
+| Path | Purpose |
+| ---- | ------- |
+| `foam/index.md` | Map of Content (start here) |
+| `foam/decisions/` | Architecture Decision Records (ADRs) |
+| `prd/` | Product Requirements Documents |
+| `plans/` | Implementation plans |
+
+**Protocol** (see `.cursor/rules/product-memory.mdc` and skill `foam-project-memory`):
+
+1. Search `foam/decisions/` for related ADRs before changing architecture or
+   cross-cutting behavior.
+2. For non-trivial features, use or draft a PRD under `prd/`.
+3. If the user requests something that **contradicts an accepted ADR**, cite the
+   ADR and ask whether to supersede it (new ADR required).
+4. After a new technical choice, add or update an ADR (template:
+   `foam/decisions/ADR-template.md`).
+
+Sync feature lists from GitHub: `./scripts/import-kanban.sh`. Board helpers:
+`./scripts/gh-board.sh` (see `.github/kanban.env`).
