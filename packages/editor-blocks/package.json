@@ -12,11 +12,16 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "remark": "^15.0.1"
+    "remark": "^15.0.1",
+    "remark-gfm": "^4.0.1"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
   },
   "devDependencies": {
     "@types/mdast": "^4.0.4",
     "typescript": "^5.7.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "vue": "^3.5.39"
   }
 }

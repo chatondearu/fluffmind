@@ -1,8 +1,14 @@
-import type { Content, ListItem, PhrasingContent, Root } from 'mdast'
+import type { Content, ListItem, PhrasingContent, Root, TableCell } from 'mdast'
 
-import type { BlockNode, InlineNode } from './types.ts'
+import { createBlockId } from './ids'
+import type { BlockNode, InlineNode, TableRow } from './types'
+import { expandTextWithWikilinks } from './wikilinks'
 
-/** Convert a remark mdast root into the spike block tree. */
+function block(partial: Omit<BlockNode, 'id'> & { id?: string }): BlockNode {
+  return { id: partial.id ?? createBlockId(), ...partial }
+}
+
+/** Convert a remark mdast root into block nodes (#57). */
 export function mdastToBlocks(ast: Root): BlockNode[] {
   return ast.children.flatMap(node => blockFromTopLevel(node))
 }
@@ -10,63 +16,73 @@ export function mdastToBlocks(ast: Root): BlockNode[] {
 function blockFromTopLevel(node: Content): BlockNode[] {
   switch (node.type) {
     case 'paragraph':
-      return [{ type: 'paragraph', inlines: phrasingToInlines(node.children) }]
+      return [block({ type: 'paragraph', inlines: phrasingToInlines(node.children) })]
     case 'heading':
-      return [{
+      return [block({
         type: 'heading',
         level: node.depth,
         inlines: phrasingToInlines(node.children),
-      }]
+      })]
     case 'list':
-      return [{
+      return [block({
         type: node.ordered ? 'orderedList' : 'bulletList',
         children: node.children.map(listItemToBlock),
-      }]
+      })]
     case 'code':
-      return [{
+      return [block({
         type: 'code',
         lang: node.lang ?? null,
         text: node.value.replace(/\n$/, ''),
-      }]
+      })]
+    case 'table':
+      return [block({
+        type: 'table',
+        rows: tableToRows(node),
+      })]
     default:
-      return [{ type: 'fallback', raw: `[unsupported:${node.type}]` }]
+      return [block({ type: 'fallback', raw: `[unsupported:${node.type}]` })]
   }
+}
+
+function tableToRows(node: { children: Array<{ children: TableCell[] }> }): TableRow[] {
+  return node.children.map(row => ({
+    cells: row.children.map(cell => phrasingToInlines(cell.children as PhrasingContent[])),
+  }))
 }
 
 function listItemToBlock(item: ListItem): BlockNode {
   const nested: BlockNode[] = []
   for (const child of item.children) {
     if (child.type === 'paragraph') {
-      nested.push({ type: 'paragraph', inlines: phrasingToInlines(child.children) })
+      nested.push(block({ type: 'paragraph', inlines: phrasingToInlines(child.children) }))
     }
     else if (child.type === 'list') {
-      nested.push({
+      nested.push(block({
         type: child.ordered ? 'orderedList' : 'bulletList',
         children: child.children.map(listItemToBlock),
-      })
+      }))
     }
     else {
       nested.push(...blockFromTopLevel(child as Content))
     }
   }
-  return { type: 'listItem', children: nested }
+  return block({ type: 'listItem', children: nested })
 }
 
-function phrasingToInlines(nodes: PhrasingContent[]): InlineNode[] {
-  const out: InlineNode[] = []
-  for (const node of nodes) {
+export function phrasingToInlines(nodes: PhrasingContent[]): InlineNode[] {
+  return nodes.flatMap(node => {
     const converted = phrasingToInline(node)
-    if (converted) {
-      out.push(converted)
+    if (!converted) {
+      return []
     }
-  }
-  return out
+    return Array.isArray(converted) ? converted : [converted]
+  })
 }
 
-function phrasingToInline(node: PhrasingContent): InlineNode | null {
+function phrasingToInline(node: PhrasingContent): InlineNode | InlineNode[] | null {
   switch (node.type) {
     case 'text':
-      return { type: 'text', value: node.value }
+      return expandTextWithWikilinks(node.value)
     case 'strong':
       return {
         type: 'strong',

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { $fetch } from 'ofetch'
+import { BlockEditor, parseMarkdownToDocument, serializeDocument } from '@fluffmind/editor-blocks'
+import type { BlockNode } from '@fluffmind/editor-blocks'
 import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import type { NoteSummary, ResolvedLink } from '../../../server/vault/index'
 
@@ -17,16 +19,13 @@ const id = computed(() => {
 
 const { data, error, refresh } = await useFetch<NoteDetailResponse>(() => `/api/notes/${id.value}`)
 
-// Deliberately minimal — a raw markdown textarea, not the real block editor (P3).
-// Just enough to exercise/validate writeToWorkspace (concurrent writes, Git sync) by
-// hand in the browser for the P1 spike.
 const editing = ref(false)
-const draft = ref('')
+const blocks = ref<BlockNode[]>([])
 const saving = ref(false)
 const saveError = ref<string | null>(null)
 
 function startEditing() {
-  draft.value = data.value?.note.content ?? ''
+  blocks.value = parseMarkdownToDocument(data.value?.note.content ?? '').blocks
   saveError.value = null
   editing.value = true
 }
@@ -40,7 +39,8 @@ async function save() {
   saving.value = true
   saveError.value = null
   try {
-    await $fetch(`/api/notes/${id.value}`, { method: 'PUT', body: { content: draft.value } })
+    const content = serializeDocument({ blocks: blocks.value })
+    await $fetch(`/api/notes/${id.value}`, { method: 'PUT', body: { content } })
     await refresh()
     editing.value = false
   } catch (err) {
@@ -69,11 +69,7 @@ async function save() {
       </div>
 
       <template v-if="editing">
-        <textarea
-          v-model="draft"
-          rows="20"
-          class="w-full rounded-md border border-outline bg-surface p-3 font-mono text-sm text-on-surface"
-        />
+        <BlockEditor v-model="blocks" />
         <p v-if="saveError" class="mt-2 text-sm text-error">
           {{ saveError }}
         </p>

@@ -1,7 +1,7 @@
-import { inlinesToMarkdown } from './inlines.ts'
-import type { BlockNode } from './types.ts'
+import { inlinesToMarkdown } from './inlines'
+import type { BlockNode, TableRow } from './types'
 
-/** Serialize spike block tree back to markdown. */
+/** Serialize block tree back to markdown (#58). */
 export function blocksToMarkdown(blocks: BlockNode[]): string {
   return blocks.map(blockToMarkdown).join('\n\n').trim()
 }
@@ -29,6 +29,8 @@ function blockToMarkdown(block: BlockNode): string {
       const lang = block.lang ?? ''
       return `\`\`\`${lang}\n${block.text ?? ''}\n\`\`\``
     }
+    case 'table':
+      return tableToMarkdown(block.rows ?? [])
     case 'fallback':
       return block.raw ?? ''
     default: {
@@ -48,4 +50,18 @@ function listItemToMarkdown(item: BlockNode, marker: string): string {
   }
   const indent = marker.startsWith('-') ? '  ' : '   '
   return [head, ...rest.map(line => `${indent}${line}`)].join('\n')
+}
+
+function tableToMarkdown(rows: TableRow[]): string {
+  if (rows.length === 0) {
+    return ''
+  }
+  const lines = rows.map(row =>
+    `| ${row.cells.map(cell => inlinesToMarkdown(cell).replace(/\|/g, '\\|')).join(' | ')} |`,
+  )
+  if (lines.length > 1) {
+    const separator = `| ${rows[0]!.cells.map(() => '---').join(' | ')} |`
+    lines.splice(1, 0, separator)
+  }
+  return lines.join('\n')
 }
