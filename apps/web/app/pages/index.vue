@@ -6,6 +6,7 @@ import type { NoteSummary } from '../../server/vault/index'
 
 const { data, error, refresh, pending } = await useFetch<{ notes: NoteSummary[] }>('/api/notes')
 const notes = computed(() => data.value?.notes ?? [])
+const { public: { authEnabled } } = useRuntimeConfig()
 
 const search = ref('')
 const showCreateForm = ref(false)
@@ -154,8 +155,18 @@ async function createNote() {
         </NuxtLink>
       </li>
     </ul>
-    <p v-if="filteredNotes.length === 0" class="text-on-surface-variant">
-      No notes found.
+    <p v-if="filteredNotes.length === 0 && !search.trim()" class="rounded-lg border border-dashed border-outline-variant p-6 text-on-surface-variant">
+      Your vault is empty.
+      <FluffmindButton variant="outlined" class="mt-3" @click="openCreateForm">
+        Create your first note
+      </FluffmindButton>
+      <span v-if="authEnabled" class="mt-2 block text-sm">
+        Or link a Git remote in
+        <NuxtLink to="/settings/workspace" class="text-primary hover:underline">workspace settings</NuxtLink>.
+      </span>
+    </p>
+    <p v-else-if="filteredNotes.length === 0" class="text-on-surface-variant">
+      No notes match your search.
     </p>
     </template>
   </main>

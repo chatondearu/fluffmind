@@ -61,7 +61,7 @@ export async function writeToWorkspace(workspaceId: string, id: string, content:
       message: isCreate ? `Create ${id}` : `Update ${id}`,
       remoteConfigured: Boolean(config.remoteUrl)
     })
-    invalidateVaultIndex()
+    invalidateVaultIndex(workspaceId)
     return result
   })
 }

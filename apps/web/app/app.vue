@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import type { ThemePreference } from './composables/useTheme'
+import { ensureWorkspaceOnboarding } from './composables/useOnboarding'
 
 const { public: { authEnabled } } = useRuntimeConfig()
 const route = useRoute()
@@ -46,6 +47,23 @@ const showWorkspaceSettingsLink = computed(() =>
   && !hideWorkspaceControls.value
   && !!authSession.value?.session,
 )
+const showLogout = computed(() =>
+  authEnabled
+  && !hideWorkspaceControls.value
+  && !!authSession.value?.session,
+)
+const loggingOut = ref(false)
+
+async function logout() {
+  if (!authModule) return
+  loggingOut.value = true
+  try {
+    await authModule.authClient.signOut()
+    await navigateTo('/login')
+  } finally {
+    loggingOut.value = false
+  }
+}
 
 function cycleTheme() {
   const next = CYCLE[(CYCLE.indexOf(preference.value) + 1) % CYCLE.length]!
@@ -146,6 +164,11 @@ watch(
   async ([enabled, pending, sessionId]) => {
     if (!enabled || pending || !sessionId)
       return
+    try {
+      await ensureWorkspaceOnboarding()
+    } catch {
+      // Non-fatal: settings page can recover manually.
+    }
     await loadOrganizations()
   },
   { immediate: true },
@@ -180,6 +203,15 @@ watch(
         >
           Paramètres workspace
         </NuxtLink>
+
+        <FluffmindButton
+          v-if="showLogout"
+          variant="text"
+          :disabled="loggingOut"
+          @click="logout"
+        >
+          {{ loggingOut ? '…' : 'Logout' }}
+        </FluffmindButton>
 
         <FluffmindButton variant="text" @click="cycleTheme">
           Theme: {{ preference }}

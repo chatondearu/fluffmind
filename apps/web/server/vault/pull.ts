@@ -3,20 +3,13 @@ import type { PullFromRemoteResult } from '@fluffmind/integrations'
 
 import { invalidateVaultIndex } from './service'
 import { bootstrapWorkspace } from './sync'
-import { workspaceConfigFromEnv } from './workspace'
+import { resolveWorkspaceConfig } from './workspace'
 
 /**
- * Pulls latest commits from origin into the env-configured vault working copy.
- * Invalidates the read index when new commits land.
+ * Pulls latest commits from origin into a workspace vault working copy.
  */
-export async function pullWorkspaceChanges(): Promise<PullFromRemoteResult> {
-  const config = workspaceConfigFromEnv()
-  if (!config) {
-    throw createError({
-      statusCode: 503,
-      statusMessage: 'VAULT_PATH is not configured',
-    })
-  }
+export async function pullWorkspaceChanges(workspaceId = 'default'): Promise<PullFromRemoteResult> {
+  const config = await resolveWorkspaceConfig(workspaceId)
   if (!config.remoteUrl) {
     throw createError({
       statusCode: 400,
@@ -25,7 +18,7 @@ export async function pullWorkspaceChanges(): Promise<PullFromRemoteResult> {
     })
   }
 
-  await bootstrapWorkspace()
+  await bootstrapWorkspace(workspaceId)
   const git = await ensureWorkingCopy(config)
   const result = await pullFromRemote(git, {
     branch: config.branch,
@@ -33,7 +26,7 @@ export async function pullWorkspaceChanges(): Promise<PullFromRemoteResult> {
   })
 
   if (result.updated) {
-    invalidateVaultIndex()
+    invalidateVaultIndex(workspaceId)
   }
 
   return result

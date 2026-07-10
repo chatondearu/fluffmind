@@ -17,5 +17,5 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const session = await authClient.getSession()
 
   if (!session.data?.session)
-    return navigateTo('/login')
+    return navigateTo(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
 })

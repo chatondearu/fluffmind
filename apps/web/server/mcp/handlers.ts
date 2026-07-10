@@ -43,11 +43,15 @@ export function toolError(message: string): { content: [{ type: 'text', text: st
 }
 
 /** Case-insensitive search on note id and title. */
-export async function searchNotes(query: string, limit = 20): Promise<SearchNotesResult[]> {
+export async function searchNotes(
+  query: string,
+  limit = 20,
+  workspaceId = 'default',
+): Promise<SearchNotesResult[]> {
   const trimmed = query.trim()
   if (!trimmed) return []
 
-  const index = await getVaultIndex()
+  const index = await getVaultIndex(workspaceId)
   const needle = trimmed.toLowerCase()
   const results: SearchNotesResult[] = []
 
@@ -63,8 +67,8 @@ export async function searchNotes(query: string, limit = 20): Promise<SearchNote
 }
 
 /** Read a note's markdown body and metadata. */
-export async function readNoteById(id: string): Promise<ReadNoteResult | null> {
-  const index = await getVaultIndex()
+export async function readNoteById(id: string, workspaceId = 'default'): Promise<ReadNoteResult | null> {
+  const index = await getVaultIndex(workspaceId)
   const note = await readNote(index, id)
   if (!note) return null
   return {
@@ -85,8 +89,8 @@ export async function writeNoteContent(
 }
 
 /** List notes that link to the given note id. */
-export async function listBacklinks(id: string): Promise<ListBacklinksResult[]> {
-  const index = await getVaultIndex()
+export async function listBacklinks(id: string, workspaceId = 'default'): Promise<ListBacklinksResult[]> {
+  const index = await getVaultIndex(workspaceId)
   if (!index.notes.has(id)) return []
 
   return (index.backlinks.get(id) ?? [])
@@ -97,8 +101,8 @@ export async function listBacklinks(id: string): Promise<ListBacklinksResult[]> 
 }
 
 /** Return the vault wikilink graph. */
-export async function getVaultGraph(): Promise<GraphData> {
-  const index = await getVaultIndex()
+export async function getVaultGraph(workspaceId = 'default'): Promise<GraphData> {
+  const index = await getVaultIndex(workspaceId)
   return getGraph(index)
 }
 
@@ -113,7 +117,7 @@ export async function createTask(
     throw new Error('Task text is required.')
   }
 
-  const index = await getVaultIndex()
+  const index = await getVaultIndex(ctx.workspaceId)
   const existing = await readNote(index, noteId)
   const taskLine = `- [ ] ${trimmed}`
 
