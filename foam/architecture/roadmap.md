@@ -15,9 +15,9 @@ and epics on the [Fluffmind board](https://github.com/users/chatondearu/projects
 | P5 | MCP server | [#26](https://github.com/chatondearu/fluffmind/issues/26) | **Shipped** | [[../../prd/PRD-026-p5-mcp-server|PRD-026]], PR [#78](https://github.com/chatondearu/fluffmind/pull/78) |
 | P6 | Hardening | [#27](https://github.com/chatondearu/fluffmind/issues/27) | **Shipped** | [[../../prd/PRD-027-p6-hardening|PRD-027]], PR [#85](https://github.com/chatondearu/fluffmind/pull/85) |
 | P7 | Stretch | [#28](https://github.com/chatondearu/fluffmind/issues/28) | Deferred | Scale-out, static publishing — post-MVP |
-| **MVP** | Ship | PRD-028 | In Progress | Workspace reads, onboarding, health, polish |
+| **MVP** | Ship | PRD-028 | **Shipped** | [[../../prd/PRD-028-mvp-ship|PRD-028]], PR [#91](https://github.com/chatondearu/fluffmind/pull/91) |
 
-**Next agent pick:** finish PR for **MVP** (PRD-028).
+**Next agent pick:** iterate on product usage (auth, vault, UX) — **P7 deferred** unless explicitly requested.
 
 ## Superpowers archive
 

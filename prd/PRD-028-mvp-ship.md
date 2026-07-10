@@ -1,6 +1,7 @@
 # PRD-028 — MVP ship (post-P6)
 
-- **Status**: approved
+- **Status**: shipped
+- **PR**: [#91](https://github.com/chatondearu/fluffmind/pull/91) (merged 2026-07-10)
 - **GitHub**: milestone **MVP — Ship**
 - **Supersedes**: P7 [#28](https://github.com/chatondearu/fluffmind/issues/28) for now (deferred)
 
