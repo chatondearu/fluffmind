@@ -35,7 +35,7 @@ export function createFluffmindMcpServer(ctx: McpContext): McpServer {
     },
     async ({ query, limit }) => {
       try {
-        const results = await searchNotes(query, limit ?? 20)
+        const results = await searchNotes(query, limit ?? 20, ctx.workspaceId)
         return toTextPayload(results)
       } catch (error) {
         return formatHandlerError(error)
@@ -53,7 +53,7 @@ export function createFluffmindMcpServer(ctx: McpContext): McpServer {
     },
     async ({ id }) => {
       try {
-        const note = await readNoteById(id)
+        const note = await readNoteById(id, ctx.workspaceId)
         if (!note) return toolError(`Note not found: ${id}`)
         return toTextPayload(note)
       } catch (error) {
@@ -91,7 +91,7 @@ export function createFluffmindMcpServer(ctx: McpContext): McpServer {
     },
     async ({ id }) => {
       try {
-        const backlinks = await listBacklinks(id)
+        const backlinks = await listBacklinks(id, ctx.workspaceId)
         return toTextPayload(backlinks)
       } catch (error) {
         return formatHandlerError(error)
@@ -107,7 +107,7 @@ export function createFluffmindMcpServer(ctx: McpContext): McpServer {
     },
     async () => {
       try {
-        const graph = await getVaultGraph()
+        const graph = await getVaultGraph(ctx.workspaceId)
         return toTextPayload(graph)
       } catch (error) {
         return formatHandlerError(error)

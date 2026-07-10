@@ -1,52 +1,62 @@
 import { ensureWorkingCopy, getSyncStatus, type SyncStatus } from '@fluffmind/integrations'
-import { workspaceConfigFromEnv } from './workspace'
 
-let bootstrapPromise: Promise<SyncStatus | null> | null = null
+import { isAuthEnabled } from '../utils/auth'
+import { resolveWorkspaceConfig } from './workspace'
+
+const bootstrapPromises = new Map<string, Promise<SyncStatus | null>>()
 
 function logSyncWarnings(status: SyncStatus, branch: string): void {
   if (!status.remoteConfigured) return
   if (status.ahead > 0) {
     console.warn(
-      `[vault] Workspace is ${status.ahead} commit(s) ahead of origin/${branch} — unpushed local commits detected.`
+      `[vault] Workspace is ${status.ahead} commit(s) ahead of origin/${branch} — unpushed local commits detected.`,
     )
   }
   if (status.behind > 0) {
     console.warn(
-      `[vault] Workspace is ${status.behind} commit(s) behind origin/${branch}.`
+      `[vault] Workspace is ${status.behind} commit(s) behind origin/${branch}.`,
     )
   }
 }
 
 /**
- * Ensures the Git working copy exists (clone/init/fetch) before the vault index is
- * built. Idempotent — safe to call from the Nitro boot plugin and from `getVaultIndex`.
+ * Ensures the Git working copy exists for a workspace before indexing.
+ * Idempotent — cached per workspace id.
  */
-export function bootstrapWorkspace(): Promise<SyncStatus | null> {
-  const config = workspaceConfigFromEnv()
-  if (!config) return Promise.resolve(null)
+export function bootstrapWorkspace(workspaceId = 'default'): Promise<SyncStatus | null> {
+  if (!isAuthEnabled() && workspaceId !== 'default') {
+    return bootstrapWorkspace('default')
+  }
 
-  bootstrapPromise ??= (async () => {
+  const existing = bootstrapPromises.get(workspaceId)
+  if (existing) return existing
+
+  const promise = (async () => {
+    const config = await resolveWorkspaceConfig(workspaceId)
     const git = await ensureWorkingCopy(config)
     const status = await getSyncStatus(git, {
       branch: config.branch,
-      remoteConfigured: Boolean(config.remoteUrl)
+      remoteConfigured: Boolean(config.remoteUrl),
     })
     logSyncWarnings(status, config.branch)
     return status
   })()
 
-  return bootstrapPromise
+  bootstrapPromises.set(workspaceId, promise)
+  return promise
 }
 
-/** Fresh sync status for API visibility — always re-reads from git, not the boot snapshot. */
-export async function getWorkspaceSyncStatus(): Promise<SyncStatus | null> {
-  const config = workspaceConfigFromEnv()
-  if (!config) return null
-
-  await bootstrapWorkspace()
-  const git = await ensureWorkingCopy(config)
-  return getSyncStatus(git, {
-    branch: config.branch,
-    remoteConfigured: Boolean(config.remoteUrl)
-  })
+/** Fresh sync status for API visibility — always re-reads from git. */
+export async function getWorkspaceSyncStatus(workspaceId = 'default'): Promise<SyncStatus | null> {
+  try {
+    await bootstrapWorkspace(workspaceId)
+    const config = await resolveWorkspaceConfig(workspaceId)
+    const git = await ensureWorkingCopy(config)
+    return getSyncStatus(git, {
+      branch: config.branch,
+      remoteConfigured: Boolean(config.remoteUrl),
+    })
+  } catch {
+    return null
+  }
 }

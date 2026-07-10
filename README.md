@@ -12,12 +12,11 @@ Fluffmind is a self-hostable, git-backed personal knowledge management (PKM) app
 
 ## Status
 
-P0 (foundations: read-only vault engine, design system, viewer) and P1 (server-side
-Git sync — `writeToWorkspace`, note creation, sync status) are done. P2
-(auth/workspaces), P3 (block editor), and P4 (Kanban) are shipped. P5 (MCP server) is
-in progress. See the
-[Project board](https://github.com/users/chatondearu/projects/3) and
-[Milestones](https://github.com/chatondearu/fluffmind/milestones) for the roadmap.
+**MVP-ready:** P0–P6 shipped (vault engine, Git sync, auth/workspaces, block editor, Kanban, MCP, hardening).
+P7 stretch (scale-out, static publishing) is deferred until after real-world iteration.
+
+See the [Project board](https://github.com/users/chatondearu/projects/3) and
+[Milestones](https://github.com/chatondearu/fluffmind/milestones) for history.
 
 Architecture decisions and rationale: `DESIGN.md`. Conventions and gotchas for anyone
 (human or agent) working in this repo: `AGENTS.md`.
@@ -47,12 +46,16 @@ hot-reload dev server inside the container.
 
 ### Deploying (Coolify)
 
-`docker-compose.coolify.yml` is meant to be used as a Coolify "Docker Compose" resource
-— Coolify substitutes its own magic environment variables (domain generation, random
-Postgres credentials) at deploy time. Set `GIT_REMOTE_URL` in Coolify's environment
-UI to clone and push a remote vault repo; without it, notes still persist locally in
-the `vault-data` volume (git-inited on first write). See the comments in that file and
-`.env.example` for the HTTPS + token format.
+`docker-compose.coolify.yml` is meant to be used as a Coolify "Docker Compose" resource.
+
+**Solo mode (fastest):** leave `AUTH_DISABLED=true` (default), set `GIT_REMOTE_URL` optionally, deploy.
+
+**Multi-account mode:** set `AUTH_DISABLED=false`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (public URL),
+configure GitHub OAuth (`GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`). First signup creates a workspace automatically.
+
+**Webhooks (external Git edits):** set `GITHUB_WEBHOOK_SECRET`, add a GitHub webhook on `POST /api/webhooks/github` (push events).
+
+Health check: `GET /api/health` (used by Docker healthcheck).
 
 ## MCP (AI agents)
 

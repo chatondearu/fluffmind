@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import { authClient } from '../composables/useAuth'
+import { ensureWorkspaceOnboarding } from '../composables/useOnboarding'
 
 const route = useRoute()
 const email = ref('')
@@ -35,6 +36,7 @@ async function loginWithEmail() {
     return
   }
 
+  await ensureWorkspaceOnboarding()
   await navigateTo(callbackUrl.value)
 }
 

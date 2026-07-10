@@ -4,6 +4,10 @@ function isAuthRoute(path: string): boolean {
   return path === '/api/auth' || path.startsWith('/api/auth/')
 }
 
+function isPublicApiRoute(path: string): boolean {
+  return path === '/api/health' || path.startsWith('/api/webhooks/')
+}
+
 function isProtectedRoute(path: string): boolean {
   if (path === '/api/notes' || path.startsWith('/api/notes/'))
     return true
@@ -18,6 +22,9 @@ export default defineEventHandler(async (event) => {
   const path = event.path
 
   if (isAuthRoute(path))
+    return
+
+  if (isPublicApiRoute(path))
     return
 
   if (!isProtectedRoute(path))
