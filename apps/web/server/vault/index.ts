@@ -75,6 +75,12 @@ async function findMarkdownFiles(dir: string): Promise<string[]> {
   return files
 }
 
+/** Returns true when the vault contains at least one markdown note. */
+export async function vaultHasMarkdownNotes(vaultPath: string): Promise<boolean> {
+  const files = await findMarkdownFiles(vaultPath)
+  return files.length > 0
+}
+
 /**
  * Resolves a raw wikilink target to a note id: exact id match first, falling back to
  * matching by basename when exactly one note has it (mirrors basic Foam/Obsidian

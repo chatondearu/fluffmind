@@ -10,6 +10,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       authEnabled: process.env.AUTH_DISABLED !== 'true' && Boolean(process.env.DATABASE_URL),
+      githubOAuthEnabled: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
     },
   },
   typescript: {

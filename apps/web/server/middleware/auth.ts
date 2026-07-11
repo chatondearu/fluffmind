@@ -5,7 +5,7 @@ function isAuthRoute(path: string): boolean {
 }
 
 function isPublicApiRoute(path: string): boolean {
-  return path === '/api/health' || path.startsWith('/api/webhooks/')
+  return path === '/api/health' || path === '/api/deployment-info' || path.startsWith('/api/webhooks/')
 }
 
 function isProtectedRoute(path: string): boolean {

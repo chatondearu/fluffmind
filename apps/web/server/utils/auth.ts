@@ -1,4 +1,4 @@
-import { auth } from '@fluffmind/db'
+import { getAuth } from '@fluffmind/db'
 import type { H3Event } from 'h3'
 import { resolveActiveWorkspaceId } from '../vault/workspace'
 
@@ -9,7 +9,7 @@ export function isAuthEnabled(): boolean {
 }
 
 export async function getSession(event: H3Event) {
-  const session = await auth.api.getSession({
+  const session = await getAuth().api.getSession({
     headers: event.headers,
   })
 
@@ -59,7 +59,7 @@ export async function requireWorkspacePermission<Resource extends WorkspacePermi
 
   await requireSession(event)
 
-  const hasPermission = await auth.api.hasPermission({
+  const hasPermission = await getAuth().api.hasPermission({
     headers: event.headers,
     body: {
       organizationId: workspaceId,

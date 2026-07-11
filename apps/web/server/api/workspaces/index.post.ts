@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises'
-import { auth, getDb, workspaceConfig } from '@fluffmind/db'
+import { getAuth, getDb, workspaceConfig } from '@fluffmind/db'
 import { readJsonBody } from '../../utils/read-json-body'
 import { ACTIVE_WORKSPACE_COOKIE, getWorkspaceVaultPath } from '../../vault/workspace'
 import { isAuthEnabled, requireSession } from '../../utils/auth'
@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const created = await auth.api.createOrganization({
+  const created = await getAuth().api.createOrganization({
     headers: event.headers,
     body: {
       name,

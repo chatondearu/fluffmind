@@ -1,5 +1,15 @@
-import { auth } from '@fluffmind/db'
+import { getAuth } from '@fluffmind/db'
+
+import { isAuthEnabled } from '../../utils/auth'
 
 export default defineEventHandler((event) => {
-  return auth.handler(toWebRequest(event))
+  if (!isAuthEnabled()) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Auth disabled',
+      message: 'Authentication is disabled for this environment.',
+    })
+  }
+
+  return getAuth().handler(toWebRequest(event))
 })

@@ -52,6 +52,13 @@ const showLogout = computed(() =>
   && !hideWorkspaceControls.value
   && !!authSession.value?.session,
 )
+const showLogin = computed(() =>
+  authEnabled
+  && !hideWorkspaceControls.value
+  && !authSession.value?.session
+  && !isPending.value,
+)
+const showSettingsLink = computed(() => !hideWorkspaceControls.value)
 const loggingOut = ref(false)
 
 async function logout() {
@@ -181,6 +188,15 @@ watch(
     <header class="sticky top-0 z-10 border-b border-outline/70 bg-surface/95 backdrop-blur">
       <div class="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-end gap-2 px-4 py-3">
         <SyncStatusBar />
+
+        <NuxtLink
+          v-if="showSettingsLink"
+          to="/settings"
+          class="rounded-lg px-2 py-1 text-sm text-primary hover:bg-primary/10"
+        >
+          Paramètres
+        </NuxtLink>
+
         <div v-if="showWorkspaceSwitcher" class="flex items-center gap-2">
           <label class="text-sm text-on-surface-variant" for="workspace-switcher">Workspace</label>
           <select
@@ -202,6 +218,14 @@ watch(
           class="rounded-lg px-2 py-1 text-sm text-primary hover:bg-primary/10"
         >
           Paramètres workspace
+        </NuxtLink>
+
+        <NuxtLink
+          v-if="showLogin"
+          to="/login"
+          class="rounded-lg px-2 py-1 text-sm text-primary hover:bg-primary/10"
+        >
+          Connexion
         </NuxtLink>
 
         <FluffmindButton
