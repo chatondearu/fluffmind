@@ -32,6 +32,7 @@ export const fluffmindPreset = definePreset(() => ({
     'md3-card-outlined': 'rounded-2xl border border-outline-variant bg-surface',
     'md3-nav-item': 'flex min-w-0 items-center gap-2 rounded-full px-3 py-2 md3-body-md text-on-surface transition-colors hover:bg-on-surface/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20',
     'md3-nav-item-active': 'bg-secondary-container text-on-secondary-container font-medium hover:bg-secondary-container',
+    'md3-menu': 'overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low shadow-md3-2',
     'md3-state-layer': 'relative overflow-hidden before:absolute before:inset-0 before:bg-on-surface before:opacity-0 before:transition-opacity hover:before:opacity-8',
     'md3-top-bar': 'sticky top-0 z-10 flex min-h-16 items-center gap-2 border-b border-outline-variant bg-surface-container px-4 shadow-md3-1 backdrop-blur-sm',
     'md3-page': 'w-full max-w-4xl px-6 py-6 md:px-8 md:py-8',

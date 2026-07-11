@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { $fetch } from 'ofetch'
-import { FluffmindButton } from '@fluffmind/design-system/src/components'
+import {
+  FluffmindButton,
+  FluffmindChip,
+  FluffmindIconButton,
+  FluffmindTooltip,
+} from '@fluffmind/design-system/src/components'
 
 interface SyncStatus {
   remoteConfigured: boolean
@@ -28,12 +33,12 @@ const statusLabel = computed(() => {
   return 'Up to date'
 })
 
-const statusTone = computed(() => {
+const statusVariant = computed<'filled' | 'outlined'>(() => {
   const status = data.value
-  if (!status) return 'text-on-surface-variant'
-  if (status.behind > 0) return 'text-error'
-  if (status.ahead > 0) return 'text-on-surface-variant'
-  return 'text-primary'
+  if (!status) return 'outlined'
+  if (status.behind > 0) return 'filled'
+  if (status.ahead > 0) return 'outlined'
+  return 'filled'
 })
 
 async function pullLatest() {
@@ -54,30 +59,35 @@ async function pullLatest() {
 
 <template>
   <div v-if="visible" class="flex flex-col items-end gap-1">
-    <div class="flex items-center gap-2 text-xs">
-      <span :class="statusTone">
+    <div class="flex items-center gap-2">
+      <FluffmindChip
+        :variant="statusVariant"
+        size="sm"
+        :class="(data?.behind ?? 0) > 0 ? 'bg-error-container text-on-error-container' : ''"
+      >
         {{ pending ? 'Checking sync…' : statusLabel }}
-      </span>
+      </FluffmindChip>
       <FluffmindButton
         v-if="(data?.behind ?? 0) > 0"
         variant="outlined"
+        size="sm"
         :disabled="pulling || pending"
         @click="pullLatest"
       >
         {{ pulling ? 'Pulling…' : 'Pull' }}
       </FluffmindButton>
-      <button
-        v-else
-        type="button"
-        class="rounded px-1 text-on-surface-variant hover:text-primary"
-        title="Refresh sync status"
-        :disabled="pending"
-        @click="refresh()"
-      >
-        ↻
-      </button>
+      <FluffmindTooltip v-else text="Refresh sync status">
+        <FluffmindIconButton
+          label="Refresh sync status"
+          size="sm"
+          :disabled="pending"
+          @click="refresh()"
+        >
+          ↻
+        </FluffmindIconButton>
+      </FluffmindTooltip>
     </div>
-    <p v-if="pullError" class="max-w-xs text-right text-xs text-error">
+    <p v-if="pullError" class="max-w-xs text-right md3-label-md text-error">
       {{ pullError }}
     </p>
   </div>

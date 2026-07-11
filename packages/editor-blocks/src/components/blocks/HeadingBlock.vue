@@ -26,10 +26,10 @@ const level = computed(() => Math.min(6, Math.max(1, props.block.level ?? 1)))
 
 const headingClass = computed(() => {
   switch (level.value) {
-    case 1: return 'text-3xl font-bold'
-    case 2: return 'text-2xl font-semibold'
-    case 3: return 'text-xl font-semibold'
-    default: return 'text-lg font-medium'
+    case 1: return 'md3-display-sm'
+    case 2: return 'md3-headline-sm'
+    case 3: return 'md3-title-md text-lg'
+    default: return 'md3-title-sm'
   }
 })
 

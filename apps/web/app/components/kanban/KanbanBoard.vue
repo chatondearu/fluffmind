@@ -1,5 +1,12 @@
 <script setup lang="ts">
 import type { KanbanBoard, KanbanCard, KanbanColumn } from '@fluffmind/kanban'
+import {
+  FluffmindButton,
+  FluffmindCheckbox,
+  FluffmindIconButton,
+  FluffmindTextArea,
+  FluffmindTextField,
+} from '@fluffmind/design-system/src/components'
 
 interface Props {
   readonly?: boolean
@@ -23,10 +30,6 @@ function cloneBoard(): KanbanBoard {
 
 function commit(next: KanbanBoard) {
   board.value = next
-}
-
-function updateColumns(columns: KanbanColumn[]) {
-  commit({ ...board.value, columns })
 }
 
 function addColumn() {
@@ -71,12 +74,8 @@ function deleteCard(columnIndex: number, cardIndex: number) {
   commit(next)
 }
 
-function toggleCard(columnIndex: number, cardIndex: number) {
-  const next = cloneBoard()
-  const card = next.columns[columnIndex]?.cards[cardIndex]
-  if (!card) return
-  card.checked = !card.checked
-  commit(next)
+function toggleCard(columnIndex: number, cardIndex: number, checked: boolean) {
+  updateCard(columnIndex, cardIndex, { checked })
 }
 
 function onDragOver(event: DragEvent) {
@@ -189,7 +188,7 @@ function onColumnAppendDrop(columnIndex: number, event: DragEvent) {
       <section
         v-for="(column, columnIndex) in board.columns"
         :key="`${columnIndex}-${column.title}`"
-        class="min-w-64 flex shrink-0 flex-col rounded-xl border border-outline bg-surface-container-low p-3"
+        class="md3-card flex min-w-72 shrink-0 flex-col p-3"
         @dragover="onDragOver"
         @drop="onColumnDrop(columnIndex, $event)"
       >
@@ -201,72 +200,70 @@ function onColumnAppendDrop(columnIndex: number, event: DragEvent) {
         >
           <span
             v-if="!readonly"
-            class="cursor-grab select-none pt-1 font-mono text-xs text-on-surface-variant"
+            class="cursor-grab select-none pt-2 font-mono text-xs text-on-surface-variant"
             title="Drag to reorder column"
           >⋮⋮</span>
-          <input
-            :value="column.title"
+          <FluffmindTextField
+            :model-value="column.title"
             :readonly="readonly"
-            class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-on-surface outline-none"
-            @input="renameColumn(columnIndex, ($event.target as HTMLInputElement).value)"
-          >
-          <button
+            class="min-w-0 flex-1 border-none bg-transparent px-0 py-1 md3-title-sm shadow-none focus-visible:ring-0"
+            @update:model-value="renameColumn(columnIndex, $event)"
+          />
+          <FluffmindIconButton
             v-if="!readonly"
-            type="button"
-            class="rounded px-1 text-xs text-on-surface-variant hover:bg-error/10 hover:text-error"
-            title="Delete column"
+            label="Delete column"
+            size="sm"
+            class="text-error hover:bg-error/10"
             @click="deleteColumn(columnIndex)"
           >
             ×
-          </button>
+          </FluffmindIconButton>
         </header>
 
         <ul class="flex min-h-16 flex-col gap-2">
           <li
             v-for="(card, cardIndex) in column.cards"
             :key="`${columnIndex}-${cardIndex}-${card.text.slice(0, 24)}`"
-            class="group rounded-lg border border-outline-variant bg-surface p-2"
+            class="md3-card-outlined group p-2 shadow-none"
             :draggable="!readonly"
             @dragstart="onCardDragStart(columnIndex, cardIndex, $event)"
             @dragend="onDragEnd"
             @dragover="onDragOver"
             @drop="onCardDrop(columnIndex, cardIndex, $event)"
           >
-            <div class="mb-2 flex items-start gap-2">
+            <div class="flex items-start gap-2">
               <span
                 v-if="!readonly"
-                class="cursor-grab select-none font-mono text-xs text-on-surface-variant opacity-40 group-hover:opacity-100"
+                class="cursor-grab select-none pt-1 font-mono text-xs text-on-surface-variant opacity-40 group-hover:opacity-100"
                 title="Drag to move card"
               >⋮⋮</span>
-              <input
-                type="checkbox"
-                :checked="card.checked"
+              <FluffmindCheckbox
+                :model-value="card.checked"
                 :disabled="readonly"
-                class="mt-0.5"
-                @change="toggleCard(columnIndex, cardIndex)"
-              >
-              <textarea
-                :value="card.text"
-                :readonly="readonly"
-                rows="2"
-                class="min-h-8 min-w-0 flex-1 resize-y bg-transparent text-sm text-on-surface outline-none"
-                placeholder="Card text"
-                @input="updateCard(columnIndex, cardIndex, { text: ($event.target as HTMLTextAreaElement).value })"
+                @update:model-value="toggleCard(columnIndex, cardIndex, $event)"
               />
-              <button
+              <FluffmindTextArea
+                :model-value="card.text"
+                :readonly="readonly"
+                :rows="2"
+                placeholder="Card text"
+                class="min-h-8 flex-1 border-none bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
+                @update:model-value="updateCard(columnIndex, cardIndex, { text: $event })"
+              />
+              <FluffmindIconButton
                 v-if="!readonly"
-                type="button"
-                class="rounded px-1 text-xs text-on-surface-variant hover:bg-error/10 hover:text-error"
-                title="Delete card"
+                label="Delete card"
+                size="sm"
+                class="text-error hover:bg-error/10"
                 @click="deleteCard(columnIndex, cardIndex)"
               >
                 ×
-              </button>
+              </FluffmindIconButton>
             </div>
           </li>
           <li
             v-if="!readonly"
-            class="rounded-lg border border-dashed border-outline-variant px-2 py-3 text-center text-xs text-on-surface-variant"
+            class="rounded-2xl border border-dashed border-outline-variant px-2 py-3 text-center md3-label-md"
             @dragover="onDragOver"
             @drop="onColumnAppendDrop(columnIndex, $event)"
           >
@@ -274,24 +271,26 @@ function onColumnAppendDrop(columnIndex: number, event: DragEvent) {
           </li>
         </ul>
 
-        <button
+        <FluffmindButton
           v-if="!readonly"
-          type="button"
-          class="mt-3 self-start rounded-full border border-outline px-3 py-1 text-xs text-primary hover:bg-primary/10"
+          variant="outlined"
+          size="sm"
+          class="mt-3 self-start"
           @click="addCard(columnIndex)"
         >
           + Card
-        </button>
+        </FluffmindButton>
       </section>
     </div>
 
-    <button
+    <FluffmindButton
       v-if="!readonly"
-      type="button"
-      class="self-start rounded-full border border-outline px-4 py-1 text-sm text-primary hover:bg-primary/10"
+      variant="tonal"
+      size="sm"
+      class="self-start"
       @click="addColumn"
     >
       + Column
-    </button>
+    </FluffmindButton>
   </div>
 </template>

@@ -63,7 +63,7 @@ defineExpose({ onKeydown })
   <Teleport to="body">
     <div
       v-if="open && commands.length > 0"
-      class="slash-menu fixed z-50 min-w-56 overflow-hidden rounded-lg border border-outline bg-surface shadow-lg"
+      class="slash-menu md3-menu fixed z-50 min-w-56"
       :style="style"
       @mousedown.prevent
     >
@@ -71,12 +71,12 @@ defineExpose({ onKeydown })
         <li v-for="(command, index) in commands" :key="`${command.type}-${command.level ?? 0}-${command.label}`">
           <button
             type="button"
-            class="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-primary/10"
-            :class="{ 'bg-primary/10': index === activeIndex }"
+            class="md3-nav-item w-full flex-col items-start rounded-xl"
+            :class="{ 'md3-nav-item-active': index === activeIndex }"
             @click="onSelect(command)"
           >
-            <span class="text-sm font-medium text-on-surface">{{ command.label }}</span>
-            <span class="text-xs text-on-surface-variant">{{ command.description }}</span>
+            <span class="md3-title-sm">{{ command.label }}</span>
+            <span class="md3-label-md">{{ command.description }}</span>
           </button>
         </li>
       </ul>

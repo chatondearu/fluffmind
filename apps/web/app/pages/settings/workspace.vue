@@ -2,7 +2,9 @@
 import {
   FluffmindButton,
   FluffmindCard,
+  FluffmindCheckbox,
   FluffmindChip,
+  FluffmindSelect,
   FluffmindTextField,
 } from '@fluffmind/design-system/src/components'
 import { authClient } from '../../composables/useAuth'
@@ -206,11 +208,6 @@ function setLocalOverride(memberId: string, value: boolean): void {
   }
 }
 
-function onLocalOverrideToggle(memberId: string, event: Event): void {
-  const target = event.target
-  const checked = target instanceof HTMLInputElement ? target.checked : false
-  setLocalOverride(memberId, checked)
-}
 
 async function syncNowFromGitHub() {
   if (!canManageGitHub.value) {
@@ -372,14 +369,10 @@ await loadWorkspaceData()
         </label>
         <label class="block">
           <span class="mb-2 block md3-label-lg">Rôle</span>
-          <select
+          <FluffmindSelect
             v-model="inviteRole"
-            class="md3-field h-10 py-2"
-          >
-            <option v-for="option in roleOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
+            :options="roleOptions"
+          />
         </label>
         <div class="flex items-end">
           <FluffmindButton type="submit" class="w-full" :disabled="submittingInvitation">
@@ -470,16 +463,13 @@ await loadWorkspaceData()
               Ajouté le {{ formatDate(workspaceMember.createdAt) }}
             </p>
           </div>
-          <label class="flex items-center gap-2 md3-body-md text-on-surface-variant">
-            <input
-              :checked="localOverrides[workspaceMember.id] ?? false"
-              type="checkbox"
-              :disabled="!canManageGitHub"
-              class="h-4 w-4 rounded border border-outline"
-              @change="onLocalOverrideToggle(workspaceMember.id, $event)"
-            >
+          <FluffmindCheckbox
+            :model-value="localOverrides[workspaceMember.id] ?? false"
+            :disabled="!canManageGitHub"
+            @update:model-value="setLocalOverride(workspaceMember.id, $event)"
+          >
             Override local
-          </label>
+          </FluffmindCheckbox>
         </li>
       </ul>
       <p v-if="!loading && members.length === 0" class="md3-body-md text-on-surface-variant">
