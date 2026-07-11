@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { auth, getDb, member, workspaceConfig } from '@fluffmind/db'
+import { getAuth, getDb, member, workspaceConfig } from '@fluffmind/db'
 import { eq } from 'drizzle-orm'
 
 import { isAuthEnabled, requireSession } from '../../utils/auth'
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
     .replace(/^-+|-+$/g, '')
     .slice(0, 63) || `ws-${session.user.id.slice(0, 8)}`
 
-  const created = await auth.api.createOrganization({
+  const created = await getAuth().api.createOrganization({
     headers: event.headers,
     body: {
       name: workspaceName,

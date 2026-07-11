@@ -164,6 +164,11 @@ async function createNote() {
         Or link a Git remote in
         <NuxtLink to="/settings/workspace" class="text-primary hover:underline">workspace settings</NuxtLink>.
       </span>
+      <span v-else class="mt-2 block text-sm">
+        See
+        <NuxtLink to="/settings" class="text-primary hover:underline">settings</NuxtLink>
+        for Git sync and multi-account setup.
+      </span>
     </p>
     <p v-else-if="filteredNotes.length === 0" class="text-on-surface-variant">
       No notes match your search.

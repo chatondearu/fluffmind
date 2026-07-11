@@ -7,7 +7,7 @@
 // with an implicit single local workspace (VAULT_PATH env var), no Postgres involved.
 
 export { ac, roles } from './permissions'
-export { auth } from './auth'
+export { getAuth } from './auth'
 export { db, getDb } from './client'
 export * from './schema/auth'
 export * from './schema/workspace'

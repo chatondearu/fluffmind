@@ -3,6 +3,8 @@ import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import { authClient } from '../composables/useAuth'
 import { ensureWorkspaceOnboarding } from '../composables/useOnboarding'
 
+const route = useRoute()
+const { public: { githubOAuthEnabled } } = useRuntimeConfig()
 const name = ref('')
 const email = ref('')
 const password = ref('')
@@ -102,15 +104,21 @@ async function signupWithGitHub() {
         </FluffmindButton>
       </form>
 
-      <div class="my-4 border-t border-outline-variant" />
+      <div v-if="githubOAuthEnabled" class="my-4 border-t border-outline-variant" />
 
-      <FluffmindButton variant="outlined" class="w-full" :disabled="loading" @click="signupWithGitHub">
+      <FluffmindButton
+        v-if="githubOAuthEnabled"
+        variant="outlined"
+        class="w-full"
+        :disabled="loading"
+        @click="signupWithGitHub"
+      >
         Continuer avec GitHub
       </FluffmindButton>
 
       <p class="mt-4 text-sm text-on-surface-variant">
         Déjà inscrit ?
-        <NuxtLink to="/login" class="text-primary hover:underline">
+        <NuxtLink :to="{ path: '/login', query: route.query }" class="text-primary hover:underline">
           Se connecter
         </NuxtLink>
       </p>

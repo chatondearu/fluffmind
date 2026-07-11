@@ -4,6 +4,7 @@ import { authClient } from '../composables/useAuth'
 import { ensureWorkspaceOnboarding } from '../composables/useOnboarding'
 
 const route = useRoute()
+const { public: { githubOAuthEnabled } } = useRuntimeConfig()
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
@@ -97,15 +98,21 @@ async function loginWithGitHub() {
         </FluffmindButton>
       </form>
 
-      <div class="my-4 border-t border-outline-variant" />
+      <div v-if="githubOAuthEnabled" class="my-4 border-t border-outline-variant" />
 
-      <FluffmindButton variant="outlined" class="w-full" :disabled="loading" @click="loginWithGitHub">
+      <FluffmindButton
+        v-if="githubOAuthEnabled"
+        variant="outlined"
+        class="w-full"
+        :disabled="loading"
+        @click="loginWithGitHub"
+      >
         Continuer avec GitHub
       </FluffmindButton>
 
       <p class="mt-4 text-sm text-on-surface-variant">
         Pas encore de compte ?
-        <NuxtLink to="/signup" class="text-primary hover:underline">
+        <NuxtLink :to="{ path: '/signup', query: route.query }" class="text-primary hover:underline">
           Créer un compte
         </NuxtLink>
       </p>

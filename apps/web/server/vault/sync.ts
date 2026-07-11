@@ -1,9 +1,45 @@
-import { ensureWorkingCopy, getSyncStatus, type SyncStatus } from '@fluffmind/integrations'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+
+import { commitAndPush, ensureWorkingCopy, getSyncStatus, type SyncStatus } from '@fluffmind/integrations'
 
 import { isAuthEnabled } from '../utils/auth'
+import { vaultHasMarkdownNotes } from './index'
+import { invalidateVaultIndex } from './service'
 import { resolveWorkspaceConfig } from './workspace'
 
+const WELCOME_NOTE = `# Welcome to Fluffmind
+
+Your vault is ready. Create notes from the home page or edit this file.
+
+## Git sync (optional)
+
+To back up notes on GitHub, set \`GIT_REMOTE_URL\` in your deployment environment and redeploy.
+`
+
 const bootstrapPromises = new Map<string, Promise<SyncStatus | null>>()
+
+async function seedWelcomeNoteIfEmpty(
+  workspaceId: string,
+  vaultPath: string,
+  branch: string,
+  remoteConfigured: boolean,
+): Promise<void> {
+  if (await vaultHasMarkdownNotes(vaultPath))
+    return
+
+  const welcomePath = join(vaultPath, 'welcome.md')
+  await writeFile(welcomePath, WELCOME_NOTE, 'utf-8')
+
+  const config = await resolveWorkspaceConfig(workspaceId)
+  const git = await ensureWorkingCopy(config)
+  await commitAndPush(git, {
+    branch,
+    message: 'Seed welcome note',
+    remoteConfigured,
+  })
+  invalidateVaultIndex(workspaceId)
+}
 
 function logSyncWarnings(status: SyncStatus, branch: string): void {
   if (!status.remoteConfigured) return
@@ -34,6 +70,12 @@ export function bootstrapWorkspace(workspaceId = 'default'): Promise<SyncStatus 
   const promise = (async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
     const git = await ensureWorkingCopy(config)
+    await seedWelcomeNoteIfEmpty(
+      workspaceId,
+      config.path,
+      config.branch,
+      Boolean(config.remoteUrl),
+    )
     const status = await getSyncStatus(git, {
       branch: config.branch,
       remoteConfigured: Boolean(config.remoteUrl),
