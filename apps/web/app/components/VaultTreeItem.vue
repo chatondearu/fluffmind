@@ -45,10 +45,10 @@ function onNewFolderRequest() {
 </script>
 
 <template>
-  <li>
+  <li class="list-none">
     <div
       class="flex items-center gap-0.5"
-      :style="{ paddingLeft: `${depth * 12}px` }"
+      :style="{ paddingLeft: depth > 0 ? `${depth * 10}px` : undefined }"
     >
       <FluffmindListItem
         v-if="node.kind === 'folder'"
@@ -80,7 +80,7 @@ function onNewFolderRequest() {
 
     <ul
       v-if="node.kind === 'folder' && isFolderExpanded"
-      class="flex flex-col gap-0.5"
+      class="m-0 flex list-none flex-col gap-0.5 p-0"
     >
       <VaultTreeItem
         v-for="child in node.children"
@@ -94,7 +94,7 @@ function onNewFolderRequest() {
         @new-folder-request="emit('newFolderRequest', $event)"
         @navigate="emit('navigate')"
       />
-      <li :style="{ paddingLeft: `${(depth + 1) * 12}px` }" class="py-0.5">
+      <li class="list-none py-0.5" :style="{ paddingLeft: `${(depth + 1) * 10}px` }">
         <VaultAddMenu
           :folder-path="folderPathForActions"
           @new-page="onNewPage"

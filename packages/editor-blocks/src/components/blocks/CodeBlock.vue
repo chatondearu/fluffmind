@@ -45,6 +45,7 @@ onUnmounted(() => {
       ref="surface"
       v-model="text"
       placeholder="Code"
+      text-class="font-mono md3-body-md"
       @enter="emit('enter', $event)"
       @shift-enter="emit('shiftEnter', $event)"
       @backspace-empty="emit('backspaceEmpty')"
