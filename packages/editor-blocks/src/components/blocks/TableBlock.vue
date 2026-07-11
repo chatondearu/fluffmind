@@ -29,7 +29,7 @@ const markdown = computed({
   <textarea
     v-model="markdown"
     rows="4"
-    class="w-full resize-y rounded border border-outline bg-surface p-2 font-mono text-sm text-on-surface"
+    class="md3-field min-h-24 resize-y font-mono md3-body-md"
     placeholder="GFM table…"
   />
 </template>

@@ -161,7 +161,7 @@ onUnmounted(() => {
     <div
       v-for="(block, index) in blocks"
       :key="block.id"
-      class="group rounded-md px-1 py-0.5 hover:bg-surface-container-low/40"
+      class="group rounded-xl px-1 py-0.5 transition-colors hover:bg-on-surface/5"
     >
       <BlockRenderer
         :block="block"
