@@ -1,35 +1,69 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
-import { blocksToMarkdown } from '../../blocks-to-markdown'
-import { parseMarkdownToDocument } from '../../document'
+import { blockPlainText, setBlockPlainText } from '../../block-text'
+import { blockEditorContextKey } from '../../block-editor-context'
 import type { BlockNode } from '../../types'
+import EditableSurface from '../EditableSurface.vue'
 
 const props = defineProps<{
   block: BlockNode
+  index: number
 }>()
 
 const emit = defineEmits<{
   update: [block: BlockNode]
+  enter: [offset: number]
+  shiftEnter: [offset: number]
+  backspaceEmpty: []
+  slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
 }>()
 
-const markdown = computed({
-  get: () => blocksToMarkdown([props.block]),
-  set: (value: string) => {
-    const { blocks } = parseMarkdownToDocument(value)
-    const parsed = blocks[0]
-    if (parsed && (parsed.type === 'bulletList' || parsed.type === 'orderedList')) {
-      emit('update', { ...parsed, id: props.block.id })
-    }
+const editor = inject(blockEditorContextKey, null)
+const surface = ref<InstanceType<typeof EditableSurface> | null>(null)
+
+const marker = computed(() => (props.block.type === 'orderedList' ? '1.' : '•'))
+
+const text = computed({
+  get: () => {
+    const item = props.block.children?.[0]
+    const paragraph = item?.children?.[0]
+    return paragraph ? blockPlainText(paragraph) : ''
   },
+  set: (value: string) => {
+    const item = props.block.children?.[0]
+    const paragraph = item?.children?.[0]
+    if (!item || !paragraph) return
+    const nextItem = {
+      ...item,
+      children: [setBlockPlainText(paragraph, value)],
+    }
+    emit('update', { ...props.block, children: [nextItem] })
+  },
+})
+
+onMounted(() => {
+  editor?.registerSurface(props.index, {
+    focus: (offset?: number) => surface.value?.focus(offset),
+  })
+})
+
+onUnmounted(() => {
+  editor?.unregisterSurface(props.index)
 })
 </script>
 
 <template>
-  <textarea
-    v-model="markdown"
-    rows="5"
-    class="w-full resize-y rounded border border-outline bg-surface p-2 font-mono text-sm text-on-surface"
-    placeholder="List markdown…"
-  />
+  <div class="flex items-start gap-2">
+    <span class="mt-0.5 shrink-0 text-on-surface-variant">{{ marker }}</span>
+    <EditableSurface
+      ref="surface"
+      v-model="text"
+      placeholder="Liste"
+      @enter="emit('enter', $event)"
+      @shift-enter="emit('shiftEnter', $event)"
+      @backspace-empty="emit('backspaceEmpty')"
+      @slash-change="emit('slashChange', $event)"
+    />
+  </div>
 </template>
