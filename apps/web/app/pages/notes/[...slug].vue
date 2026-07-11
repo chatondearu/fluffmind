@@ -4,7 +4,8 @@ import { BlockEditor, createEmptyBlock, parseMarkdownToDocument } from '@fluffmi
 import type { BlockNode } from '@fluffmind/editor-blocks'
 import type { NoteSummary, ResolvedLink } from '../../../server/vault/index'
 
-import { displayTitleFromBlocks, useNoteAutosave } from '../../composables/useNoteAutosave'
+import { useNoteAutosave } from '../../composables/useNoteAutosave'
+import { splitTitleFromBlocks } from '../../utils/note-title'
 
 interface NoteDetailResponse {
   note: { id: string, title: string, frontmatter: Record<string, unknown>, content: string, html: string }
@@ -32,6 +33,7 @@ watch(
 
 const noteId = ref(id.value)
 const isNew = ref(false)
+const title = ref('Sans titre')
 const blocks = ref<BlockNode[]>([createEmptyBlock('paragraph')])
 const initialized = ref(false)
 
@@ -40,16 +42,17 @@ watch(
   (value) => {
     if (!value || initialized.value) return
     const parsed = parseMarkdownToDocument(value.note.content).blocks
-    blocks.value = parsed.length > 0 ? parsed : [createEmptyBlock('paragraph')]
+    const split = splitTitleFromBlocks(parsed.length > 0 ? parsed : [createEmptyBlock('paragraph')])
+    title.value = split.title || value.note.title
+    blocks.value = split.bodyBlocks.length > 0 ? split.bodyBlocks : [createEmptyBlock('paragraph')]
     initialized.value = true
   },
   { immediate: true },
 )
 
-const title = computed(() => data.value?.note.title || displayTitleFromBlocks(blocks.value))
-
 const { status, errorMessage } = useNoteAutosave({
   noteId,
+  title,
   blocks,
   isNew,
   async onCreated(createdId) {
@@ -73,9 +76,7 @@ const { status, errorMessage } = useNoteAutosave({
     </div>
 
     <template v-else-if="data">
-      <h1 class="mb-6 md3-display-sm">
-        {{ title }}
-      </h1>
+      <NoteTitleField v-model="title" />
 
       <BlockEditor v-model="blocks" />
 

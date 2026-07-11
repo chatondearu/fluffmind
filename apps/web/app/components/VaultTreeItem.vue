@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FluffmindIconButton, FluffmindListItem, FluffmindTooltip } from '@fluffmind/design-system/src/components'
+import { FluffmindListItem } from '@fluffmind/design-system/src/components'
 
 import type { VaultTreeNode } from '../utils/vault-tree'
 
@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   toggle: [path: string]
   newPage: [folder: string | null]
+  newFolder: [parent: string | null, name: string]
   navigate: []
 }>()
 
@@ -24,28 +25,38 @@ const isFolderExpanded = computed(() =>
   props.node.kind === 'folder' && props.isExpanded(props.node.path),
 )
 
+const folderPathForActions = computed<string | null>(() =>
+  props.node.kind === 'folder' ? (props.node.path || null) : null,
+)
+
 function onFolderClick() {
   if (props.node.kind === 'folder') {
     emit('toggle', props.node.path)
   }
 }
 
-function onNewInFolder() {
-  emit('newPage', props.node.kind === 'folder' ? props.node.path : null)
+function onNewPage() {
+  emit('newPage', folderPathForActions.value)
+}
+
+function onNewFolder() {
+  const name = window.prompt('Nom du dossier')
+  if (!name?.trim()) return
+  emit('newFolder', folderPathForActions.value, name.trim())
 }
 </script>
 
 <template>
   <li>
     <div
-      class="group flex items-center gap-0.5"
+      class="flex items-center gap-0.5"
       :style="{ paddingLeft: `${depth * 12}px` }"
     >
       <FluffmindListItem
         v-if="node.kind === 'folder'"
         as="button"
         type="button"
-        class="flex-1"
+        class="min-w-0 flex-1"
         @click="onFolderClick"
       >
         <template #leading>
@@ -67,20 +78,12 @@ function onNewInFolder() {
           {{ node.title }}
         </FluffmindListItem>
       </NuxtLink>
-
-      <FluffmindTooltip v-if="node.kind === 'folder'" text="Nouvelle page dans ce dossier">
-        <FluffmindIconButton
-          label="Nouvelle page dans ce dossier"
-          size="sm"
-          class="opacity-0 transition-opacity group-hover:opacity-100"
-          @click.stop="onNewInFolder"
-        >
-          +
-        </FluffmindIconButton>
-      </FluffmindTooltip>
     </div>
 
-    <ul v-if="node.kind === 'folder' && isFolderExpanded && node.children.length > 0" class="flex flex-col gap-0.5">
+    <ul
+      v-if="node.kind === 'folder' && isFolderExpanded"
+      class="flex flex-col gap-0.5"
+    >
       <VaultTreeItem
         v-for="child in node.children"
         :key="child.path"
@@ -90,8 +93,16 @@ function onNewInFolder() {
         :is-expanded="isExpanded"
         @toggle="emit('toggle', $event)"
         @new-page="emit('newPage', $event)"
+        @new-folder="(parent, name) => emit('newFolder', parent, name)"
         @navigate="emit('navigate')"
       />
+      <li :style="{ paddingLeft: `${(depth + 1) * 12}px` }" class="py-0.5">
+        <VaultAddMenu
+          :folder-path="folderPathForActions"
+          @new-page="onNewPage"
+          @new-folder="onNewFolder"
+        />
+      </li>
     </ul>
   </li>
 </template>

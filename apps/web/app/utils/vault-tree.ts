@@ -6,7 +6,7 @@ export interface VaultTreeNode {
   kind: 'folder' | 'page'
   /** Display label (last path segment). */
   name: string
-  /** Folder path (no trailing slash) or full note id for pages. */
+  /** Folder path (no trailing slash) or full note id for pages. Empty string = workspace root. */
   path: string
   noteId?: string
   href: string
@@ -102,9 +102,16 @@ function getOrCreateFolder(
   return current
 }
 
-/** Builds a virtual folder tree from flat note summaries (vault paths). */
-export function buildVaultTree(notes: NoteSummary[]): VaultTreeNode[] {
+/** Builds a virtual folder tree from flat note summaries and explicit folder paths. */
+export function buildVaultTree(notes: NoteSummary[], folderPaths: string[] = []): VaultTreeNode[] {
   const root = new Map<string, MutableFolder | MutablePage>()
+
+  for (const folderPath of folderPaths) {
+    const segments = folderPath.split('/').filter(Boolean)
+    if (segments.length > 0) {
+      getOrCreateFolder(root, segments)
+    }
+  }
 
   for (const note of notes) {
     const segments = note.id.split('/').filter(Boolean)
@@ -129,6 +136,29 @@ export function buildVaultTree(notes: NoteSummary[]): VaultTreeNode[] {
   return mutableToNodes(root)
 }
 
+/** Wraps vault nodes under a workspace root folder. */
+export function wrapVaultTreeRoot(workspaceName: string, children: VaultTreeNode[]): VaultTreeNode[] {
+  if (children.length === 0) {
+    return [{
+      kind: 'folder',
+      name: workspaceName,
+      path: '',
+      href: '',
+      title: workspaceName,
+      children: [],
+    }]
+  }
+
+  return [{
+    kind: 'folder',
+    name: workspaceName,
+    path: '',
+    href: '',
+    title: workspaceName,
+    children,
+  }]
+}
+
 export function sanitizeFolderQuery(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim().replace(/^\/+|\/+$/g, '')
@@ -147,4 +177,13 @@ export function sanitizeFolderQuery(value: unknown): string | null {
 export function prefixNoteId(slug: string, folder: string | null): string {
   if (!folder) return slug
   return `${folder}/${slug}`
+}
+
+export function slugifyFolderName(name: string): string {
+  return name
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'dossier'
 }

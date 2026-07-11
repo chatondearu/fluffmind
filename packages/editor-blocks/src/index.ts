@@ -1,4 +1,4 @@
-export { blockPlainText, createEmptyBlock, setBlockPlainText } from './block-text'
+export { blockPlainText, createEmptyBlock, isBlockEmpty, setBlockPlainText } from './block-text'
 export { blocksToMarkdown } from './blocks-to-markdown'
 export { filterSlashCommands, SLASH_COMMANDS } from './slash-commands'
 export { BlockEditor, BlockRenderer } from './components'
@@ -8,6 +8,7 @@ export {
   parseMarkdownToDocument,
   roundTripMarkdown,
   serializeDocument,
+  stripTrailingEmptyBlocks,
 } from './document'
 export { defineBlock, getBlockDefinition, getRegisteredBlockTypes } from './registry'
 export { registerDefaultBlocks } from './register-defaults'

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { createEmptyBlock, BlockEditor } from '@fluffmind/editor-blocks'
+import { BlockEditor, createEmptyBlock } from '@fluffmind/editor-blocks'
 import type { BlockNode } from '@fluffmind/editor-blocks'
 
-import { displayTitleFromBlocks, useNoteAutosave } from '../../composables/useNoteAutosave'
 import { sanitizeFolderFromQuery } from '../../utils/note-document'
 
 const route = useRoute()
@@ -10,12 +9,12 @@ const folderPrefix = computed(() => sanitizeFolderFromQuery(route.query.folder))
 
 const noteId = ref('new')
 const isNew = ref(true)
+const title = ref('Sans titre')
 const blocks = ref<BlockNode[]>([createEmptyBlock('paragraph')])
-
-const title = computed(() => displayTitleFromBlocks(blocks.value))
 
 const { status, errorMessage } = useNoteAutosave({
   noteId,
+  title,
   blocks,
   isNew,
   folderPrefix,
@@ -38,9 +37,7 @@ const { status, errorMessage } = useNoteAutosave({
       </span>
     </div>
 
-    <h1 class="mb-6 md3-display-sm">
-      {{ title }}
-    </h1>
+    <NoteTitleField v-model="title" />
 
     <BlockEditor v-model="blocks" />
 

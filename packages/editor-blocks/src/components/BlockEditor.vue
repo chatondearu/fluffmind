@@ -4,6 +4,7 @@ import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 
 import {
   blockPlainText,
   createEmptyBlock,
+  isBlockEmpty,
   mergeBlockText,
   setBlockPlainText,
   splitTextAt,
@@ -25,6 +26,7 @@ const slashQuery = ref('')
 const slashAnchor = ref<DOMRect | null>(null)
 const slashBlockIndex = ref<number | null>(null)
 const slashMenu = ref<InstanceType<typeof SlashMenu> | null>(null)
+const dragFromIndex = ref<number | null>(null)
 
 const filteredCommands = computed(() => filterSlashCommands(slashQuery.value))
 
@@ -44,21 +46,34 @@ function ensureAtLeastOneBlock() {
   }
 }
 
-onMounted(() => {
+function ensureTrailingEmptyBlock() {
   ensureAtLeastOneBlock()
+  const last = blocks.value[blocks.value.length - 1]
+  if (!last || last.type !== 'paragraph' || !isBlockEmpty(last)) {
+    blocks.value = [...blocks.value, createEmptyBlock('paragraph')]
+  }
+}
+
+function commitBlocks(next: BlockNode[]) {
+  blocks.value = next
+  ensureTrailingEmptyBlock()
+}
+
+onMounted(() => {
+  ensureTrailingEmptyBlock()
   nextTick(() => surfaces.get(0)?.focus(0))
   window.addEventListener('keydown', onGlobalKeydown)
 })
 
 watch(
   () => blocks.value.length,
-  () => ensureAtLeastOneBlock(),
+  () => ensureTrailingEmptyBlock(),
 )
 
 function updateBlock(index: number, next: BlockNode) {
   const copy = [...blocks.value]
   copy[index] = next
-  blocks.value = copy
+  commitBlocks(copy)
 }
 
 function focusBlock(index: number, offset = 0) {
@@ -68,7 +83,7 @@ function focusBlock(index: number, offset = 0) {
 function insertBlockAfter(index: number, block: BlockNode) {
   const copy = [...blocks.value]
   copy.splice(index + 1, 0, block)
-  blocks.value = copy
+  commitBlocks(copy)
   focusBlock(index + 1, 0)
 }
 
@@ -110,7 +125,7 @@ function handleBackspaceEmpty(index: number) {
 
   const copy = [...blocks.value]
   copy.splice(index, 1)
-  blocks.value = copy
+  commitBlocks(copy)
   focusBlock(index - 1, merged.length)
 }
 
@@ -147,6 +162,45 @@ function applySlashCommand(command: SlashCommand) {
   focusBlock(index, 0)
 }
 
+function onBlockDragStart(index: number, event: DragEvent) {
+  dragFromIndex.value = index
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+}
+
+function onBlockDragOver(event: DragEvent) {
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+}
+
+function moveBlock(from: number, to: number) {
+  if (from === to || from < 0 || to < 0) return
+  const copy = [...blocks.value]
+  const [moved] = copy.splice(from, 1)
+  if (!moved) return
+  let insertAt = to
+  if (from < to) insertAt -= 1
+  copy.splice(insertAt, 0, moved)
+  commitBlocks(copy)
+  focusBlock(insertAt, 0)
+}
+
+function onBlockDrop(targetIndex: number, event: DragEvent) {
+  event.preventDefault()
+  const from = dragFromIndex.value
+  dragFromIndex.value = null
+  if (from === null) return
+  moveBlock(from, targetIndex)
+}
+
+function onBlockDragEnd() {
+  dragFromIndex.value = null
+}
+
 function onGlobalKeydown(event: KeyboardEvent) {
   slashMenu.value?.onKeydown(event)
 }
@@ -161,17 +215,31 @@ onUnmounted(() => {
     <div
       v-for="(block, index) in blocks"
       :key="block.id"
-      class="group rounded-xl px-1 py-0.5 transition-colors hover:bg-on-surface/5"
+      class="group flex items-start gap-1 rounded-xl px-1 py-0.5 transition-colors hover:bg-on-surface/5"
+      @dragover="onBlockDragOver"
+      @drop="onBlockDrop(index, $event)"
     >
-      <BlockRenderer
-        :block="block"
-        :index="index"
-        @update="updateBlock(index, $event)"
-        @enter="handleEnter(index, $event)"
-        @shift-enter="handleShiftEnter(index, $event)"
-        @backspace-empty="handleBackspaceEmpty(index)"
-        @slash-change="handleSlashChange(index, $event)"
-      />
+      <button
+        type="button"
+        class="mt-1 cursor-grab rounded-full px-1 font-mono text-xs text-on-surface-variant opacity-0 transition-opacity hover:bg-on-surface/8 group-hover:opacity-100"
+        title="Déplacer le bloc"
+        draggable="true"
+        @dragstart="onBlockDragStart(index, $event)"
+        @dragend="onBlockDragEnd"
+      >
+        ⋮⋮
+      </button>
+      <div class="min-w-0 flex-1">
+        <BlockRenderer
+          :block="block"
+          :index="index"
+          @update="updateBlock(index, $event)"
+          @enter="handleEnter(index, $event)"
+          @shift-enter="handleShiftEnter(index, $event)"
+          @backspace-empty="handleBackspaceEmpty(index)"
+          @slash-change="handleSlashChange(index, $event)"
+        />
+      </div>
     </div>
 
     <SlashMenu

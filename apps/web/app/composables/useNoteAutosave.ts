@@ -3,6 +3,7 @@ import { blockPlainText, serializeDocument } from '@fluffmind/editor-blocks'
 import type { BlockNode } from '@fluffmind/editor-blocks'
 import type { Ref } from 'vue'
 
+import { isBodyEmpty, blocksWithTitle } from '../utils/note-title'
 import { isDocumentEmpty, noteIdFromBlocks, sanitizeFolderFromQuery } from '../utils/note-document'
 import { refreshVaultNotes } from './useVaultTree'
 
@@ -15,6 +16,7 @@ function extractErrorMessage(err: unknown): string {
 
 export function useNoteAutosave(options: {
   noteId: Ref<string>
+  title: Ref<string>
   blocks: Ref<BlockNode[]>
   isNew: Ref<boolean>
   folderPrefix?: Ref<string | null>
@@ -25,7 +27,8 @@ export function useNoteAutosave(options: {
   let timer: ReturnType<typeof setTimeout> | null = null
 
   async function persist() {
-    if (isDocumentEmpty(options.blocks.value)) {
+    const documentBlocks = blocksWithTitle(options.title.value, options.blocks.value)
+    if (isDocumentEmpty(documentBlocks) || (isBodyEmpty(options.blocks.value) && !options.title.value.trim())) {
       return
     }
 
@@ -33,11 +36,11 @@ export function useNoteAutosave(options: {
     errorMessage.value = null
 
     try {
-      const content = serializeDocument({ blocks: options.blocks.value })
+      const content = serializeDocument({ blocks: documentBlocks })
 
       if (options.isNew.value) {
         const folder = options.folderPrefix?.value ?? null
-        let id = noteIdFromBlocks(options.blocks.value, folder)
+        let id = noteIdFromBlocks(documentBlocks, folder)
         try {
           await $fetch('/api/notes', { method: 'POST', body: { id, content } })
         } catch (error) {
@@ -73,7 +76,7 @@ export function useNoteAutosave(options: {
   }
 
   watch(
-    () => options.blocks.value,
+    () => [options.blocks.value, options.title.value] as const,
     () => scheduleSave(),
     { deep: true },
   )

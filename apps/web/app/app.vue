@@ -47,6 +47,11 @@ const hideSidebar = computed(() =>
 const sidebarWorkspaceId = computed(() =>
   authSession.value?.session?.activeOrganizationId || selectedWorkspaceId.value || 'default',
 )
+const sidebarWorkspaceName = computed(() => {
+  const activeId = sidebarWorkspaceId.value
+  const organization = organizations.value.find(item => item.id === activeId)
+  return organization?.name ?? 'Mon vault'
+})
 const mobileSidebarOpen = ref(false)
 
 function closeMobileSidebar() {
@@ -209,13 +214,14 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface text-on-surface">
+  <div class="h-screen overflow-hidden bg-surface text-on-surface">
     <NuxtRouteAnnouncer />
 
-    <div class="flex min-h-screen">
+    <div class="flex h-full min-h-0">
       <VaultSidebar
         v-if="!hideSidebar"
         :workspace-id="sidebarWorkspaceId"
+        :workspace-name="sidebarWorkspaceName"
         :mobile-open="mobileSidebarOpen"
         @close="closeMobileSidebar"
       />
@@ -226,8 +232,8 @@ watch(
         @click="closeMobileSidebar"
       />
 
-      <div class="flex min-w-0 flex-1 flex-col">
-        <header class="md3-top-bar flex-col items-stretch !min-h-0 py-3">
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header class="md3-top-bar shrink-0 flex-col items-stretch !min-h-0 py-3">
           <div class="flex w-full flex-wrap items-center gap-1">
             <FluffmindIconButton
               v-if="!hideSidebar"
@@ -289,7 +295,9 @@ watch(
             {{ workspaceError }}
           </p>
         </header>
-        <NuxtPage />
+        <div class="min-h-0 flex-1 overflow-y-auto">
+          <NuxtPage />
+        </div>
       </div>
     </div>
   </div>
