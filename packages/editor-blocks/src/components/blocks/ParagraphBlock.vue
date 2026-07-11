@@ -1,33 +1,53 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
-import { inlinesToMarkdown, parseInlineMarkdown } from '../../inlines'
+import { blockPlainText, setBlockPlainText } from '../../block-text'
+import { blockEditorContextKey } from '../../block-editor-context'
 import type { BlockNode } from '../../types'
+import EditableSurface from '../EditableSurface.vue'
 
 const props = defineProps<{
   block: BlockNode
+  index: number
+  placeholder?: string
 }>()
 
 const emit = defineEmits<{
   update: [block: BlockNode]
+  enter: [offset: number]
+  shiftEnter: [offset: number]
+  backspaceEmpty: []
+  slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
 }>()
 
-const markdown = computed({
-  get: () => inlinesToMarkdown(props.block.inlines ?? []),
-  set: (value: string) => {
-    emit('update', {
-      ...props.block,
-      inlines: parseInlineMarkdown(value),
-    })
-  },
+const editor = inject(blockEditorContextKey, null)
+const surface = ref<InstanceType<typeof EditableSurface> | null>(null)
+
+const text = computed({
+  get: () => blockPlainText(props.block),
+  set: (value: string) => emit('update', setBlockPlainText(props.block, value)),
+})
+
+onMounted(() => {
+  editor?.registerSurface(props.index, {
+    focus: (offset?: number) => surface.value?.focus(offset),
+  })
+})
+
+onUnmounted(() => {
+  editor?.unregisterSurface(props.index)
 })
 </script>
 
 <template>
-  <textarea
-    v-model="markdown"
-    rows="3"
-    class="w-full resize-y rounded border border-outline bg-surface p-2 font-mono text-sm text-on-surface"
-    placeholder="Paragraph (markdown)…"
+  <EditableSurface
+    ref="surface"
+    v-model="text"
+    :placeholder="placeholder"
+    :autofocus="index === 0"
+    @enter="emit('enter', $event)"
+    @shift-enter="emit('shiftEnter', $event)"
+    @backspace-empty="emit('backspaceEmpty')"
+    @slash-change="emit('slashChange', $event)"
   />
 </template>

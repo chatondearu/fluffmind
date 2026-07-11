@@ -1,4 +1,6 @@
+export { blockPlainText, createEmptyBlock, setBlockPlainText } from './block-text'
 export { blocksToMarkdown } from './blocks-to-markdown'
+export { filterSlashCommands, SLASH_COMMANDS } from './slash-commands'
 export { BlockEditor, BlockRenderer } from './components'
 export {
   assignBlockIds,
