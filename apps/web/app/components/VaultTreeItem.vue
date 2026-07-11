@@ -13,7 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   toggle: [path: string]
   newPage: [folder: string | null]
-  newFolder: [parent: string | null, name: string]
+  newFolderRequest: [parent: string | null]
   navigate: []
 }>()
 
@@ -39,10 +39,8 @@ function onNewPage() {
   emit('newPage', folderPathForActions.value)
 }
 
-function onNewFolder() {
-  const name = window.prompt('Nom du dossier')
-  if (!name?.trim()) return
-  emit('newFolder', folderPathForActions.value, name.trim())
+function onNewFolderRequest() {
+  emit('newFolderRequest', folderPathForActions.value)
 }
 </script>
 
@@ -93,14 +91,14 @@ function onNewFolder() {
         :is-expanded="isExpanded"
         @toggle="emit('toggle', $event)"
         @new-page="emit('newPage', $event)"
-        @new-folder="(parent, name) => emit('newFolder', parent, name)"
+        @new-folder-request="emit('newFolderRequest', $event)"
         @navigate="emit('navigate')"
       />
       <li :style="{ paddingLeft: `${(depth + 1) * 12}px` }" class="py-0.5">
         <VaultAddMenu
           :folder-path="folderPathForActions"
           @new-page="onNewPage"
-          @new-folder="onNewFolder"
+          @new-folder="onNewFolderRequest"
         />
       </li>
     </ul>

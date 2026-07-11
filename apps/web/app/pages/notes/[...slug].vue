@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { isKanbanBoard } from '@fluffmind/kanban'
-import { BlockEditor, createEmptyBlock, parseMarkdownToDocument } from '@fluffmind/editor-blocks'
+import { BlockEditor, createEmptyBlock, parseMarkdownToDocument, stripTrailingEmptyBlocks } from '@fluffmind/editor-blocks'
 import type { BlockNode } from '@fluffmind/editor-blocks'
 import type { NoteSummary, ResolvedLink } from '../../../server/vault/index'
 
@@ -58,6 +58,10 @@ const { status, errorMessage } = useNoteAutosave({
   async onCreated(createdId) {
     await navigateTo(`/notes/${createdId}`, { replace: true })
   },
+})
+
+onBeforeUnmount(() => {
+  blocks.value = stripTrailingEmptyBlocks(blocks.value)
 })
 </script>
 

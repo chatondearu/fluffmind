@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 
+import { normalizeEditorBlocks, promoteBlockFromMarkdown, stripTrailingEmptyBlocks } from '../block-markdown'
 import {
   blockPlainText,
   createEmptyBlock,
@@ -10,10 +11,12 @@ import {
   splitTextAt,
 } from '../block-text'
 import { blockEditorContextKey } from '../block-editor-context'
+import { createBlockId } from '../ids'
 import { registerDefaultBlocks } from '../register-defaults'
 import { filterSlashCommands, type SlashCommand } from '../slash-commands'
 import type { BlockNode } from '../types'
 import BlockRenderer from './BlockRenderer.vue'
+import BlockToolbar from './BlockToolbar.vue'
 import SlashMenu from './SlashMenu.vue'
 
 registerDefaultBlocks()
@@ -27,8 +30,33 @@ const slashAnchor = ref<DOMRect | null>(null)
 const slashBlockIndex = ref<number | null>(null)
 const slashMenu = ref<InstanceType<typeof SlashMenu> | null>(null)
 const dragFromIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
+const hoveredIndex = ref<number | null>(null)
 
 const filteredCommands = computed(() => filterSlashCommands(slashQuery.value))
+
+const isDragging = computed(() => dragFromIndex.value !== null)
+
+const draggedBlockId = computed(() => {
+  const from = dragFromIndex.value
+  if (from === null) return null
+  return blocks.value[from]?.id ?? null
+})
+
+const visibleBlocks = computed(() => {
+  const from = dragFromIndex.value
+  const over = dragOverIndex.value
+  if (from === null || over === null) return blocks.value
+
+  const copy = [...blocks.value]
+  const [moved] = copy.splice(from, 1)
+  if (!moved) return blocks.value
+
+  let insertAt = over
+  if (from < over) insertAt = over - 1
+  copy.splice(insertAt, 0, moved)
+  return copy
+})
 
 provide(blockEditorContextKey, {
   blockIndex: slashBlockIndex,
@@ -40,34 +68,32 @@ provide(blockEditorContextKey, {
   },
 })
 
-function ensureAtLeastOneBlock() {
-  if (blocks.value.length === 0) {
-    blocks.value = [createEmptyBlock('paragraph')]
-  }
-}
-
-function ensureTrailingEmptyBlock() {
-  ensureAtLeastOneBlock()
-  const last = blocks.value[blocks.value.length - 1]
-  if (!last || last.type !== 'paragraph' || !isBlockEmpty(last)) {
-    blocks.value = [...blocks.value, createEmptyBlock('paragraph')]
-  }
+function setBlocks(next: BlockNode[], normalizeTrailing = true) {
+  blocks.value = normalizeTrailing ? normalizeEditorBlocks(next) : next
 }
 
 function commitBlocks(next: BlockNode[]) {
-  blocks.value = next
-  ensureTrailingEmptyBlock()
+  setBlocks(next, true)
 }
 
 onMounted(() => {
-  ensureTrailingEmptyBlock()
+  setBlocks(blocks.value, true)
   nextTick(() => surfaces.get(0)?.focus(0))
   window.addEventListener('keydown', onGlobalKeydown)
 })
 
+onUnmounted(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  blocks.value = stripTrailingEmptyBlocks(blocks.value)
+})
+
 watch(
   () => blocks.value.length,
-  () => ensureTrailingEmptyBlock(),
+  () => {
+    if (!isDragging.value) {
+      setBlocks(blocks.value, true)
+    }
+  },
 )
 
 function updateBlock(index: number, next: BlockNode) {
@@ -129,6 +155,21 @@ function handleBackspaceEmpty(index: number) {
   focusBlock(index - 1, merged.length)
 }
 
+function handleBlur(index: number) {
+  closeSlash()
+  const block = blocks.value[index]
+  if (!block) return
+
+  const promoted = promoteBlockFromMarkdown(block)
+  if (promoted.length === 1 && promoted[0]?.id === block.id && promoted[0].type === block.type) {
+    return
+  }
+
+  const copy = [...blocks.value]
+  copy.splice(index, 1, ...promoted)
+  commitBlocks(copy)
+}
+
 function handleSlashChange(
   index: number,
   payload: { active: boolean, query: string, rect: DOMRect | null },
@@ -162,82 +203,129 @@ function applySlashCommand(command: SlashCommand) {
   focusBlock(index, 0)
 }
 
+function deleteBlock(index: number) {
+  if (blocks.value.length <= 1) {
+    commitBlocks([createEmptyBlock('paragraph')])
+    return
+  }
+  const copy = [...blocks.value]
+  copy.splice(index, 1)
+  commitBlocks(copy)
+  focusBlock(Math.max(0, index - 1), 0)
+}
+
+function copyBlock(index: number) {
+  const source = blocks.value[index]
+  if (!source) return
+  const clone = structuredClone(source)
+  clone.id = createBlockId()
+  const copy = [...blocks.value]
+  copy.splice(index + 1, 0, clone)
+  commitBlocks(copy)
+  focusBlock(index + 1, 0)
+}
+
+function changeBlockType(index: number, command: SlashCommand) {
+  const current = blocks.value[index]
+  if (!current) return
+  const text = blockPlainText(current)
+  const next = setBlockPlainText(createEmptyBlock(command.type, command.level ?? 1), text)
+  updateBlock(index, next)
+  focusBlock(index, text.length)
+}
+
 function onBlockDragStart(index: number, event: DragEvent) {
   dragFromIndex.value = index
+  dragOverIndex.value = index
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', String(index))
   }
 }
 
-function onBlockDragOver(event: DragEvent) {
+function onBlockDragOver(index: number, event: DragEvent) {
   event.preventDefault()
+  dragOverIndex.value = index
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move'
   }
-}
-
-function moveBlock(from: number, to: number) {
-  if (from === to || from < 0 || to < 0) return
-  const copy = [...blocks.value]
-  const [moved] = copy.splice(from, 1)
-  if (!moved) return
-  let insertAt = to
-  if (from < to) insertAt -= 1
-  copy.splice(insertAt, 0, moved)
-  commitBlocks(copy)
-  focusBlock(insertAt, 0)
 }
 
 function onBlockDrop(targetIndex: number, event: DragEvent) {
   event.preventDefault()
   const from = dragFromIndex.value
   dragFromIndex.value = null
+  dragOverIndex.value = null
   if (from === null) return
-  moveBlock(from, targetIndex)
+
+  if (from === targetIndex) return
+  const copy = [...blocks.value]
+  const [moved] = copy.splice(from, 1)
+  if (!moved) return
+  let insertAt = targetIndex
+  if (from < targetIndex) insertAt -= 1
+  copy.splice(insertAt, 0, moved)
+  commitBlocks(copy)
+  focusBlock(insertAt, 0)
 }
 
 function onBlockDragEnd() {
   dragFromIndex.value = null
+  dragOverIndex.value = null
+}
+
+function blockIndexForRender(block: BlockNode): number {
+  return blocks.value.findIndex(item => item.id === block.id)
 }
 
 function onGlobalKeydown(event: KeyboardEvent) {
   slashMenu.value?.onKeydown(event)
 }
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', onGlobalKeydown)
-})
 </script>
 
 <template>
   <div class="notion-editor flex flex-col gap-1 py-2">
     <div
-      v-for="(block, index) in blocks"
+      v-for="block in visibleBlocks"
       :key="block.id"
-      class="group flex items-start gap-1 rounded-xl px-1 py-0.5 transition-colors hover:bg-on-surface/5"
-      @dragover="onBlockDragOver"
-      @drop="onBlockDrop(index, $event)"
+      class="group relative flex items-start gap-1 rounded-xl px-1 py-0.5 transition-all"
+      :class="{
+        'opacity-40': isDragging && draggedBlockId === block.id,
+        'ring-2 ring-primary/30 bg-primary/5': isDragging && dragOverIndex === blockIndexForRender(block),
+        'hover:bg-on-surface/5': !isDragging,
+      }"
+      @mouseenter="hoveredIndex = blockIndexForRender(block)"
+      @mouseleave="hoveredIndex = null"
+      @dragover="onBlockDragOver(blockIndexForRender(block), $event)"
+      @drop="onBlockDrop(blockIndexForRender(block), $event)"
     >
       <button
         type="button"
         class="mt-1 cursor-grab rounded-full px-1 font-mono text-xs text-on-surface-variant opacity-0 transition-opacity hover:bg-on-surface/8 group-hover:opacity-100"
         title="Déplacer le bloc"
         draggable="true"
-        @dragstart="onBlockDragStart(index, $event)"
+        @dragstart="onBlockDragStart(blockIndexForRender(block), $event)"
         @dragend="onBlockDragEnd"
       >
         ⋮⋮
       </button>
-      <div class="min-w-0 flex-1">
+
+      <div class="relative min-w-0 flex-1">
+        <BlockToolbar
+          :visible="hoveredIndex === blockIndexForRender(block) && !isDragging"
+          @delete="deleteBlock(blockIndexForRender(block))"
+          @copy="copyBlock(blockIndexForRender(block))"
+          @change-type="changeBlockType(blockIndexForRender(block), $event)"
+        />
         <BlockRenderer
           :block="block"
-          :index="index"
-          @update="updateBlock(index, $event)"
-          @enter="handleEnter(index, $event)"
-          @shift-enter="handleShiftEnter(index, $event)"
-          @backspace-empty="handleBackspaceEmpty(index)"
-          @slash-change="handleSlashChange(index, $event)"
+          :index="blockIndexForRender(block)"
+          @update="updateBlock(blockIndexForRender(block), $event)"
+          @enter="handleEnter(blockIndexForRender(block), $event)"
+          @shift-enter="handleShiftEnter(blockIndexForRender(block), $event)"
+          @backspace-empty="handleBackspaceEmpty(blockIndexForRender(block))"
+          @slash-change="handleSlashChange(blockIndexForRender(block), $event)"
+          @blur="handleBlur(blockIndexForRender(block))"
         />
       </div>
     </div>
