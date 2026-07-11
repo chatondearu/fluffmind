@@ -3,7 +3,10 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   modules: ['@nuxt/eslint', '@unocss/nuxt'],
-  css: ['@fluffmind/design-system/src/tokens/md3.css'],
+  css: [
+    '@fluffmind/design-system/src/tokens/md3.css',
+    '~/assets/css/app.css',
+  ],
   build: {
     transpile: ['@fluffmind/editor-blocks', '@fluffmind/kanban'],
   },
@@ -18,6 +21,12 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
+      link: [
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap',
+        },
+      ],
       script: [
         {
           // Applies a stored theme preference before Vue mounts, to avoid a flash of

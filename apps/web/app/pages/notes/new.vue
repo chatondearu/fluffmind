@@ -26,9 +26,9 @@ const { status, errorMessage } = useNoteAutosave({
 </script>
 
 <template>
-  <main class="mx-auto max-w-3xl px-6 py-8">
+  <main class="md3-page max-w-3xl">
     <div class="mb-6 flex items-center justify-end gap-4">
-      <span class="text-xs text-on-surface-variant">
+      <span class="md3-label-md">
         <template v-if="folderPrefix">
           Dossier : {{ folderPrefix }} ·
         </template>
@@ -38,7 +38,7 @@ const { status, errorMessage } = useNoteAutosave({
       </span>
     </div>
 
-    <h1 class="mb-4 text-3xl font-bold text-on-surface">
+    <h1 class="mb-6 md3-display-sm">
       {{ title }}
     </h1>
 

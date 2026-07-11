@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { isKanbanBoard } from '@fluffmind/kanban'
-import { FluffmindButton } from '@fluffmind/design-system/src/components'
+import {
+  FluffmindButton,
+  FluffmindCard,
+  FluffmindChip,
+  FluffmindTextField,
+} from '@fluffmind/design-system/src/components'
 import type { NoteSummary } from '../../server/vault/index'
 
 const { data, error, refresh, pending } = await useFetch<{ notes: NoteSummary[] }>('/api/notes', {
@@ -34,70 +39,105 @@ function noteHref(note: NoteSummary): string {
 </script>
 
 <template>
-  <main class="mx-auto max-w-2xl p-6">
-    <div class="mb-4 flex items-baseline justify-between gap-4">
-      <h1 class="text-2xl font-semibold text-on-surface">Fluffmind</h1>
-      <div class="flex items-center gap-3">
+  <main class="md3-page">
+    <header class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 class="md3-display-sm">
+          Notes
+        </h1>
+        <p class="mt-1 md3-body-md text-on-surface-variant">
+          Toutes les pages de ton vault.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
         <NuxtLink to="/notes/new">
           <FluffmindButton>Nouvelle page</FluffmindButton>
         </NuxtLink>
-        <NuxtLink to="/graph" class="text-sm text-primary hover:underline">Graph →</NuxtLink>
+        <NuxtLink to="/graph">
+          <FluffmindButton variant="tonal">
+            Graph
+          </FluffmindButton>
+        </NuxtLink>
       </div>
-    </div>
-    <input
+    </header>
+
+    <FluffmindTextField
       v-model="search"
       type="search"
-      placeholder="Search notes…"
-      class="mb-4 w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
-    >
-    <p v-if="pending" class="mb-4 text-sm text-on-surface-variant">
-      Loading notes…
+      placeholder="Rechercher une note…"
+      class="mb-6 max-w-xl"
+    />
+
+    <p v-if="pending" class="md3-body-md text-on-surface-variant">
+      Chargement…
     </p>
-    <div v-else-if="error" class="mb-4 rounded-lg border border-outline-variant p-4">
-      <p class="text-sm text-error">
-        Failed to load notes.
+
+    <FluffmindCard v-else-if="error" padding="lg" variant="outlined">
+      <p class="md3-body-md text-error">
+        Impossible de charger les notes.
       </p>
-      <FluffmindButton variant="outlined" class="mt-3" @click="refresh()">
-        Retry
+      <FluffmindButton variant="outlined" class="mt-4" @click="refresh()">
+        Réessayer
       </FluffmindButton>
-    </div>
+    </FluffmindCard>
+
     <template v-else>
-    <ul class="flex flex-col gap-1">
-      <li v-for="note in filteredNotes" :key="note.id">
-        <NuxtLink :to="noteHref(note)" class="flex items-baseline justify-between rounded-lg px-3 py-2 hover:bg-primary/10">
-          <span class="flex items-center gap-2 font-medium text-on-surface">
-            {{ note.title }}
-            <span
-              v-if="isKanbanBoard(note.frontmatter)"
-              class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-normal text-primary"
+      <FluffmindCard v-if="filteredNotes.length > 0" padding="none">
+        <ul class="divide-y divide-outline-variant">
+          <li v-for="note in filteredNotes" :key="note.id">
+            <NuxtLink
+              :to="noteHref(note)"
+              class="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-on-surface/5"
             >
-              Board
-            </span>
-          </span>
-          <span v-if="formatDate(note.frontmatter.date)" class="text-sm text-on-surface-variant">{{ formatDate(note.frontmatter.date) }}</span>
+              <span class="flex min-w-0 items-center gap-2">
+                <span class="md3-title-sm truncate">{{ note.title }}</span>
+                <FluffmindChip v-if="isKanbanBoard(note.frontmatter)" size="sm">
+                  Board
+                </FluffmindChip>
+              </span>
+              <span
+                v-if="formatDate(note.frontmatter.date)"
+                class="shrink-0 md3-label-md"
+              >
+                {{ formatDate(note.frontmatter.date) }}
+              </span>
+            </NuxtLink>
+          </li>
+        </ul>
+      </FluffmindCard>
+
+      <FluffmindCard
+        v-else-if="!search.trim()"
+        padding="lg"
+        variant="outlined"
+        class="max-w-xl"
+      >
+        <p class="md3-body-md text-on-surface-variant">
+          Aucune note pour l'instant.
+        </p>
+        <NuxtLink to="/notes/new" class="mt-4 inline-block">
+          <FluffmindButton variant="outlined">
+            Créer une page
+          </FluffmindButton>
         </NuxtLink>
-      </li>
-    </ul>
-    <p v-if="filteredNotes.length === 0 && !search.trim()" class="rounded-lg border border-dashed border-outline-variant p-6 text-on-surface-variant">
-      Aucune note pour l'instant.
-      <NuxtLink to="/notes/new" class="mt-3 inline-block">
-        <FluffmindButton variant="outlined">
-          Créer une page
-        </FluffmindButton>
-      </NuxtLink>
-      <span v-if="authEnabled" class="mt-2 block text-sm">
-        Or link a Git remote in
-        <NuxtLink to="/settings/workspace" class="text-primary hover:underline">workspace settings</NuxtLink>.
-      </span>
-      <span v-else class="mt-2 block text-sm">
-        See
-        <NuxtLink to="/settings" class="text-primary hover:underline">settings</NuxtLink>
-        for Git sync and multi-account setup.
-      </span>
-    </p>
-    <p v-else-if="filteredNotes.length === 0" class="text-on-surface-variant">
-      No notes match your search.
-    </p>
+        <p v-if="authEnabled" class="mt-4 md3-body-md text-on-surface-variant">
+          Ou lie un dépôt Git dans les
+          <NuxtLink to="/settings/workspace" class="text-primary hover:underline">
+            paramètres workspace
+          </NuxtLink>.
+        </p>
+        <p v-else class="mt-4 md3-body-md text-on-surface-variant">
+          Voir les
+          <NuxtLink to="/settings" class="text-primary hover:underline">
+            paramètres
+          </NuxtLink>
+          pour la sync Git et le mode multi-comptes.
+        </p>
+      </FluffmindCard>
+
+      <p v-else class="md3-body-md text-on-surface-variant">
+        Aucun résultat pour « {{ search.trim() }} ».
+      </p>
     </template>
   </main>
 </template>

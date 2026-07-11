@@ -59,9 +59,9 @@ const { status, errorMessage } = useNoteAutosave({
 </script>
 
 <template>
-  <main class="mx-auto max-w-3xl px-6 py-8">
+  <main class="md3-page max-w-3xl">
     <div class="mb-6 flex items-center justify-end gap-4">
-      <span class="text-xs text-on-surface-variant">
+      <span class="md3-label-md">
         <template v-if="status === 'saving'">Enregistrement…</template>
         <template v-else-if="status === 'saved'">Enregistré</template>
         <template v-else-if="status === 'error'">Erreur</template>
@@ -73,7 +73,7 @@ const { status, errorMessage } = useNoteAutosave({
     </div>
 
     <template v-else-if="data">
-      <h1 class="mb-4 text-3xl font-bold text-on-surface">
+      <h1 class="mb-6 md3-display-sm">
         {{ title }}
       </h1>
 
@@ -84,12 +84,12 @@ const { status, errorMessage } = useNoteAutosave({
       </p>
 
       <section v-if="data.backlinks.length" class="mt-10 border-t border-outline-variant pt-6">
-        <h2 class="mb-2 text-sm font-medium uppercase text-on-surface-variant">
+        <h2 class="mb-3 md3-label-lg uppercase tracking-wide">
           Liens entrants
         </h2>
         <ul class="flex flex-col gap-1">
           <li v-for="backlink in data.backlinks" :key="backlink.id">
-            <NuxtLink :to="`/notes/${backlink.id}`" class="text-primary hover:underline">
+            <NuxtLink :to="`/notes/${backlink.id}`" class="md3-body-md text-primary hover:underline">
               {{ backlink.title }}
             </NuxtLink>
           </li>

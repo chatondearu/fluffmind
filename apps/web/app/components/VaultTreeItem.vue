@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { FluffmindIconButton, FluffmindListItem, FluffmindTooltip } from '@fluffmind/design-system/src/components'
+
 import type { VaultTreeNode } from '../utils/vault-tree'
 
 const props = defineProps<{
@@ -36,42 +38,49 @@ function onNewInFolder() {
 <template>
   <li>
     <div
-      class="group flex items-center gap-1 rounded-md py-0.5 pr-1"
-      :style="{ paddingLeft: `${depth * 12 + 4}px` }"
+      class="group flex items-center gap-0.5"
+      :style="{ paddingLeft: `${depth * 12}px` }"
     >
-      <button
+      <FluffmindListItem
         v-if="node.kind === 'folder'"
+        as="button"
         type="button"
-        class="flex min-w-0 flex-1 items-center gap-1 rounded-md px-2 py-1.5 text-left text-sm hover:bg-primary/10"
+        class="flex-1"
         @click="onFolderClick"
       >
-        <span class="w-4 shrink-0 text-on-surface-variant">{{ isFolderExpanded ? '▾' : '▸' }}</span>
-        <span class="truncate text-on-surface">{{ node.name }}</span>
-      </button>
+        <template #leading>
+          <span aria-hidden="true">{{ isFolderExpanded ? '▾' : '▸' }}</span>
+        </template>
+        {{ node.name }}
+      </FluffmindListItem>
 
       <NuxtLink
         v-else
         :to="node.href"
-        class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-primary/10"
-        :class="isActive ? 'bg-primary/15 font-medium text-primary' : 'text-on-surface'"
+        class="min-w-0 flex-1"
         @click="emit('navigate')"
       >
-        <span class="w-4 shrink-0" />
-        <span class="truncate">{{ node.title }}</span>
+        <FluffmindListItem :active="isActive">
+          <template #leading>
+            <span aria-hidden="true">📄</span>
+          </template>
+          {{ node.title }}
+        </FluffmindListItem>
       </NuxtLink>
 
-      <button
-        v-if="node.kind === 'folder'"
-        type="button"
-        class="rounded px-1 text-xs text-on-surface-variant opacity-0 hover:text-primary group-hover:opacity-100"
-        title="Nouvelle page dans ce dossier"
-        @click.stop="onNewInFolder"
-      >
-        +
-      </button>
+      <FluffmindTooltip v-if="node.kind === 'folder'" text="Nouvelle page dans ce dossier">
+        <FluffmindIconButton
+          label="Nouvelle page dans ce dossier"
+          size="sm"
+          class="opacity-0 transition-opacity group-hover:opacity-100"
+          @click.stop="onNewInFolder"
+        >
+          +
+        </FluffmindIconButton>
+      </FluffmindTooltip>
     </div>
 
-    <ul v-if="node.kind === 'folder' && isFolderExpanded && node.children.length > 0" class="flex flex-col">
+    <ul v-if="node.kind === 'folder' && isFolderExpanded && node.children.length > 0" class="flex flex-col gap-0.5">
       <VaultTreeItem
         v-for="child in node.children"
         :key="child.path"
