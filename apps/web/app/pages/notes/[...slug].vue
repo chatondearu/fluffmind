@@ -60,10 +60,7 @@ const { status, errorMessage } = useNoteAutosave({
 
 <template>
   <main class="mx-auto max-w-3xl px-6 py-8">
-    <div class="mb-6 flex items-center justify-between gap-4">
-      <NuxtLink to="/" class="text-sm text-on-surface-variant hover:text-primary">
-        ← Notes
-      </NuxtLink>
+    <div class="mb-6 flex items-center justify-end gap-4">
       <span class="text-xs text-on-surface-variant">
         <template v-if="status === 'saving'">Enregistrement…</template>
         <template v-else-if="status === 'saved'">Enregistré</template>
