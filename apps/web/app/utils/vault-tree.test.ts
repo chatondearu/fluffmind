@@ -39,14 +39,16 @@ describe('buildVaultTree', () => {
     expect(sprint?.href).toBe('/boards/boards/sprint')
   })
 
-  it('sorts folders before pages at each level', () => {
-    const tree = buildVaultTree([
-      note('alpha'),
-      note('zeta/folder-note'),
-    ])
+  it('includes explicit empty folders from markers', () => {
+    const tree = buildVaultTree(
+      [note('projets/roadmap', 'Roadmap')],
+      ['projets', 'archive'],
+    )
 
-    expect(tree[0]?.kind).toBe('folder')
-    expect(tree[1]?.kind).toBe('page')
+    expect(tree.map(node => node.name)).toEqual(['archive', 'projets'])
+    const archive = tree.find(node => node.name === 'archive')
+    expect(archive?.kind).toBe('folder')
+    expect(archive?.children).toEqual([])
   })
 })
 

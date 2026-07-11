@@ -36,6 +36,6 @@ export const fluffmindPreset = definePreset(() => ({
     'md3-state-layer': 'relative overflow-hidden before:absolute before:inset-0 before:bg-on-surface before:opacity-0 before:transition-opacity hover:before:opacity-8',
     'md3-top-bar': 'sticky top-0 z-10 flex min-h-16 items-center gap-2 border-b border-outline-variant bg-surface-container px-4 shadow-md3-1 backdrop-blur-sm',
     'md3-page': 'w-full max-w-4xl px-6 py-6 md:px-8 md:py-8',
-    'md3-sidebar': 'flex h-full w-72 shrink-0 flex-col border-r border-outline-variant bg-surface-container-low',
+    'md3-sidebar': 'flex h-full min-h-0 w-72 shrink-0 flex-col border-r border-outline-variant bg-surface-container-low',
   },
 }))

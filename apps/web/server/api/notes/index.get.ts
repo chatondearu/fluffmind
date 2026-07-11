@@ -1,6 +1,7 @@
 import { isAuthEnabled, requireWorkspacePermission } from '../../utils/auth'
-import { resolveActiveWorkspaceId } from '../../vault/workspace'
+import { listVaultFolders } from '../../vault/folders'
 import { getVaultIndex } from '../../vault/service'
+import { resolveActiveWorkspaceId, resolveWorkspaceConfig } from '../../vault/workspace'
 
 export default defineEventHandler(async (event) => {
   const workspaceId = isAuthEnabled()
@@ -13,5 +14,7 @@ export default defineEventHandler(async (event) => {
 
   const index = await getVaultIndex(workspaceId)
   const notes = [...index.notes.values()].sort((a, b) => a.title.localeCompare(b.title))
-  return { notes }
+  const config = await resolveWorkspaceConfig(workspaceId)
+  const folders = await listVaultFolders(config.path)
+  return { notes, folders }
 })
