@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GraphData } from '../../server/vault/index'
+import { FluffmindButton } from '@fluffmind/design-system/src/components'
 
 const { data } = await useFetch<GraphData>('/api/graph')
 const router = useRouter()
@@ -10,11 +11,22 @@ function onSelectNode(id: string) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-4xl p-6">
-    <NuxtLink to="/" class="text-sm text-primary hover:underline">← All notes</NuxtLink>
-    <h1 class="mb-4 mt-2 text-2xl font-semibold text-on-surface">
-      Graph
-    </h1>
+  <main class="md3-page max-w-5xl">
+    <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 class="md3-display-sm">
+          Graph
+        </h1>
+        <p class="mt-1 md3-body-md text-on-surface-variant">
+          Visualise les liens entre tes notes.
+        </p>
+      </div>
+      <NuxtLink to="/">
+        <FluffmindButton variant="tonal" size="sm">
+          ← Notes
+        </FluffmindButton>
+      </NuxtLink>
+    </header>
     <GraphView v-if="data" :nodes="data.nodes" :edges="data.edges" @select-node="onSelectNode" />
   </main>
 </template>

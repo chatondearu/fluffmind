@@ -1,0 +1,16 @@
+/* App-level MD3 baseline — tokens come from @fluffmind/design-system/src/tokens/md3.css */
+
+html {
+  font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--md-background);
+  color: var(--md-on-background);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--md-primary) 24%, transparent);
+}

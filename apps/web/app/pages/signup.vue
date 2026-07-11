@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { FluffmindButton } from '@fluffmind/design-system/src/components'
+import {
+  FluffmindButton,
+  FluffmindCard,
+  FluffmindDivider,
+  FluffmindTextField,
+} from '@fluffmind/design-system/src/components'
 import { authClient } from '../composables/useAuth'
 import { ensureWorkspaceOnboarding } from '../composables/useOnboarding'
 
@@ -54,57 +59,54 @@ async function signupWithGitHub() {
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-screen w-full max-w-md items-center p-6">
-    <section class="w-full rounded-lg border border-outline p-6">
-      <h1 class="mb-2 text-2xl font-semibold text-on-surface">
+  <main class="flex min-h-[calc(100vh-4rem)] items-center justify-center p-6">
+    <FluffmindCard padding="lg" class="w-full max-w-md">
+      <h1 class="md3-headline-sm">
         Créer un compte
       </h1>
-      <p class="mb-6 text-sm text-on-surface-variant">
+      <p class="mt-2 mb-6 md3-body-md text-on-surface-variant">
         Accède à Fluffmind avec un compte email ou GitHub.
       </p>
 
-      <form class="flex flex-col gap-3" @submit.prevent="signupWithEmail">
+      <form class="flex flex-col gap-4" @submit.prevent="signupWithEmail">
         <label class="block">
-          <span class="mb-1 block text-sm text-on-surface-variant">Nom</span>
-          <input
+          <span class="mb-2 block md3-label-lg">Nom</span>
+          <FluffmindTextField
             v-model="name"
             type="text"
             autocomplete="name"
             required
-            class="w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
-          >
+          />
         </label>
         <label class="block">
-          <span class="mb-1 block text-sm text-on-surface-variant">Email</span>
-          <input
+          <span class="mb-2 block md3-label-lg">Email</span>
+          <FluffmindTextField
             v-model="email"
             type="email"
             autocomplete="email"
             required
-            class="w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
-          >
+          />
         </label>
         <label class="block">
-          <span class="mb-1 block text-sm text-on-surface-variant">Mot de passe</span>
-          <input
+          <span class="mb-2 block md3-label-lg">Mot de passe</span>
+          <FluffmindTextField
             v-model="password"
             type="password"
             autocomplete="new-password"
             required
-            class="w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
-          >
+          />
         </label>
 
-        <p v-if="errorMessage" class="text-sm text-error">
+        <p v-if="errorMessage" class="md3-body-md text-error">
           {{ errorMessage }}
         </p>
 
-        <FluffmindButton type="submit" :disabled="loading">
+        <FluffmindButton type="submit" class="w-full" :disabled="loading">
           {{ loading ? 'Création en cours…' : 'Créer mon compte' }}
         </FluffmindButton>
       </form>
 
-      <div v-if="githubOAuthEnabled" class="my-4 border-t border-outline-variant" />
+      <FluffmindDivider v-if="githubOAuthEnabled" class="my-6" />
 
       <FluffmindButton
         v-if="githubOAuthEnabled"
@@ -116,12 +118,12 @@ async function signupWithGitHub() {
         Continuer avec GitHub
       </FluffmindButton>
 
-      <p class="mt-4 text-sm text-on-surface-variant">
+      <p class="mt-6 md3-body-md text-on-surface-variant">
         Déjà inscrit ?
         <NuxtLink :to="{ path: '/login', query: route.query }" class="text-primary hover:underline">
           Se connecter
         </NuxtLink>
       </p>
-    </section>
+    </FluffmindCard>
   </main>
 </template>

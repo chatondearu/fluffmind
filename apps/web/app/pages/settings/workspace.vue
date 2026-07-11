@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { FluffmindButton } from '@fluffmind/design-system/src/components'
+import {
+  FluffmindButton,
+  FluffmindCard,
+  FluffmindChip,
+  FluffmindTextField,
+} from '@fluffmind/design-system/src/components'
 import { authClient } from '../../composables/useAuth'
 
 type WorkspaceRole = 'read' | 'write' | 'owner'
@@ -330,45 +335,46 @@ await loadWorkspaceData()
 </script>
 
 <template>
-  <main class="mx-auto w-full max-w-3xl p-6">
-    <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+  <main class="md3-page max-w-3xl">
+    <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold text-on-surface">
+        <h1 class="md3-display-sm">
           Paramètres du workspace
         </h1>
-        <p class="text-sm text-on-surface-variant">
+        <p class="mt-1 md3-body-md text-on-surface-variant">
           {{ organizationName }}
         </p>
       </div>
-      <FluffmindButton variant="outlined" :disabled="loading || reloading" @click="loadWorkspaceData(true)">
+      <FluffmindButton variant="tonal" size="sm" :disabled="loading || reloading" @click="loadWorkspaceData(true)">
         {{ reloading ? 'Actualisation…' : 'Actualiser' }}
       </FluffmindButton>
     </header>
 
-    <p v-if="pageError" class="mb-4 rounded-lg border border-error/40 bg-error/10 p-3 text-sm text-error">
-      {{ pageError }}
-    </p>
+    <FluffmindCard v-if="pageError" padding="md" variant="outlined" class="mb-6">
+      <p class="md3-body-md text-error">
+        {{ pageError }}
+      </p>
+    </FluffmindCard>
 
-    <section class="mb-6 rounded-lg border border-outline p-4">
-      <h2 class="mb-3 text-lg font-medium text-on-surface">
+    <FluffmindCard padding="lg" class="mb-6">
+      <h2 class="mb-4 md3-title-md">
         Inviter un membre
       </h2>
-      <form class="grid gap-3 md:grid-cols-[1fr_auto_auto]" @submit.prevent="inviteMember">
+      <form class="grid gap-4 md:grid-cols-[1fr_auto_auto]" @submit.prevent="inviteMember">
         <label class="block">
-          <span class="mb-1 block text-sm text-on-surface-variant">Email</span>
-          <input
+          <span class="mb-2 block md3-label-lg">Email</span>
+          <FluffmindTextField
             v-model="inviteEmail"
             type="email"
             required
             placeholder="membre@exemple.com"
-            class="w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
-          >
+          />
         </label>
         <label class="block">
-          <span class="mb-1 block text-sm text-on-surface-variant">Rôle</span>
+          <span class="mb-2 block md3-label-lg">Rôle</span>
           <select
             v-model="inviteRole"
-            class="w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
+            class="md3-field h-10 py-2"
           >
             <option v-for="option in roleOptions" :key="option.value" :value="option.value">
               {{ option.label }}
@@ -381,42 +387,40 @@ await loadWorkspaceData()
           </FluffmindButton>
         </div>
       </form>
-      <p v-if="inviteSuccess" class="mt-3 text-sm text-tertiary">
+      <p v-if="inviteSuccess" class="mt-4 md3-body-md text-tertiary">
         {{ inviteSuccess }}
       </p>
-      <p v-if="inviteError" class="mt-3 text-sm text-error">
+      <p v-if="inviteError" class="mt-4 md3-body-md text-error">
         {{ inviteError }}
       </p>
-    </section>
+    </FluffmindCard>
 
-    <section class="mb-6 rounded-lg border border-outline p-4">
-      <h2 class="mb-3 text-lg font-medium text-on-surface">
+    <FluffmindCard padding="lg" class="mb-6">
+      <h2 class="mb-4 md3-title-md">
         Synchronisation GitHub
       </h2>
-      <div class="grid gap-3 md:grid-cols-2">
+      <div class="grid gap-4 md:grid-cols-2">
         <label class="block">
-          <span class="mb-1 block text-sm text-on-surface-variant">Dépôt</span>
-          <input
+          <span class="mb-2 block md3-label-lg">Dépôt</span>
+          <FluffmindTextField
             v-model="githubRepository"
             type="text"
             placeholder="owner/repo"
-            class="w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
-          >
+          />
         </label>
         <label class="block">
-          <span class="mb-1 block text-sm text-on-surface-variant">Token GitHub (PAT)</span>
-          <input
+          <span class="mb-2 block md3-label-lg">Token GitHub (PAT)</span>
+          <FluffmindTextField
             v-model="githubToken"
             type="password"
             placeholder="ghp_..."
-            class="w-full rounded-lg border border-outline bg-surface px-3 py-2 text-on-surface"
-          >
+          />
         </label>
       </div>
-      <p class="mt-2 text-sm text-on-surface-variant">
+      <p class="mt-4 md3-body-md text-on-surface-variant">
         Dernière synchro: {{ githubLastSyncedAt ? formatDate(githubLastSyncedAt) : 'Jamais' }}
       </p>
-      <div class="mt-3 flex flex-wrap gap-2">
+      <div class="mt-4 flex flex-wrap gap-2">
         <FluffmindButton :disabled="linkingGitHub || !canManageGitHub" @click="linkGitHubRepository">
           {{ linkingGitHub ? 'Liaison…' : 'Lier le dépôt' }}
         </FluffmindButton>
@@ -424,47 +428,49 @@ await loadWorkspaceData()
           {{ syncingGitHub ? 'Synchro…' : 'Sync now' }}
         </FluffmindButton>
       </div>
-      <p v-if="!canManageGitHub" class="mt-2 text-sm text-on-surface-variant">
+      <p v-if="!canManageGitHub" class="mt-4 md3-body-md text-on-surface-variant">
         Seuls les propriétaires peuvent gérer la liaison et la synchronisation GitHub.
       </p>
-      <p v-if="githubLinkSuccess" class="mt-2 text-sm text-tertiary">
+      <p v-if="githubLinkSuccess" class="mt-4 md3-body-md text-tertiary">
         {{ githubLinkSuccess }}
       </p>
-      <p v-if="githubLinkError" class="mt-2 text-sm text-error">
+      <p v-if="githubLinkError" class="mt-4 md3-body-md text-error">
         {{ githubLinkError }}
       </p>
-      <p v-if="githubSyncSuccess" class="mt-2 text-sm text-tertiary">
+      <p v-if="githubSyncSuccess" class="mt-4 md3-body-md text-tertiary">
         {{ githubSyncSuccess }}
       </p>
-      <p v-if="githubSyncError" class="mt-2 text-sm text-error">
+      <p v-if="githubSyncError" class="mt-4 md3-body-md text-error">
         {{ githubSyncError }}
       </p>
-    </section>
+    </FluffmindCard>
 
-    <section class="mb-6 rounded-lg border border-outline p-4">
-      <h2 class="mb-3 text-lg font-medium text-on-surface">
+    <FluffmindCard padding="lg" class="mb-6">
+      <h2 class="mb-4 md3-title-md">
         Membres
       </h2>
-      <div v-if="loading" class="text-sm text-on-surface-variant">
+      <div v-if="loading" class="md3-body-md text-on-surface-variant">
         Chargement des membres…
       </div>
       <ul v-else class="divide-y divide-outline-variant">
         <li v-for="workspaceMember in members" :key="workspaceMember.id" class="flex flex-wrap items-center justify-between gap-2 py-3">
           <div>
-            <p class="font-medium text-on-surface">
+            <p class="md3-title-sm">
               {{ workspaceMember.name }}
             </p>
-            <p class="text-sm text-on-surface-variant">
+            <p class="md3-body-md text-on-surface-variant">
               {{ workspaceMember.email }}
             </p>
           </div>
-          <div class="text-right text-sm text-on-surface-variant">
-            <p class="font-medium uppercase tracking-wide text-primary">
+          <div class="text-right md3-body-md text-on-surface-variant">
+            <FluffmindChip class="uppercase">
               {{ workspaceMember.role }}
+            </FluffmindChip>
+            <p class="mt-1">
+              Ajouté le {{ formatDate(workspaceMember.createdAt) }}
             </p>
-            <p>Ajouté le {{ formatDate(workspaceMember.createdAt) }}</p>
           </div>
-          <label class="flex items-center gap-2 text-sm text-on-surface-variant">
+          <label class="flex items-center gap-2 md3-body-md text-on-surface-variant">
             <input
               :checked="localOverrides[workspaceMember.id] ?? false"
               type="checkbox"
@@ -476,33 +482,33 @@ await loadWorkspaceData()
           </label>
         </li>
       </ul>
-      <p v-if="!loading && members.length === 0" class="text-sm text-on-surface-variant">
+      <p v-if="!loading && members.length === 0" class="md3-body-md text-on-surface-variant">
         Aucun membre trouvé.
       </p>
-    </section>
+    </FluffmindCard>
 
-    <section class="rounded-lg border border-outline p-4">
-      <h2 class="mb-3 text-lg font-medium text-on-surface">
+    <FluffmindCard padding="lg">
+      <h2 class="mb-4 md3-title-md">
         Invitations en attente
       </h2>
       <ul v-if="invitations.length > 0" class="divide-y divide-outline-variant">
         <li v-for="invitation in invitations" :key="invitation.id" class="flex flex-wrap items-center justify-between gap-2 py-3">
           <div>
-            <p class="font-medium text-on-surface">
+            <p class="md3-title-sm">
               {{ invitation.email }}
             </p>
-            <p class="text-sm text-on-surface-variant">
+            <p class="md3-body-md text-on-surface-variant">
               Expire le {{ formatDate(invitation.expiresAt) }}
             </p>
           </div>
-          <span class="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+          <FluffmindChip variant="outlined">
             {{ invitation.role }} · {{ invitation.status }}
-          </span>
+          </FluffmindChip>
         </li>
       </ul>
-      <p v-else class="text-sm text-on-surface-variant">
+      <p v-else class="md3-body-md text-on-surface-variant">
         Aucune invitation en attente.
       </p>
-    </section>
+    </FluffmindCard>
   </main>
 </template>

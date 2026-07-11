@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { FluffmindButton } from '@fluffmind/design-system/src/components'
+import {
+  FluffmindChip,
+  FluffmindDivider,
+  FluffmindIconButton,
+  FluffmindTooltip,
+} from '@fluffmind/design-system/src/components'
 
 import { useVaultTree } from '../composables/useVaultTree'
 
@@ -56,22 +61,35 @@ function onNavigate() {
 
 <template>
   <aside
-    class="vault-sidebar flex h-full w-64 shrink-0 flex-col border-r border-outline/70 bg-surface"
-    :class="mobileOpen ? 'fixed inset-y-0 left-0 z-40 shadow-xl' : 'hidden md:flex'"
+    class="md3-sidebar"
+    :class="mobileOpen ? 'fixed inset-y-0 left-0 z-40 shadow-md3-2' : 'hidden md:flex'"
   >
-    <div class="flex items-center justify-between gap-2 border-b border-outline/70 px-3 py-3">
-      <NuxtLink to="/" class="text-sm font-semibold text-on-surface hover:text-primary" @click="onNavigate">
-        Notes
+    <div class="flex items-center gap-2 px-4 py-4">
+      <NuxtLink
+        to="/"
+        class="min-w-0 flex-1"
+        @click="onNavigate"
+      >
+        <p class="md3-title-md truncate text-on-surface">
+          Fluffmind
+        </p>
+        <p class="md3-label-md truncate">
+          Vault
+        </p>
       </NuxtLink>
-      <NuxtLink :to="newPageLink()" @click="onNavigate">
-        <FluffmindButton variant="outlined">
-          +
-        </FluffmindButton>
-      </NuxtLink>
+      <FluffmindTooltip text="Nouvelle page">
+        <NuxtLink :to="newPageLink()" @click="onNavigate">
+          <FluffmindIconButton label="Nouvelle page">
+            +
+          </FluffmindIconButton>
+        </NuxtLink>
+      </FluffmindTooltip>
     </div>
 
-    <nav class="flex-1 overflow-y-auto px-2 py-2">
-      <p v-if="pending" class="px-2 py-2 text-xs text-on-surface-variant">
+    <FluffmindDivider />
+
+    <nav class="flex-1 overflow-y-auto px-3 py-3">
+      <p v-if="pending" class="px-3 py-2 md3-label-md">
         Chargement…
       </p>
       <ul v-else-if="tree.length > 0" class="flex flex-col gap-0.5">
@@ -87,9 +105,16 @@ function onNavigate() {
           @navigate="onNavigate"
         />
       </ul>
-      <p v-else class="px-2 py-2 text-xs text-on-surface-variant">
-        Aucune note.
-      </p>
+      <div v-else class="px-3 py-6 text-center">
+        <p class="md3-body-md text-on-surface-variant">
+          Aucune note pour l'instant.
+        </p>
+        <NuxtLink :to="newPageLink()" class="mt-3 inline-block" @click="onNavigate">
+          <FluffmindChip variant="outlined">
+            Créer une page
+          </FluffmindChip>
+        </NuxtLink>
+      </div>
     </nav>
   </aside>
 </template>

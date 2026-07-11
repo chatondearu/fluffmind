@@ -5,6 +5,14 @@ import { argbFromHex, hexFromArgb, themeFromSourceColor } from '@material/materi
 // Uno color-mix rule) is fully agnostic to this value.
 export const DEFAULT_SEED_COLOR = '#6750A4'
 
+export const MD3_SURFACE_CONTAINER_KEYS = [
+  'surfaceContainerLowest',
+  'surfaceContainerLow',
+  'surfaceContainer',
+  'surfaceContainerHigh',
+  'surfaceContainerHighest',
+] as const
+
 export const MD3_ROLE_KEYS = [
   'primary',
   'onPrimary',
@@ -34,7 +42,8 @@ export const MD3_ROLE_KEYS = [
   'scrim',
   'inverseSurface',
   'inverseOnSurface',
-  'inversePrimary'
+  'inversePrimary',
+  ...MD3_SURFACE_CONTAINER_KEYS,
 ] as const
 
 export type Md3Role = (typeof MD3_ROLE_KEYS)[number]
@@ -45,12 +54,27 @@ export interface Md3TokenSet {
   dark: Md3Tokens
 }
 
-function schemeToHexTokens(scheme: Record<Md3Role, number>): Md3Tokens {
+function schemeToHexTokens(scheme: Record<string, number>): Md3Tokens {
   const tokens = {} as Md3Tokens
   for (const role of MD3_ROLE_KEYS) {
-    tokens[role] = hexFromArgb(scheme[role])
+    if (role in scheme) {
+      tokens[role] = hexFromArgb(scheme[role] as number)
+    }
   }
-  return tokens
+  return withSurfaceContainers(tokens)
+}
+
+/** Tone-based surface containers (M3) — derived when not in scheme v0.3. */
+function withSurfaceContainers(tokens: Partial<Md3Tokens>): Md3Tokens {
+  const base = tokens as Md3Tokens
+  return {
+    ...base,
+    surfaceContainerLowest: base.background ?? base.surface,
+    surfaceContainerLow: base.surfaceVariant ?? base.surface,
+    surfaceContainer: base.surface,
+    surfaceContainerHigh: base.surface,
+    surfaceContainerHighest: base.surfaceVariant ?? base.surface,
+  }
 }
 
 /**

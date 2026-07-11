@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { FluffmindButton } from '@fluffmind/design-system/src/components'
+import {
+  FluffmindButton,
+  FluffmindIconButton,
+} from '@fluffmind/design-system/src/components'
 import type { ThemePreference } from './composables/useTheme'
 import { ensureWorkspaceOnboarding } from './composables/useOnboarding'
 
@@ -222,74 +225,71 @@ watch(
       />
 
       <div class="flex min-w-0 flex-1 flex-col">
-        <header class="sticky top-0 z-10 border-b border-outline/70 bg-surface/95 backdrop-blur">
-          <div class="flex w-full flex-wrap items-center justify-end gap-2 px-4 py-3">
-            <FluffmindButton
+        <header class="md3-top-bar flex-col items-stretch !min-h-0 py-3">
+          <div class="flex w-full flex-wrap items-center gap-1">
+            <FluffmindIconButton
               v-if="!hideSidebar"
-              variant="text"
-              class="mr-auto md:hidden"
+              label="Ouvrir la navigation"
+              class="md:hidden"
               @click="openMobileSidebar"
             >
               ☰
-            </FluffmindButton>
+            </FluffmindIconButton>
 
-            <SyncStatusBar />
+            <div class="ml-auto flex flex-wrap items-center gap-1">
+              <SyncStatusBar />
 
-        <NuxtLink
-          v-if="showSettingsLink"
-          to="/settings"
-          class="rounded-lg px-2 py-1 text-sm text-primary hover:bg-primary/10"
-        >
-          Paramètres
-        </NuxtLink>
+              <NuxtLink v-if="showSettingsLink" to="/settings">
+                <FluffmindButton variant="text" size="sm">
+                  Paramètres
+                </FluffmindButton>
+              </NuxtLink>
 
-        <div v-if="showWorkspaceSwitcher" class="flex items-center gap-2">
-          <label class="text-sm text-on-surface-variant" for="workspace-switcher">Workspace</label>
-          <select
-            id="workspace-switcher"
-            :value="selectedWorkspaceId"
-            class="rounded-lg border border-outline bg-surface px-2 py-1 text-sm text-on-surface"
-            :disabled="workspaceLoading"
-            @change="handleWorkspaceSelection"
-          >
-            <option v-for="organization in organizations" :key="organization.id" :value="organization.id">
-              {{ organization.name }}
-            </option>
-          </select>
-        </div>
+              <div v-if="showWorkspaceSwitcher" class="flex items-center gap-2 px-2">
+                <label class="md3-label-md" for="workspace-switcher">Workspace</label>
+                <select
+                  id="workspace-switcher"
+                  :value="selectedWorkspaceId"
+                  class="md3-field h-9 w-auto min-w-40 py-1.5"
+                  :disabled="workspaceLoading"
+                  @change="handleWorkspaceSelection"
+                >
+                  <option v-for="organization in organizations" :key="organization.id" :value="organization.id">
+                    {{ organization.name }}
+                  </option>
+                </select>
+              </div>
 
-        <NuxtLink
-          v-if="showWorkspaceSettingsLink"
-          to="/settings/workspace"
-          class="rounded-lg px-2 py-1 text-sm text-primary hover:bg-primary/10"
-        >
-          Paramètres workspace
-        </NuxtLink>
+              <NuxtLink v-if="showWorkspaceSettingsLink" to="/settings/workspace">
+                <FluffmindButton variant="text" size="sm">
+                  Workspace
+                </FluffmindButton>
+              </NuxtLink>
 
-        <NuxtLink
-          v-if="showLogin"
-          to="/login"
-          class="rounded-lg px-2 py-1 text-sm text-primary hover:bg-primary/10"
-        >
-          Connexion
-        </NuxtLink>
+              <NuxtLink v-if="showLogin" to="/login">
+                <FluffmindButton variant="text" size="sm">
+                  Connexion
+                </FluffmindButton>
+              </NuxtLink>
 
-        <FluffmindButton
-          v-if="showLogout"
-          variant="text"
-          :disabled="loggingOut"
-          @click="logout"
-        >
-          {{ loggingOut ? '…' : 'Logout' }}
-        </FluffmindButton>
+              <FluffmindButton
+                v-if="showLogout"
+                variant="text"
+                size="sm"
+                :disabled="loggingOut"
+                @click="logout"
+              >
+                {{ loggingOut ? '…' : 'Logout' }}
+              </FluffmindButton>
 
-        <FluffmindButton variant="text" @click="cycleTheme">
-          Theme: {{ preference }}
-        </FluffmindButton>
-      </div>
-      <p v-if="workspaceError" class="px-4 pb-3 text-sm text-error">
-        {{ workspaceError }}
-      </p>
+              <FluffmindButton variant="tonal" size="sm" @click="cycleTheme">
+                Theme: {{ preference }}
+              </FluffmindButton>
+            </div>
+          </div>
+          <p v-if="workspaceError" class="mt-2 w-full px-1 text-sm text-error">
+            {{ workspaceError }}
+          </p>
         </header>
         <NuxtPage />
       </div>

@@ -1,3 +1,8 @@
-// Vue component exports — kept out of ./index.ts on purpose, see the comment there.
 export { default as FluffmindButton } from './components/Button.vue'
+export { default as FluffmindCard } from './components/Card.vue'
+export { default as FluffmindChip } from './components/Chip.vue'
+export { default as FluffmindDivider } from './components/Divider.vue'
+export { default as FluffmindIconButton } from './components/IconButton.vue'
+export { default as FluffmindListItem } from './components/ListItem.vue'
+export { default as FluffmindTextField } from './components/TextField.vue'
 export { default as FluffmindTooltip } from './components/Tooltip.vue'
