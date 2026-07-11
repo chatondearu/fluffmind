@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { FluffmindButton } from '@fluffmind/design-system/src/components'
+import {
+  FluffmindButton,
+  FluffmindCard,
+} from '@fluffmind/design-system/src/components'
 import { authClient, useAuth } from '../../composables/useAuth'
 
 const route = useRoute()
@@ -57,18 +60,18 @@ watchEffect(() => {
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-screen w-full max-w-md items-center p-6">
-    <section class="w-full rounded-lg border border-outline p-6">
-      <h1 class="mb-2 text-2xl font-semibold text-on-surface">
+  <main class="flex min-h-[calc(100vh-4rem)] items-center justify-center p-6">
+    <FluffmindCard padding="lg" class="w-full max-w-md">
+      <h1 class="md3-headline-sm">
         Invitation workspace
       </h1>
 
-      <p v-if="!invitationId" class="mb-4 text-sm text-error">
+      <p v-if="!invitationId" class="mt-4 md3-body-md text-error">
         Invitation invalide.
       </p>
 
       <template v-else-if="!authSession?.session && !isPending">
-        <p class="mb-4 text-sm text-on-surface-variant">
+        <p class="mt-4 mb-6 md3-body-md text-on-surface-variant">
           Connecte-toi pour accepter cette invitation.
         </p>
         <FluffmindButton class="w-full" @click="navigateTo(loginLink)">
@@ -77,13 +80,13 @@ watchEffect(() => {
       </template>
 
       <template v-else-if="loading">
-        <p class="text-sm text-on-surface-variant">
+        <p class="mt-4 md3-body-md text-on-surface-variant">
           Acceptation de l’invitation…
         </p>
       </template>
 
       <template v-else-if="accepted">
-        <p class="mb-4 text-sm text-tertiary">
+        <p class="mt-4 mb-6 md3-body-md text-tertiary">
           Invitation acceptée. Bienvenue dans le workspace.
         </p>
         <FluffmindButton class="w-full" @click="navigateTo('/settings/workspace')">
@@ -92,13 +95,13 @@ watchEffect(() => {
       </template>
 
       <template v-else-if="errorMessage">
-        <p class="mb-4 text-sm text-error">
+        <p class="mt-4 mb-6 md3-body-md text-error">
           {{ errorMessage }}
         </p>
         <FluffmindButton variant="outlined" class="w-full" @click="started = false; void acceptInvitation()">
           Réessayer
         </FluffmindButton>
       </template>
-    </section>
+    </FluffmindCard>
   </main>
 </template>

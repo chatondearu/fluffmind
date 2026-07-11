@@ -12,7 +12,7 @@ const label = computed(() => inlinesToMarkdown(props.block.inlines ?? []) || pro
 </script>
 
 <template>
-  <p class="rounded border border-dashed border-outline-variant p-2 text-sm text-on-surface-variant">
+  <p class="md3-card-outlined p-3 md3-body-md text-on-surface-variant shadow-none">
     {{ label }}
   </p>
 </template>

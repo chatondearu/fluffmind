@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { $fetch } from 'ofetch'
-import { FluffmindButton } from '@fluffmind/design-system/src/components'
+import {
+  FluffmindButton,
+  FluffmindCard,
+} from '@fluffmind/design-system/src/components'
 import {
   isKanbanBoard,
   parseKanbanMarkdown,
@@ -76,47 +79,63 @@ async function save() {
 </script>
 
 <template>
-  <main class="mx-auto max-w-6xl p-6">
-    <NuxtLink to="/" class="text-sm text-primary hover:underline">← All notes</NuxtLink>
+  <main class="md3-page max-w-6xl">
+    <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 v-if="data" class="md3-display-sm">
+          {{ data.note.title }}
+        </h1>
+        <p class="mt-1 md3-body-md text-on-surface-variant">
+          Vue Kanban
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <NuxtLink to="/">
+          <FluffmindButton variant="tonal" size="sm">
+            ← Notes
+          </FluffmindButton>
+        </NuxtLink>
+        <NuxtLink v-if="data" :to="`/notes/${id}`">
+          <FluffmindButton variant="text" size="sm">
+            Markdown view
+          </FluffmindButton>
+        </NuxtLink>
+        <FluffmindButton v-if="isBoard" :disabled="saving || !dirty" @click="save">
+          {{ saving ? 'Saving…' : dirty ? 'Save' : 'Saved' }}
+        </FluffmindButton>
+      </div>
+    </header>
 
-    <div v-if="error" class="mt-4 text-error">
+    <div v-if="error" class="md3-body-md text-error">
       Board not found.
     </div>
-    <template v-else-if="data && board">
-      <div v-if="!isBoard" class="mt-4 rounded-lg border border-outline-variant p-4 text-on-surface-variant">
-        This note is not a Kanban board (`kanban-plugin: board`).
-        <NuxtLink :to="`/notes/${id}`" class="ml-1 text-primary hover:underline">
-          Open as note
-        </NuxtLink>
-      </div>
-      <template v-else>
-        <div class="mb-4 mt-2 flex flex-wrap items-center justify-between gap-4">
-          <h1 class="text-2xl font-semibold text-on-surface">
-            {{ data.note.title }}
-          </h1>
-          <div class="flex items-center gap-2">
-            <NuxtLink :to="`/notes/${id}`" class="text-sm text-primary hover:underline">
-              Markdown view
-            </NuxtLink>
-            <FluffmindButton :disabled="saving || !dirty" @click="save">
-              {{ saving ? 'Saving…' : dirty ? 'Save' : 'Saved' }}
-            </FluffmindButton>
-          </div>
-        </div>
 
+    <template v-else-if="data && board">
+      <FluffmindCard v-if="!isBoard" padding="lg" variant="outlined" class="mb-6">
+        <p class="md3-body-md text-on-surface-variant">
+          This note is not a Kanban board (`kanban-plugin: board`).
+        </p>
+        <NuxtLink :to="`/notes/${id}`" class="mt-4 inline-block">
+          <FluffmindButton variant="outlined" size="sm">
+            Open as note
+          </FluffmindButton>
+        </NuxtLink>
+      </FluffmindCard>
+
+      <template v-else>
         <KanbanBoard v-model="board" />
 
-        <p v-if="saveError" class="mt-3 text-sm text-error">
+        <p v-if="saveError" class="mt-4 md3-body-md text-error">
           {{ saveError }}
         </p>
 
-        <section v-if="data.backlinks.length" class="mt-8 border-t border-outline-variant pt-4">
-          <h2 class="mb-2 text-sm font-medium uppercase text-on-surface-variant">
+        <section v-if="data.backlinks.length" class="mt-10 border-t border-outline-variant pt-6">
+          <h2 class="mb-3 md3-label-lg uppercase tracking-wide">
             Linked from
           </h2>
           <ul class="flex flex-col gap-1">
             <li v-for="backlink in data.backlinks" :key="backlink.id">
-              <NuxtLink :to="`/notes/${backlink.id}`" class="text-primary hover:underline">
+              <NuxtLink :to="`/notes/${backlink.id}`" class="md3-body-md text-primary hover:underline">
                 {{ backlink.title }}
               </NuxtLink>
             </li>

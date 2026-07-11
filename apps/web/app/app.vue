@@ -2,6 +2,7 @@
 import {
   FluffmindButton,
   FluffmindIconButton,
+  FluffmindSelect,
 } from '@fluffmind/design-system/src/components'
 import type { ThemePreference } from './composables/useTheme'
 import { ensureWorkspaceOnboarding } from './composables/useOnboarding'
@@ -84,6 +85,13 @@ const showLogin = computed(() =>
 )
 const showSettingsLink = computed(() => !hideWorkspaceControls.value)
 const loggingOut = ref(false)
+
+const workspaceOptions = computed(() =>
+  organizations.value.map(organization => ({
+    value: organization.id,
+    label: organization.name,
+  })),
+)
 
 async function logout() {
   if (!authModule) return
@@ -184,12 +192,6 @@ async function setActiveWorkspace(workspaceId: string) {
   }
 }
 
-function handleWorkspaceSelection(event: Event) {
-  const target = event.target as HTMLSelectElement | null
-  if (!target) return
-  void setActiveWorkspace(target.value)
-}
-
 watch(
   () => [authEnabled, isPending, authSession.value?.session?.id] as const,
   async ([enabled, pending, sessionId]) => {
@@ -247,17 +249,13 @@ watch(
 
               <div v-if="showWorkspaceSwitcher" class="flex items-center gap-2 px-2">
                 <label class="md3-label-md" for="workspace-switcher">Workspace</label>
-                <select
+                <FluffmindSelect
                   id="workspace-switcher"
-                  :value="selectedWorkspaceId"
-                  class="md3-field h-9 w-auto min-w-40 py-1.5"
+                  :model-value="selectedWorkspaceId"
+                  :options="workspaceOptions"
                   :disabled="workspaceLoading"
-                  @change="handleWorkspaceSelection"
-                >
-                  <option v-for="organization in organizations" :key="organization.id" :value="organization.id">
-                    {{ organization.name }}
-                  </option>
-                </select>
+                  @update:model-value="setActiveWorkspace"
+                />
               </div>
 
               <NuxtLink v-if="showWorkspaceSettingsLink" to="/settings/workspace">

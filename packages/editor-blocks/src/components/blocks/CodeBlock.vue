@@ -39,7 +39,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="rounded-lg bg-surface-container-low px-3 py-2 font-mono text-sm">
+  <div class="md3-card px-3 py-2 font-mono md3-body-md shadow-none">
     <EditableSurface
       ref="surface"
       v-model="text"

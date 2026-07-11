@@ -3,19 +3,19 @@ defineOptions({ inheritAttrs: false })
 
 interface Props {
   modelValue?: string
-  type?: string
   placeholder?: string
   disabled?: boolean
   readonly?: boolean
   id?: string
+  rows?: number
 }
 
 withDefaults(defineProps<Props>(), {
   modelValue: '',
-  type: 'text',
   placeholder: '',
   disabled: false,
   readonly: false,
+  rows: 3,
 })
 
 const emit = defineEmits<{
@@ -23,20 +23,20 @@ const emit = defineEmits<{
 }>()
 
 function onInput(event: Event) {
-  emit('update:modelValue', (event.target as HTMLInputElement).value)
+  emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
 }
 </script>
 
 <template>
-  <input
+  <textarea
     :id="id"
-    :type="type"
     :value="modelValue"
     :placeholder="placeholder"
     :disabled="disabled"
     :readonly="readonly"
+    :rows="rows"
     v-bind="$attrs"
-    class="md3-field disabled:cursor-not-allowed disabled:opacity-60"
+    class="md3-field min-h-20 resize-y disabled:cursor-not-allowed disabled:opacity-60"
     @input="onInput"
-  >
+  />
 </template>
