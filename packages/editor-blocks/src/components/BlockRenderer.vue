@@ -18,6 +18,7 @@ const emit = defineEmits<{
   shiftEnter: [offset: number]
   backspaceEmpty: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
+  blur: []
 }>()
 
 const component = computed(() => {
@@ -43,5 +44,6 @@ function onUpdate(next: BlockNode) {
     @shift-enter="emit('shiftEnter', $event)"
     @backspace-empty="emit('backspaceEmpty')"
     @slash-change="emit('slashChange', $event)"
+    @blur="emit('blur')"
   />
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BlockEditor, createEmptyBlock } from '@fluffmind/editor-blocks'
+import { BlockEditor, createEmptyBlock, stripTrailingEmptyBlocks } from '@fluffmind/editor-blocks'
 import type { BlockNode } from '@fluffmind/editor-blocks'
 
 import { sanitizeFolderFromQuery } from '../../utils/note-document'
@@ -21,6 +21,10 @@ const { status, errorMessage } = useNoteAutosave({
   async onCreated(id) {
     await navigateTo(`/notes/${id}`, { replace: true })
   },
+})
+
+onBeforeUnmount(() => {
+  blocks.value = stripTrailingEmptyBlocks(blocks.value)
 })
 </script>
 

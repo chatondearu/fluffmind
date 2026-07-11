@@ -31,6 +31,9 @@ const {
   createFolder,
 } = useVaultTree(props.workspaceId ?? 'default', workspaceLabel)
 
+const folderDialogOpen = ref(false)
+const folderDialogParent = ref<string | null>(null)
+
 const activeId = computed(() => {
   if (route.path.startsWith('/notes/')) {
     const slug = route.params.slug
@@ -74,8 +77,13 @@ function goNewPage(folder: string | null) {
   onNavigate()
 }
 
-async function goNewFolder(parent: string | null, name: string) {
-  await createFolder(parent, name)
+function requestNewFolder(parent: string | null) {
+  folderDialogParent.value = parent
+  folderDialogOpen.value = true
+}
+
+async function confirmNewFolder(name: string) {
+  await createFolder(folderDialogParent.value, name)
 }
 </script>
 
@@ -116,7 +124,7 @@ async function goNewFolder(parent: string | null, name: string) {
           :is-expanded="isExpanded"
           @toggle="toggleFolder"
           @new-page="goNewPage"
-          @new-folder="(parent, name) => goNewFolder(parent, name)"
+          @new-folder-request="requestNewFolder"
           @navigate="onNavigate"
         />
       </ul>
@@ -131,5 +139,10 @@ async function goNewFolder(parent: string | null, name: string) {
         </FluffmindButton>
       </NuxtLink>
     </div>
+
+    <FolderCreateDialog
+      v-model:open="folderDialogOpen"
+      @confirm="confirmNewFolder"
+    />
   </aside>
 </template>

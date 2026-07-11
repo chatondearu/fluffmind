@@ -17,6 +17,7 @@ const emit = defineEmits<{
   shiftEnter: [offset: number]
   backspaceEmpty: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
+  blur: []
 }>()
 
 const editor = inject(blockEditorContextKey, null)
@@ -48,6 +49,7 @@ onUnmounted(() => {
       @shift-enter="emit('shiftEnter', $event)"
       @backspace-empty="emit('backspaceEmpty')"
       @slash-change="emit('slashChange', $event)"
+      @blur="emit('blur')"
     />
   </div>
 </template>

@@ -1,9 +1,11 @@
 import { blocksToMarkdown } from './blocks-to-markdown'
+import { stripTrailingEmptyBlocks } from './block-markdown'
 import { createBlockId } from './ids'
-import { isBlockEmpty } from './block-text'
 import { mdastToBlocks } from './mdast-to-blocks'
 import { markdownProcessor } from './remark'
 import type { BlockDocument, BlockNode, RoundTripResult } from './types'
+
+export { normalizeEditorBlocks, promoteBlockFromMarkdown, stripTrailingEmptyBlocks } from './block-markdown'
 
 export function assignBlockIds(blocks: BlockNode[]): BlockNode[] {
   return blocks.map(block => ({
@@ -21,17 +23,6 @@ export function parseMarkdownToDocument(markdown: string): BlockDocument {
 
 export function serializeDocument(document: BlockDocument): string {
   return blocksToMarkdown(stripTrailingEmptyBlocks(document.blocks))
-}
-
-/** Remove trailing empty paragraphs before persisting (Notion-style sentinel block). */
-export function stripTrailingEmptyBlocks(blocks: BlockNode[]): BlockNode[] {
-  const copy = [...blocks]
-  while (copy.length > 0) {
-    const last = copy[copy.length - 1]
-    if (!last || last.type !== 'paragraph' || !isBlockEmpty(last)) break
-    copy.pop()
-  }
-  return copy
 }
 
 export function roundTripMarkdown(input: string): RoundTripResult {

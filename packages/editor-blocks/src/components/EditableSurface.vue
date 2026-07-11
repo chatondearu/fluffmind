@@ -21,7 +21,7 @@ const emit = defineEmits<{
   shiftEnter: [offset: number]
   backspaceEmpty: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
-  focus: []
+  blur: []
 }>()
 
 const root = ref<HTMLElement | null>(null)
@@ -41,6 +41,11 @@ function syncFromDom() {
 
 function onInput() {
   syncFromDom()
+}
+
+function onBlur() {
+  syncFromDom()
+  emit('blur')
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -107,7 +112,7 @@ defineExpose({
       :class="{ 'is-empty': isEmpty }"
       @input="onInput"
       @keydown="onKeydown"
-      @focus="emit('focus')"
+      @blur="onBlur"
     />
   </div>
 </template>
