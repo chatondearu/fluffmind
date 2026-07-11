@@ -28,8 +28,10 @@ export function noteTitleFromBlocks(blocks: BlockNode[]): string {
   return 'Sans titre'
 }
 
-export function noteIdFromBlocks(blocks: BlockNode[]): string {
-  return slugifyNoteId(noteTitleFromBlocks(blocks))
+export function noteIdFromBlocks(blocks: BlockNode[], folderPrefix: string | null = null): string {
+  const slug = slugifyNoteId(noteTitleFromBlocks(blocks))
+  if (!folderPrefix) return slug
+  return `${folderPrefix}/${slug}`
 }
 
 export function isDocumentEmpty(blocks: BlockNode[]): boolean {
@@ -40,3 +42,5 @@ export function isDocumentEmpty(blocks: BlockNode[]): boolean {
   const text = blockPlainText(only).trim()
   return text.length === 0 || text === '/'
 }
+
+export { sanitizeFolderQuery as sanitizeFolderFromQuery } from './vault-tree'

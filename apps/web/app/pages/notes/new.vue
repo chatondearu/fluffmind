@@ -3,6 +3,10 @@ import { createEmptyBlock, BlockEditor } from '@fluffmind/editor-blocks'
 import type { BlockNode } from '@fluffmind/editor-blocks'
 
 import { displayTitleFromBlocks, useNoteAutosave } from '../../composables/useNoteAutosave'
+import { sanitizeFolderFromQuery } from '../../utils/note-document'
+
+const route = useRoute()
+const folderPrefix = computed(() => sanitizeFolderFromQuery(route.query.folder))
 
 const noteId = ref('new')
 const isNew = ref(true)
@@ -14,6 +18,7 @@ const { status, errorMessage } = useNoteAutosave({
   noteId,
   blocks,
   isNew,
+  folderPrefix,
   async onCreated(id) {
     await navigateTo(`/notes/${id}`, { replace: true })
   },
@@ -22,11 +27,11 @@ const { status, errorMessage } = useNoteAutosave({
 
 <template>
   <main class="mx-auto max-w-3xl px-6 py-8">
-    <div class="mb-6 flex items-center justify-between gap-4">
-      <NuxtLink to="/" class="text-sm text-on-surface-variant hover:text-primary">
-        ← Notes
-      </NuxtLink>
+    <div class="mb-6 flex items-center justify-end gap-4">
       <span class="text-xs text-on-surface-variant">
+        <template v-if="folderPrefix">
+          Dossier : {{ folderPrefix }} ·
+        </template>
         <template v-if="status === 'saving'">Enregistrement…</template>
         <template v-else-if="status === 'saved'">Enregistré</template>
         <template v-else-if="status === 'error'">Erreur</template>

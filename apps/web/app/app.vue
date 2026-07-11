@@ -35,6 +35,27 @@ const workspaceLoading = ref(false)
 const workspaceError = ref<string | null>(null)
 
 const hideWorkspaceControls = computed(() => route.path === '/login' || route.path === '/signup')
+const hideSidebar = computed(() =>
+  route.path === '/login'
+  || route.path === '/signup'
+  || route.path.startsWith('/accept-invitation/'),
+)
+const sidebarWorkspaceId = computed(() =>
+  authSession.value?.session?.activeOrganizationId || selectedWorkspaceId.value || 'default',
+)
+const mobileSidebarOpen = ref(false)
+
+function closeMobileSidebar() {
+  mobileSidebarOpen.value = false
+}
+
+function openMobileSidebar() {
+  mobileSidebarOpen.value = true
+}
+
+watch(() => route.fullPath, () => {
+  mobileSidebarOpen.value = false
+})
 const CYCLE: ThemePreference[] = ['system', 'light', 'dark']
 const showWorkspaceSwitcher = computed(() =>
   authEnabled
@@ -185,9 +206,34 @@ watch(
 <template>
   <div class="min-h-screen bg-surface text-on-surface">
     <NuxtRouteAnnouncer />
-    <header class="sticky top-0 z-10 border-b border-outline/70 bg-surface/95 backdrop-blur">
-      <div class="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-end gap-2 px-4 py-3">
-        <SyncStatusBar />
+
+    <div class="flex min-h-screen">
+      <VaultSidebar
+        v-if="!hideSidebar"
+        :workspace-id="sidebarWorkspaceId"
+        :mobile-open="mobileSidebarOpen"
+        @close="closeMobileSidebar"
+      />
+
+      <div
+        v-if="mobileSidebarOpen && !hideSidebar"
+        class="fixed inset-0 z-30 bg-black/40 md:hidden"
+        @click="closeMobileSidebar"
+      />
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        <header class="sticky top-0 z-10 border-b border-outline/70 bg-surface/95 backdrop-blur">
+          <div class="flex w-full flex-wrap items-center justify-end gap-2 px-4 py-3">
+            <FluffmindButton
+              v-if="!hideSidebar"
+              variant="text"
+              class="mr-auto md:hidden"
+              @click="openMobileSidebar"
+            >
+              ☰
+            </FluffmindButton>
+
+            <SyncStatusBar />
 
         <NuxtLink
           v-if="showSettingsLink"
@@ -241,10 +287,12 @@ watch(
           Theme: {{ preference }}
         </FluffmindButton>
       </div>
-      <p v-if="workspaceError" class="mx-auto max-w-5xl px-4 pb-3 text-sm text-error">
+      <p v-if="workspaceError" class="px-4 pb-3 text-sm text-error">
         {{ workspaceError }}
       </p>
-    </header>
-    <NuxtPage />
+        </header>
+        <NuxtPage />
+      </div>
+    </div>
   </div>
 </template>

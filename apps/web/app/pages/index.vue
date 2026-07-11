@@ -3,7 +3,9 @@ import { isKanbanBoard } from '@fluffmind/kanban'
 import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import type { NoteSummary } from '../../server/vault/index'
 
-const { data, error, refresh, pending } = await useFetch<{ notes: NoteSummary[] }>('/api/notes')
+const { data, error, refresh, pending } = await useFetch<{ notes: NoteSummary[] }>('/api/notes', {
+  key: 'vault-notes',
+})
 const notes = computed(() => data.value?.notes ?? [])
 const { public: { authEnabled } } = useRuntimeConfig()
 
