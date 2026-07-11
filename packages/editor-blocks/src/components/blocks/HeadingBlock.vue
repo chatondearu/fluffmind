@@ -51,17 +51,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div :class="headingClass">
-    <EditableSurface
-      ref="surface"
-      v-model="text"
-      placeholder="Titre"
-      :multiline="false"
-      @enter="emit('enter', $event)"
-      @shift-enter="emit('shiftEnter', $event)"
-      @backspace-empty="emit('backspaceEmpty')"
-      @slash-change="emit('slashChange', $event)"
-      @blur="emit('blur')"
-    />
-  </div>
+  <EditableSurface
+    ref="surface"
+    v-model="text"
+    placeholder="Titre"
+    :multiline="false"
+    :text-class="headingClass"
+    @enter="emit('enter', $event)"
+    @shift-enter="emit('shiftEnter', $event)"
+    @backspace-empty="emit('backspaceEmpty')"
+    @slash-change="emit('slashChange', $event)"
+    @blur="emit('blur')"
+  />
 </template>

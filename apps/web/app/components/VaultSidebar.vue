@@ -114,7 +114,7 @@ async function confirmNewFolder(name: string) {
       <p v-if="pending" class="px-3 py-2 md3-label-md">
         Chargement…
       </p>
-      <ul v-else class="flex flex-col gap-0.5">
+      <ul v-else class="m-0 flex list-none flex-col gap-0.5 p-0">
         <VaultTreeItem
           v-for="node in tree"
           :key="node.path || 'root'"

@@ -9,10 +9,12 @@ const props = withDefaults(defineProps<{
   placeholder?: string
   multiline?: boolean
   autofocus?: boolean
+  textClass?: string
 }>(), {
   placeholder: '',
   multiline: true,
   autofocus: false,
+  textClass: 'md3-body-md',
 })
 
 const emit = defineEmits<{
@@ -107,7 +109,8 @@ defineExpose({
       contenteditable
       role="textbox"
       tabindex="0"
-      class="editable-surface md3-body-md min-w-0 whitespace-pre-wrap break-words outline-none"
+      class="editable-surface min-w-0 whitespace-pre-wrap break-words outline-none"
+      :class="textClass"
       :data-placeholder="placeholder"
       :class="{ 'is-empty': isEmpty }"
       @input="onInput"

@@ -32,6 +32,7 @@ const slashMenu = ref<InstanceType<typeof SlashMenu> | null>(null)
 const dragFromIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
 const hoveredIndex = ref<number | null>(null)
+const toolbarMenuOpenIndex = ref<number | null>(null)
 
 const filteredCommands = computed(() => filterSlashCommands(slashQuery.value))
 
@@ -278,6 +279,16 @@ function blockIndexForRender(block: BlockNode): number {
   return blocks.value.findIndex(item => item.id === block.id)
 }
 
+function isToolbarVisible(block: BlockNode): boolean {
+  const index = blockIndexForRender(block)
+  return (hoveredIndex.value === index || toolbarMenuOpenIndex.value === index) && !isDragging.value
+}
+
+function onToolbarMenuOpenChange(block: BlockNode, open: boolean) {
+  const index = blockIndexForRender(block)
+  toolbarMenuOpenIndex.value = open ? index : (toolbarMenuOpenIndex.value === index ? null : toolbarMenuOpenIndex.value)
+}
+
 function onGlobalKeydown(event: KeyboardEvent) {
   slashMenu.value?.onKeydown(event)
 }
@@ -312,12 +323,14 @@ function onGlobalKeydown(event: KeyboardEvent) {
 
       <div class="relative min-w-0 flex-1">
         <BlockToolbar
-          :visible="hoveredIndex === blockIndexForRender(block) && !isDragging"
+          :visible="isToolbarVisible(block)"
           @delete="deleteBlock(blockIndexForRender(block))"
           @copy="copyBlock(blockIndexForRender(block))"
           @change-type="changeBlockType(blockIndexForRender(block), $event)"
+          @menu-open-change="onToolbarMenuOpenChange(block, $event)"
         />
         <BlockRenderer
+          :key="`${block.id}-${block.type}-${block.level ?? 0}`"
           :block="block"
           :index="blockIndexForRender(block)"
           @update="updateBlock(blockIndexForRender(block), $event)"
