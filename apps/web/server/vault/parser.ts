@@ -26,3 +26,14 @@ export function parseNote(raw: string): ParsedNote {
   const ast = processor.parse(content)
   return { frontmatter: data, content, ast }
 }
+
+/**
+ * Combines markdown body with optional YAML frontmatter for disk writes.
+ * Skips the frontmatter block when there are no fields to preserve.
+ */
+export function serializeNoteFile(content: string, frontmatter: Record<string, unknown> = {}): string {
+  if (Object.keys(frontmatter).length === 0) {
+    return content
+  }
+  return matter.stringify(content, frontmatter)
+}

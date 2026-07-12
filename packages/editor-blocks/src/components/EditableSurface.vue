@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { focusElement, getSelectionOffset, setSelectionOffset } from '../contenteditable'
+import { focusElement, getSelectionOffset, isSelectionCollapsed, setSelectionOffset } from '../contenteditable'
 import { matchSlashQuery } from '../slash-commands'
 
 const props = withDefaults(defineProps<{
@@ -22,6 +22,7 @@ const emit = defineEmits<{
   enter: [offset: number]
   shiftEnter: [offset: number]
   backspaceEmpty: []
+  deleteBlock: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
   blur: []
   focus: []
@@ -77,6 +78,12 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Backspace' && readText().length === 0) {
     event.preventDefault()
     emit('backspaceEmpty')
+    return
+  }
+
+  if (event.key === 'Delete' && readText().length > 0 && root.value && isSelectionCollapsed(root.value)) {
+    event.preventDefault()
+    emit('deleteBlock')
   }
 }
 

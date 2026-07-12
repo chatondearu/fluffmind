@@ -23,6 +23,7 @@ export function useNoteAutosave(options: {
   title: Ref<string>
   blocks: Ref<BlockNode[]>
   isNew: Ref<boolean>
+  frontmatter?: Ref<Record<string, unknown>>
   folderPrefix?: Ref<string | null>
   onCreated: (id: string) => void | Promise<void>
 }) {
@@ -48,17 +49,21 @@ export function useNoteAutosave(options: {
 
     try {
       const content = serializeDocument({ blocks: documentBlocks })
+      const saveBody: { content: string, frontmatter?: Record<string, unknown> } = { content }
+      if (options.frontmatter) {
+        saveBody.frontmatter = options.frontmatter.value
+      }
 
       if (options.isNew.value) {
         const folder = options.folderPrefix?.value ?? null
         let id = noteIdFromBlocks(documentBlocks, folder)
         try {
-          await $fetch('/api/notes', { method: 'POST', body: { id, content } })
+          await $fetch('/api/notes', { method: 'POST', body: { id, ...saveBody } })
         } catch (error) {
           const asRecord = error as { statusCode?: number }
           if (asRecord.statusCode === 409) {
             id = `${id}-${Date.now().toString(36).slice(-4)}`
-            await $fetch('/api/notes', { method: 'POST', body: { id, content } })
+            await $fetch('/api/notes', { method: 'POST', body: { id, ...saveBody } })
           } else {
             throw error
           }
@@ -68,7 +73,7 @@ export function useNoteAutosave(options: {
         await refreshVaultNotes()
         await options.onCreated(id)
       } else {
-        await $fetch(`/api/notes/${options.noteId.value}`, { method: 'PUT', body: { content } })
+        await $fetch(`/api/notes/${options.noteId.value}`, { method: 'PUT', body: saveBody })
         await refreshVaultNotes()
       }
 
