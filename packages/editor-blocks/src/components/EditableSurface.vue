@@ -24,6 +24,7 @@ const emit = defineEmits<{
   backspaceEmpty: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
   blur: []
+  focus: []
 }>()
 
 const root = ref<HTMLElement | null>(null)
@@ -44,6 +45,10 @@ function syncFromDom() {
 
 function onInput() {
   syncFromDom()
+}
+
+function onFocus() {
+  emit('focus')
 }
 
 function onBlur() {
@@ -121,6 +126,7 @@ defineExpose({
       :data-placeholder="placeholder"
       @input="onInput"
       @keydown="onKeydown"
+      @focus="onFocus"
       @blur="onBlur"
     />
   </div>

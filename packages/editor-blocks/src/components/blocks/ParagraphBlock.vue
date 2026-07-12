@@ -19,6 +19,7 @@ const emit = defineEmits<{
   backspaceEmpty: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
   blur: []
+  focus: []
 }>()
 
 const editor = inject(blockEditorContextKey, null)
@@ -32,6 +33,7 @@ const text = computed({
 onMounted(() => {
   editor?.registerSurface(props.block.id, {
     focus: (offset?: number) => surface.value?.focus(offset),
+    getOffset: () => surface.value?.getOffset() ?? 0,
   })
 })
 
@@ -51,5 +53,6 @@ onUnmounted(() => {
     @backspace-empty="emit('backspaceEmpty')"
     @slash-change="emit('slashChange', $event)"
     @blur="emit('blur')"
+    @focus="emit('focus')"
   />
 </template>

@@ -24,7 +24,8 @@ registerDefaultBlocks()
 
 const blocks = defineModel<BlockNode[]>({ required: true })
 
-const surfaces = new Map<string, { focus: (offset?: number) => void }>()
+const surfaces = new Map<string, { focus: (offset?: number) => void, getOffset: () => number }>()
+const activeBlockId = ref<string | null>(null)
 const slashOpen = ref(false)
 const slashQuery = ref('')
 const slashAnchor = ref<DOMRect | null>(null)
@@ -63,7 +64,7 @@ const visibleBlocks = computed(() => {
 
 provide(blockEditorContextKey, {
   blockIndex: slashBlockIndex,
-  registerSurface(blockId: string, surface: { focus: (offset?: number) => void }) {
+  registerSurface(blockId: string, surface: { focus: (offset?: number) => void, getOffset: () => number }) {
     surfaces.set(blockId, surface)
   },
   unregisterSurface(blockId: string) {
@@ -76,9 +77,21 @@ function setBlocks(next: BlockNode[]) {
 }
 
 function updateBlock(index: number, next: BlockNode) {
+  const blockId = next.id
+  const shouldRestoreFocus = activeBlockId.value === blockId
+  const offset = shouldRestoreFocus ? surfaces.get(blockId)?.getOffset() : undefined
+
   const copy = [...blocks.value]
   copy[index] = next
-  setBlocks(copy)
+  blocks.value = ensureTrailingSentinel(copy)
+
+  if (shouldRestoreFocus) {
+    nextTick(() => focusBlockById(blockId, offset ?? 0))
+  }
+}
+
+function handleFocus(blockId: string) {
+  activeBlockId.value = blockId
 }
 
 function focusBlockById(blockId: string, offset = 0) {
@@ -169,6 +182,10 @@ function handleBackspaceEmpty(index: number) {
 
 function handleBlur(index: number) {
   closeSlash()
+  const block = blocks.value[index]
+  if (block && activeBlockId.value === block.id) {
+    activeBlockId.value = null
+  }
   promoteBlockAtIndex(index)
 }
 
@@ -348,6 +365,7 @@ function onGlobalKeydown(event: KeyboardEvent) {
           @backspace-empty="handleBackspaceEmpty(blockIndexForRender(block))"
           @slash-change="handleSlashChange(blockIndexForRender(block), $event)"
           @blur="handleBlur(blockIndexForRender(block))"
+          @focus="handleFocus(block.id)"
         />
       </div>
     </div>

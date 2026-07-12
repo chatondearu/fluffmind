@@ -19,6 +19,7 @@ const emit = defineEmits<{
   backspaceEmpty: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
   blur: []
+  focus: []
 }>()
 
 const component = computed(() => {
@@ -45,5 +46,6 @@ function onUpdate(next: BlockNode) {
     @backspace-empty="emit('backspaceEmpty')"
     @slash-change="emit('slashChange', $event)"
     @blur="emit('blur')"
+    @focus="emit('focus')"
   />
 </template>

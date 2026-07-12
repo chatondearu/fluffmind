@@ -45,6 +45,7 @@ const text = computed({
 onMounted(() => {
   editor?.registerSurface(props.block.id, {
     focus: (offset?: number) => surface.value?.focus(offset),
+    getOffset: () => surface.value?.getOffset() ?? 0,
   })
 })
 
