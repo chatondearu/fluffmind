@@ -12,7 +12,7 @@ describe('note-source utils', () => {
   })
 
   it('returns parse error for invalid yaml', () => {
-    const parsed = parseNoteSourceFile('---\n: bad\n---\nbody')
+    const parsed = parseNoteSourceFile('---\nkey: [unclosed\n---\nbody')
     expect(parsed.error).toBeTruthy()
     expect(parsed.content).toContain('body')
   })
