@@ -48,11 +48,20 @@ export function stripTrailingEmptyBlocks(blocks: BlockNode[]): BlockNode[] {
   return copy
 }
 
-/** Keep exactly one trailing empty paragraph for editing. */
-export function normalizeEditorBlocks(blocks: BlockNode[]): BlockNode[] {
+/** Keep exactly one trailing empty paragraph for editing, reusing its id when possible. */
+export function ensureTrailingSentinel(blocks: BlockNode[]): BlockNode[] {
   const withoutTrailing = stripTrailingEmptyBlocks(blocks)
   if (withoutTrailing.length === 0) {
     return [createEmptyBlock('paragraph')]
   }
-  return [...withoutTrailing, createEmptyBlock('paragraph')]
+
+  const lastInput = blocks[blocks.length - 1]
+  const trailing = (lastInput?.type === 'paragraph' && isBlockEmpty(lastInput))
+    ? lastInput
+    : createEmptyBlock('paragraph')
+
+  return [...withoutTrailing, trailing]
 }
+
+/** @deprecated alias — prefer ensureTrailingSentinel */
+export const normalizeEditorBlocks = ensureTrailingSentinel

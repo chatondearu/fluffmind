@@ -30,13 +30,13 @@ const text = computed({
 })
 
 onMounted(() => {
-  editor?.registerSurface(props.index, {
+  editor?.registerSurface(props.block.id, {
     focus: (offset?: number) => surface.value?.focus(offset),
   })
 })
 
 onUnmounted(() => {
-  editor?.unregisterSurface(props.index)
+  editor?.unregisterSurface(props.block.id)
 })
 </script>
 
@@ -45,7 +45,7 @@ onUnmounted(() => {
     ref="surface"
     v-model="text"
     :placeholder="placeholder"
-    :autofocus="index === 0"
+    :autofocus="false"
     @enter="emit('enter', $event)"
     @shift-enter="emit('shiftEnter', $event)"
     @backspace-empty="emit('backspaceEmpty')"

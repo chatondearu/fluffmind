@@ -161,6 +161,9 @@ importers:
 
   packages/editor-blocks:
     dependencies:
+      '@vueuse/core':
+        specifier: ^14.3.0
+        version: 14.3.0(vue@3.5.39(typescript@5.9.3))
       remark:
         specifier: ^15.0.1
         version: 15.0.1
