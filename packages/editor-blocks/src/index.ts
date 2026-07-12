@@ -4,6 +4,7 @@ export { filterSlashCommands, SLASH_COMMANDS } from './slash-commands'
 export { BlockEditor, BlockRenderer } from './components'
 export {
   assignBlockIds,
+  ensureTrailingSentinel,
   normalizeEditorBlocks,
   normalizeMarkdown,
   parseMarkdownToDocument,

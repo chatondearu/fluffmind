@@ -40,13 +40,13 @@ const text = computed({
 })
 
 onMounted(() => {
-  editor?.registerSurface(props.index, {
+  editor?.registerSurface(props.block.id, {
     focus: (offset?: number) => surface.value?.focus(offset),
   })
 })
 
 onUnmounted(() => {
-  editor?.unregisterSurface(props.index)
+  editor?.unregisterSurface(props.block.id)
 })
 </script>
 

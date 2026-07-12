@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
+import { computed, nextTick, onMounted, onUnmounted, provide, ref } from 'vue'
 
-import { normalizeEditorBlocks, promoteBlockFromMarkdown, stripTrailingEmptyBlocks } from '../block-markdown'
+import { ensureTrailingSentinel, promoteBlockFromMarkdown, stripTrailingEmptyBlocks } from '../block-markdown'
 import {
   blockPlainText,
   createEmptyBlock,
@@ -23,7 +24,7 @@ registerDefaultBlocks()
 
 const blocks = defineModel<BlockNode[]>({ required: true })
 
-const surfaces = new Map<number, { focus: (offset?: number) => void }>()
+const surfaces = new Map<string, { focus: (offset?: number) => void }>()
 const slashOpen = ref(false)
 const slashQuery = ref('')
 const slashAnchor = ref<DOMRect | null>(null)
@@ -33,6 +34,7 @@ const dragFromIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
 const hoveredIndex = ref<number | null>(null)
 const toolbarMenuOpenIndex = ref<number | null>(null)
+const suppressBlurPromotion = ref(false)
 
 const filteredCommands = computed(() => filterSlashCommands(slashQuery.value))
 
@@ -61,58 +63,67 @@ const visibleBlocks = computed(() => {
 
 provide(blockEditorContextKey, {
   blockIndex: slashBlockIndex,
-  registerSurface(index: number, surface: { focus: (offset?: number) => void }) {
-    surfaces.set(index, surface)
+  registerSurface(blockId: string, surface: { focus: (offset?: number) => void }) {
+    surfaces.set(blockId, surface)
   },
-  unregisterSurface(index: number) {
-    surfaces.delete(index)
+  unregisterSurface(blockId: string) {
+    surfaces.delete(blockId)
   },
 })
 
-function setBlocks(next: BlockNode[], normalizeTrailing = true) {
-  blocks.value = normalizeTrailing ? normalizeEditorBlocks(next) : next
+function setBlocks(next: BlockNode[]) {
+  blocks.value = ensureTrailingSentinel(next)
 }
-
-function commitBlocks(next: BlockNode[]) {
-  setBlocks(next, true)
-}
-
-onMounted(() => {
-  setBlocks(blocks.value, true)
-  nextTick(() => surfaces.get(0)?.focus(0))
-  window.addEventListener('keydown', onGlobalKeydown)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', onGlobalKeydown)
-  blocks.value = stripTrailingEmptyBlocks(blocks.value)
-})
-
-watch(
-  () => blocks.value.length,
-  () => {
-    if (!isDragging.value) {
-      setBlocks(blocks.value, true)
-    }
-  },
-)
 
 function updateBlock(index: number, next: BlockNode) {
   const copy = [...blocks.value]
   copy[index] = next
-  commitBlocks(copy)
+  setBlocks(copy)
+}
+
+function focusBlockById(blockId: string, offset = 0) {
+  nextTick(() => surfaces.get(blockId)?.focus(offset))
 }
 
 function focusBlock(index: number, offset = 0) {
-  nextTick(() => surfaces.get(index)?.focus(offset))
+  const blockId = blocks.value[index]?.id
+  if (blockId) focusBlockById(blockId, offset)
 }
 
 function insertBlockAfter(index: number, block: BlockNode) {
   const copy = [...blocks.value]
   copy.splice(index + 1, 0, block)
-  commitBlocks(copy)
+  setBlocks(copy)
   focusBlock(index + 1, 0)
 }
+
+const promoteBlockAtIndex = useDebounceFn((index: number) => {
+  if (suppressBlurPromotion.value) return
+
+  const block = blocks.value[index]
+  if (!block) return
+
+  const promoted = promoteBlockFromMarkdown(block)
+  if (promoted.length === 1 && promoted[0]?.id === block.id && promoted[0].type === block.type) {
+    return
+  }
+
+  const copy = [...blocks.value]
+  copy.splice(index, 1, ...promoted)
+  setBlocks(copy)
+}, 200)
+
+onMounted(() => {
+  setBlocks(blocks.value)
+  nextTick(() => focusBlock(0, 0))
+  window.addEventListener('keydown', onGlobalKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  suppressBlurPromotion.value = true
+  blocks.value = stripTrailingEmptyBlocks(blocks.value)
+})
 
 function handleEnter(index: number, offset: number) {
   closeSlash()
@@ -152,23 +163,13 @@ function handleBackspaceEmpty(index: number) {
 
   const copy = [...blocks.value]
   copy.splice(index, 1)
-  commitBlocks(copy)
+  setBlocks(copy)
   focusBlock(index - 1, merged.length)
 }
 
 function handleBlur(index: number) {
   closeSlash()
-  const block = blocks.value[index]
-  if (!block) return
-
-  const promoted = promoteBlockFromMarkdown(block)
-  if (promoted.length === 1 && promoted[0]?.id === block.id && promoted[0].type === block.type) {
-    return
-  }
-
-  const copy = [...blocks.value]
-  copy.splice(index, 1, ...promoted)
-  commitBlocks(copy)
+  promoteBlockAtIndex(index)
 }
 
 function handleSlashChange(
@@ -206,12 +207,12 @@ function applySlashCommand(command: SlashCommand) {
 
 function deleteBlock(index: number) {
   if (blocks.value.length <= 1) {
-    commitBlocks([createEmptyBlock('paragraph')])
+    setBlocks([createEmptyBlock('paragraph')])
     return
   }
   const copy = [...blocks.value]
   copy.splice(index, 1)
-  commitBlocks(copy)
+  setBlocks(copy)
   focusBlock(Math.max(0, index - 1), 0)
 }
 
@@ -222,17 +223,26 @@ function copyBlock(index: number) {
   clone.id = createBlockId()
   const copy = [...blocks.value]
   copy.splice(index + 1, 0, clone)
-  commitBlocks(copy)
+  setBlocks(copy)
   focusBlock(index + 1, 0)
 }
 
 function changeBlockType(index: number, command: SlashCommand) {
   const current = blocks.value[index]
   if (!current) return
+
+  suppressBlurPromotion.value = true
+
   const text = blockPlainText(current)
+  const blockId = current.id
   const next = setBlockPlainText(createEmptyBlock(command.type, command.level ?? 1), text)
+  next.id = blockId
   updateBlock(index, next)
-  focusBlock(index, text.length)
+
+  nextTick(() => {
+    focusBlockById(blockId, text.length)
+    suppressBlurPromotion.value = false
+  })
 }
 
 function onBlockDragStart(index: number, event: DragEvent) {
@@ -266,7 +276,7 @@ function onBlockDrop(targetIndex: number, event: DragEvent) {
   let insertAt = targetIndex
   if (from < targetIndex) insertAt -= 1
   copy.splice(insertAt, 0, moved)
-  commitBlocks(copy)
+  setBlocks(copy)
   focusBlock(insertAt, 0)
 }
 
@@ -330,7 +340,6 @@ function onGlobalKeydown(event: KeyboardEvent) {
           @menu-open-change="onToolbarMenuOpenChange(block, $event)"
         />
         <BlockRenderer
-          :key="`${block.id}-${block.type}-${block.level ?? 0}`"
           :block="block"
           :index="blockIndexForRender(block)"
           @update="updateBlock(blockIndexForRender(block), $event)"

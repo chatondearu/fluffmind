@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { focusElement, getSelectionOffset, setSelectionOffset } from '../contenteditable'
 import { matchSlashQuery } from '../slash-commands'
@@ -27,6 +27,7 @@ const emit = defineEmits<{
 }>()
 
 const root = ref<HTMLElement | null>(null)
+const isUnmounting = ref(false)
 const isEmpty = computed(() => props.modelValue.length === 0)
 
 function readText(): string {
@@ -47,7 +48,9 @@ function onInput() {
 
 function onBlur() {
   syncFromDom()
-  emit('blur')
+  if (!isUnmounting.value) {
+    emit('blur')
+  }
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -90,6 +93,10 @@ onMounted(() => {
   if (props.autofocus) {
     nextTick(() => focusElement(root.value, props.modelValue.length))
   }
+})
+
+onBeforeUnmount(() => {
+  isUnmounting.value = true
 })
 
 defineExpose({

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createEmptyBlock, setBlockPlainText } from './block-text'
-import { normalizeEditorBlocks, promoteBlockFromMarkdown, stripTrailingEmptyBlocks } from './block-markdown'
+import { ensureTrailingSentinel, normalizeEditorBlocks, promoteBlockFromMarkdown, stripTrailingEmptyBlocks } from './block-markdown'
 
 describe('block-markdown', () => {
   it('promotes heading markdown on blur', () => {
@@ -21,6 +21,20 @@ describe('block-markdown', () => {
     const normalized = normalizeEditorBlocks(blocks)
     expect(normalized).toHaveLength(2)
     expect(normalized[1]?.type).toBe('paragraph')
+  })
+
+  it('reuses trailing sentinel id across text updates', () => {
+    const sentinel = createEmptyBlock('paragraph')
+    const blocks = [
+      setBlockPlainText(createEmptyBlock('paragraph'), 'Hello'),
+      sentinel,
+    ]
+    const first = ensureTrailingSentinel(blocks)
+    const second = ensureTrailingSentinel([
+      setBlockPlainText(first[0]!, 'Hello world'),
+      sentinel,
+    ])
+    expect(second[1]?.id).toBe(sentinel.id)
   })
 
   it('strips all trailing empty paragraphs when leaving', () => {
