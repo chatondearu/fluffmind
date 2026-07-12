@@ -52,6 +52,15 @@ describe('block-markdown', () => {
     expect(second[1]?.id).toBe(sentinel.id)
   })
 
+  it('returns the same array reference when trailing sentinel is already valid', () => {
+    const sentinel = createEmptyBlock('paragraph')
+    const blocks = [
+      setBlockPlainText(createEmptyBlock('paragraph'), 'Hello'),
+      sentinel,
+    ]
+    expect(ensureTrailingSentinel(blocks)).toBe(blocks)
+  })
+
   it('strips all trailing empty paragraphs when leaving', () => {
     const blocks = [
       setBlockPlainText(createEmptyBlock('paragraph'), 'Hello'),

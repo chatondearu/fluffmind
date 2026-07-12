@@ -78,15 +78,23 @@ function setBlocks(next: BlockNode[]) {
 
 function updateBlock(index: number, next: BlockNode) {
   const blockId = next.id
+  const previousLength = blocks.value.length
   const shouldRestoreFocus = activeBlockId.value === blockId
   const offset = shouldRestoreFocus ? surfaces.get(blockId)?.getOffset() : undefined
 
   const copy = [...blocks.value]
   copy[index] = next
-  blocks.value = ensureTrailingSentinel(copy)
+  const nextBlocks = ensureTrailingSentinel(copy)
+  const sentinelAdded = nextBlocks.length > previousLength
+  blocks.value = nextBlocks
 
-  if (shouldRestoreFocus) {
-    nextTick(() => focusBlockById(blockId, offset ?? 0))
+  // Only restore focus when a new trailing sentinel was inserted (typing in last empty block).
+  if (shouldRestoreFocus && sentinelAdded && offset !== undefined) {
+    nextTick(() => {
+      if (activeBlockId.value === blockId) {
+        surfaces.get(blockId)?.focus(offset)
+      }
+    })
   }
 }
 
