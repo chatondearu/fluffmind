@@ -5,6 +5,7 @@ export { BlockEditor, BlockRenderer } from './components'
 export {
   assignBlockIds,
   ensureTrailingSentinel,
+  hasMarkdownBlockSyntax,
   normalizeEditorBlocks,
   normalizeMarkdown,
   parseMarkdownToDocument,
