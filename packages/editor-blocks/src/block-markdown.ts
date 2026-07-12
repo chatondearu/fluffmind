@@ -76,7 +76,15 @@ export function ensureTrailingSentinel(blocks: BlockNode[]): BlockNode[] {
     ? lastInput
     : createEmptyBlock('paragraph')
 
-  return [...withoutTrailing, trailing]
+  const next = [...withoutTrailing, trailing]
+  if (
+    next.length === blocks.length
+    && next.every((block, index) => block === blocks[index])
+  ) {
+    return blocks
+  }
+
+  return next
 }
 
 /** @deprecated alias — prefer ensureTrailingSentinel */

@@ -29,6 +29,7 @@ const emit = defineEmits<{
 
 const root = ref<HTMLElement | null>(null)
 const isUnmounting = ref(false)
+const isSyncingDom = ref(false)
 const isEmpty = computed(() => props.modelValue.length === 0)
 
 function readText(): string {
@@ -44,6 +45,7 @@ function syncFromDom() {
 }
 
 function onInput() {
+  if (isSyncingDom.value) return
   syncFromDom()
 }
 
@@ -81,8 +83,12 @@ function onKeydown(event: KeyboardEvent) {
 function writeDom(value: string, preserveOffset = false) {
   if (!root.value) return
   const offset = preserveOffset ? getSelectionOffset(root.value) : value.length
+  isSyncingDom.value = true
   root.value.innerText = value
-  nextTick(() => setSelectionOffset(root.value!, offset))
+  nextTick(() => {
+    setSelectionOffset(root.value!, offset)
+    isSyncingDom.value = false
+  })
 }
 
 watch(
@@ -106,7 +112,14 @@ onBeforeUnmount(() => {
 
 defineExpose({
   focus(offset?: number) {
-    focusElement(root.value, offset ?? props.modelValue.length)
+    if (!root.value) return
+    if (document.activeElement === root.value) {
+      if (offset !== undefined) {
+        requestAnimationFrame(() => setSelectionOffset(root.value!, offset))
+      }
+      return
+    }
+    focusElement(root.value, offset)
   },
   getOffset() {
     return root.value ? getSelectionOffset(root.value) : 0

@@ -92,6 +92,7 @@ export function useNoteAutosave(options: {
   )
 
   onBeforeUnmount(() => {
+    // Avoid triggering another reactive save cycle during teardown.
     void persist()
   })
 
