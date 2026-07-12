@@ -1,6 +1,16 @@
+import { inlinesToMarkdown, parseInlineMarkdown } from './inlines'
 import { createBlockId } from './ids'
+import { notePageLinkToMarkdown, parseNoteLinkLine } from './note-page-links'
 import type { BlockNode, BlockType } from './types'
 import type { InlineNode } from './types'
+import { WIKILINK_RE } from './wikilinks'
+
+function hasInlineMarkdownSyntax(text: string): boolean {
+  if (WIKILINK_RE.test(text)) return true
+  if (/\[[^\]]+\]\([^)]+\)/.test(text)) return true
+  if (/\*\*[^*]+\*\*|\*[^*]+\*|__[^_]+__|_[^_]+_|`[^`]+`/.test(text)) return true
+  return false
+}
 
 export function blockPlainText(block: BlockNode): string {
   if (block.type === 'code') {
@@ -13,10 +23,10 @@ export function blockPlainText(block: BlockNode): string {
   }
   if (block.type === 'noteLink') {
     const link = block.inlines?.find(inline => inline.type === 'wikilink')
-    return link?.alias ?? link?.target ?? link?.value ?? ''
+    return link ? notePageLinkToMarkdown(link) : ''
   }
   if (block.inlines?.length) {
-    return block.inlines.map((i: { value: string }) => i.value).join('')
+    return inlinesToMarkdown(block.inlines)
   }
   return ''
 }
@@ -38,6 +48,10 @@ export function setBlockPlainText(block: BlockNode, text: string): BlockNode {
     }
   }
   if (block.type === 'noteLink') {
+    const parsed = parseNoteLinkLine(text)
+    if (parsed) {
+      return { ...block, inlines: parsed }
+    }
     const trimmed = text.trim()
     const existing = block.inlines?.find(inline => inline.type === 'wikilink')
     return {
@@ -52,7 +66,7 @@ export function setBlockPlainText(block: BlockNode, text: string): BlockNode {
   }
   return {
     ...block,
-    inlines: [{ type: 'text', value: text }],
+    inlines: hasInlineMarkdownSyntax(text) ? parseInlineMarkdown(text) : [{ type: 'text', value: text }],
   }
 }
 

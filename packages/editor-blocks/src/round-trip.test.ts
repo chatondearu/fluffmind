@@ -19,11 +19,17 @@ describe('roundTripMarkdown (P3 validation #65)', () => {
     ['ordered list', FIXTURE_ORDERED_LIST],
     ['fenced code', FIXTURE_CODE_FENCE],
     ['inline marks', FIXTURE_INLINE_MARKS],
-    ['wikilink', FIXTURE_WIKILINK],
     ['GFM table', FIXTURE_TABLE],
   ])('round-trips %s', (_label, input) => {
     const { output } = roundTripMarkdown(input)
     expect(normalizeMarkdown(output)).toBe(normalizeMarkdown(input))
+  })
+
+  it('migrates legacy wikilinks to markdown note links', () => {
+    const { output } = roundTripMarkdown(FIXTURE_WIKILINK)
+    expect(normalizeMarkdown(output)).toBe(normalizeMarkdown(
+      'See [Feature catalog](/notes/foam/index) and [ADR-001](/notes/ADR-001).',
+    ))
   })
 })
 

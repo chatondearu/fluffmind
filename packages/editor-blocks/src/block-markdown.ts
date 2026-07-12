@@ -1,6 +1,8 @@
 import { blockPlainText, createEmptyBlock, isBlockEmpty } from './block-text'
 import { createBlockId } from './ids'
 import { mdastToBlocks } from './mdast-to-blocks'
+import { parseNoteLinkLine, promoteInlinesToNoteLink } from './note-page-links'
+import { parseInlineMarkdown } from './inlines'
 import { markdownProcessor } from './remark'
 import type { BlockNode } from './types'
 
@@ -32,6 +34,16 @@ export function hasMarkdownBlockSyntax(text: string): boolean {
 export function promoteBlockFromMarkdown(block: BlockNode): BlockNode[] {
   const text = blockPlainText(block).trim()
   if (!text || text.startsWith('/')) return [block]
+
+  const noteLinkInlines = parseNoteLinkLine(text)
+  if (noteLinkInlines && (block.type === 'paragraph' || block.type === 'noteLink')) {
+    return [{ ...block, type: 'noteLink', inlines: noteLinkInlines }]
+  }
+
+  const inlineNoteLink = promoteInlinesToNoteLink(parseInlineMarkdown(text))
+  if (inlineNoteLink && (block.type === 'paragraph' || block.type === 'noteLink')) {
+    return [{ ...block, ...inlineNoteLink }]
+  }
 
   // Preserve toolbar-selected types unless the user typed markdown block syntax.
   if (block.type !== 'paragraph' && !hasMarkdownBlockSyntax(text)) {

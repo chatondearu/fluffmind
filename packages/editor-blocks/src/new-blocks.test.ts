@@ -5,10 +5,18 @@ import { blocksToMarkdown } from './blocks-to-markdown'
 import { roundTripMarkdown } from './document'
 
 describe('noteLink block', () => {
-  it('serializes wikilink markdown', () => {
+  it('serializes as markdown page link', () => {
     const block = createEmptyBlock('noteLink')
     block.inlines = [{ type: 'wikilink', target: 'projets/roadmap', value: 'Roadmap', alias: 'Roadmap' }]
-    expect(blocksToMarkdown([block])).toBe('[[projets/roadmap|Roadmap]]')
+    expect(blocksToMarkdown([block])).toBe('[Roadmap](/notes/projets/roadmap)')
+  })
+
+  it('round-trips through parseMarkdownToDocument', async () => {
+    const { parseMarkdownToDocument } = await import('./document')
+    const markdown = '[Roadmap](/notes/projets/roadmap)'
+    const { blocks } = parseMarkdownToDocument(markdown)
+    expect(blocks[0]?.type).toBe('noteLink')
+    expect(blocksToMarkdown(blocks)).toBe(markdown)
   })
 })
 

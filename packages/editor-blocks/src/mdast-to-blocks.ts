@@ -1,6 +1,7 @@
 import type { Content, ListItem, PhrasingContent, Root, TableCell } from 'mdast'
 
 import { createBlockId } from './ids'
+import { promoteInlinesToNoteLink } from './note-page-links'
 import type { BlockNode, InlineNode, TableRow } from './types'
 import { expandTextWithWikilinks } from './wikilinks'
 
@@ -15,8 +16,14 @@ export function mdastToBlocks(ast: Root): BlockNode[] {
 
 function blockFromTopLevel(node: Content): BlockNode[] {
   switch (node.type) {
-    case 'paragraph':
-      return [block({ type: 'paragraph', inlines: phrasingToInlines(node.children) })]
+    case 'paragraph': {
+      const inlines = phrasingToInlines(node.children)
+      const noteLink = promoteInlinesToNoteLink(inlines)
+      if (noteLink) {
+        return [block(noteLink)]
+      }
+      return [block({ type: 'paragraph', inlines })]
+    }
     case 'heading':
       return [block({
         type: 'heading',

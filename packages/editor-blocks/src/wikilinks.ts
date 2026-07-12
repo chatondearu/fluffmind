@@ -1,4 +1,5 @@
 import type { InlineNode } from './types'
+import { notePageLinkToMarkdown } from './note-page-links'
 
 /** Foam/Obsidian-style wikilink pattern (matches apps/web/server/vault/wikilinks.ts). */
 export const WIKILINK_RE = /\[\[([^[\]|]+)(?:\|([^[\]]+))?\]\]/g
@@ -30,9 +31,5 @@ export function expandTextWithWikilinks(text: string): InlineNode[] {
 }
 
 export function wikilinkToMarkdown(node: InlineNode): string {
-  const target = node.target ?? node.value
-  if (node.alias && node.alias !== target) {
-    return `[[${target}|${node.alias}]]`
-  }
-  return `[[${target}]]`
+  return notePageLinkToMarkdown(node)
 }
