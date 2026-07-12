@@ -1,9 +1,19 @@
 import { createBlockId } from './ids'
 import type { BlockNode, BlockType } from './types'
+import type { InlineNode } from './types'
 
 export function blockPlainText(block: BlockNode): string {
   if (block.type === 'code') {
     return block.text ?? ''
+  }
+  if (block.type === 'bulletList' || block.type === 'orderedList') {
+    const item = block.children?.[0]
+    const paragraph = item?.children?.[0]
+    return paragraph ? blockPlainText(paragraph) : ''
+  }
+  if (block.type === 'noteLink') {
+    const link = block.inlines?.find(inline => inline.type === 'wikilink')
+    return link?.alias ?? link?.target ?? link?.value ?? ''
   }
   if (block.inlines?.length) {
     return block.inlines.map((i: { value: string }) => i.value).join('')
@@ -14,6 +24,31 @@ export function blockPlainText(block: BlockNode): string {
 export function setBlockPlainText(block: BlockNode, text: string): BlockNode {
   if (block.type === 'code') {
     return { ...block, text }
+  }
+  if (block.type === 'bulletList' || block.type === 'orderedList') {
+    const item = block.children?.[0]
+    const paragraph = item?.children?.[0]
+    if (!item || !paragraph) return block
+    return {
+      ...block,
+      children: [{
+        ...item,
+        children: [setBlockPlainText(paragraph, text)],
+      }],
+    }
+  }
+  if (block.type === 'noteLink') {
+    const trimmed = text.trim()
+    const existing = block.inlines?.find(inline => inline.type === 'wikilink')
+    return {
+      ...block,
+      inlines: [{
+        type: 'wikilink',
+        target: trimmed,
+        value: existing?.alias ?? trimmed,
+        alias: existing?.alias,
+      }],
+    }
   }
   return {
     ...block,
@@ -50,6 +85,23 @@ export function createEmptyBlock(type: BlockType, level = 1): BlockNode {
       }
     case 'code':
       return { id, type: 'code', lang: null, text: '' }
+    case 'table': {
+      const emptyCell = (): InlineNode[] => [{ type: 'text', value: '' }]
+      return {
+        id,
+        type: 'table',
+        rows: [
+          { cells: [emptyCell(), emptyCell()] },
+          { cells: [emptyCell(), emptyCell()] },
+        ],
+      }
+    }
+    case 'noteLink':
+      return {
+        id,
+        type: 'noteLink',
+        inlines: [{ type: 'wikilink', target: '', value: '' }],
+      }
     default:
       return { id, type: 'paragraph', inlines: [{ type: 'text', value: '' }] }
   }

@@ -13,7 +13,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   toggle: [path: string]
   newPage: [folder: string | null]
-  newFolderRequest: [parent: string | null]
+  newFolder: [parent: string | null]
+  rename: [node: VaultTreeNode]
+  delete: [node: VaultTreeNode]
   navigate: []
 }>()
 
@@ -34,20 +36,12 @@ function onFolderClick() {
     emit('toggle', props.node.path)
   }
 }
-
-function onNewPage() {
-  emit('newPage', folderPathForActions.value)
-}
-
-function onNewFolderRequest() {
-  emit('newFolderRequest', folderPathForActions.value)
-}
 </script>
 
 <template>
-  <li class="list-none">
+  <li class="group/list list-none">
     <div
-      class="flex items-center gap-0.5"
+      class="group flex items-center gap-0.5"
       :style="{ paddingLeft: depth > 0 ? `${depth * 10}px` : undefined }"
     >
       <FluffmindListItem
@@ -76,6 +70,14 @@ function onNewFolderRequest() {
           {{ node.title }}
         </FluffmindListItem>
       </NuxtLink>
+
+      <VaultContextMenu
+        :node="node"
+        @new-page="emit('newPage', $event)"
+        @new-folder="emit('newFolder', $event)"
+        @rename="emit('rename', $event)"
+        @delete="emit('delete', $event)"
+      />
     </div>
 
     <ul
@@ -91,16 +93,11 @@ function onNewFolderRequest() {
         :is-expanded="isExpanded"
         @toggle="emit('toggle', $event)"
         @new-page="emit('newPage', $event)"
-        @new-folder-request="emit('newFolderRequest', $event)"
+        @new-folder="emit('newFolder', $event)"
+        @rename="emit('rename', $event)"
+        @delete="emit('delete', $event)"
         @navigate="emit('navigate')"
       />
-      <li class="list-none py-0.5" :style="{ paddingLeft: `${(depth + 1) * 10}px` }">
-        <VaultAddMenu
-          :folder-path="folderPathForActions"
-          @new-page="onNewPage"
-          @new-folder="onNewFolderRequest"
-        />
-      </li>
     </ul>
   </li>
 </template>

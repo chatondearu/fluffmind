@@ -1,5 +1,6 @@
 import { inlinesToMarkdown } from './inlines'
 import type { BlockNode, TableRow } from './types'
+import { wikilinkToMarkdown } from './wikilinks'
 
 /** Serialize block tree back to markdown (#58). */
 export function blocksToMarkdown(blocks: BlockNode[]): string {
@@ -31,6 +32,10 @@ function blockToMarkdown(block: BlockNode): string {
     }
     case 'table':
       return tableToMarkdown(block.rows ?? [])
+    case 'noteLink': {
+      const link = block.inlines?.find(inline => inline.type === 'wikilink')
+      return link ? wikilinkToMarkdown(link) : ''
+    }
     case 'fallback':
       return block.raw ?? ''
     default: {

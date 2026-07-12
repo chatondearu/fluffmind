@@ -27,6 +27,11 @@ function withWorkspaceLock<T>(workspaceId: string, run: () => Promise<T>): Promi
   return settled
 }
 
+/** Shared workspace lock for all vault mutations (writes, renames, deletes). */
+export function withWorkspaceWriteLock<T>(workspaceId: string, run: () => Promise<T>): Promise<T> {
+  return withWorkspaceLock(workspaceId, run)
+}
+
 export interface WriteResult {
   committed: boolean
   pushed: boolean

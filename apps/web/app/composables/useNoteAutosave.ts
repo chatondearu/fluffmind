@@ -4,11 +4,13 @@ import { blockPlainText, serializeDocument } from '@fluffmind/editor-blocks'
 import type { BlockNode } from '@fluffmind/editor-blocks'
 import type { Ref } from 'vue'
 
+import { parseNoteSourceFile } from '../utils/note-source'
 import { isBodyEmpty, blocksWithTitle } from '../utils/note-title'
 import { isDocumentEmpty, noteIdFromBlocks, sanitizeFolderFromQuery } from '../utils/note-document'
 import { refreshVaultNotes } from './useVaultTree'
 
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+export type EditorMode = 'blocks' | 'source'
 
 const AUTOSAVE_DEBOUNCE_MS = 1500
 const AUTOSAVE_MAX_WAIT_MS = 8000
@@ -24,6 +26,8 @@ export function useNoteAutosave(options: {
   blocks: Ref<BlockNode[]>
   isNew: Ref<boolean>
   frontmatter?: Ref<Record<string, unknown>>
+  editorMode?: Ref<EditorMode>
+  sourceText?: Ref<string>
   folderPrefix?: Ref<string | null>
   onCreated: (id: string) => void | Promise<void>
 }) {
@@ -33,9 +37,35 @@ export function useNoteAutosave(options: {
   let saveQueued = false
 
   async function persist() {
-    const documentBlocks = blocksWithTitle(options.title.value, options.blocks.value)
-    if (isDocumentEmpty(documentBlocks) || (isBodyEmpty(options.blocks.value) && !options.title.value.trim())) {
+    let content = ''
+    const saveBody: { content: string, frontmatter?: Record<string, unknown> } = { content: '' }
+
+    if (options.editorMode?.value === 'source' && options.sourceText) {
+      const parsed = parseNoteSourceFile(options.sourceText.value)
+      if (parsed.error) {
+        status.value = 'error'
+        errorMessage.value = parsed.error
+        return
+      }
+      if (options.frontmatter) {
+        options.frontmatter.value = parsed.frontmatter
+      }
+      content = parsed.content
+    } else {
+      const documentBlocks = blocksWithTitle(options.title.value, options.blocks.value)
+      if (isDocumentEmpty(documentBlocks) || (isBodyEmpty(options.blocks.value) && !options.title.value.trim())) {
+        return
+      }
+      content = serializeDocument({ blocks: documentBlocks })
+    }
+
+    if (!content.trim() && !options.title.value.trim()) {
       return
+    }
+
+    saveBody.content = content
+    if (options.frontmatter) {
+      saveBody.frontmatter = options.frontmatter.value
     }
 
     if (saveInFlight) {
@@ -48,14 +78,9 @@ export function useNoteAutosave(options: {
     errorMessage.value = null
 
     try {
-      const content = serializeDocument({ blocks: documentBlocks })
-      const saveBody: { content: string, frontmatter?: Record<string, unknown> } = { content }
-      if (options.frontmatter) {
-        saveBody.frontmatter = options.frontmatter.value
-      }
-
       if (options.isNew.value) {
         const folder = options.folderPrefix?.value ?? null
+        const documentBlocks = blocksWithTitle(options.title.value, options.blocks.value)
         let id = noteIdFromBlocks(documentBlocks, folder)
         try {
           await $fetch('/api/notes', { method: 'POST', body: { id, ...saveBody } })
@@ -91,13 +116,18 @@ export function useNoteAutosave(options: {
   }
 
   watchDebounced(
-    () => [options.blocks.value, options.title.value] as const,
+    () => [
+      options.blocks.value,
+      options.title.value,
+      options.frontmatter?.value,
+      options.sourceText?.value,
+      options.editorMode?.value,
+    ] as const,
     () => { void persist() },
     { debounce: AUTOSAVE_DEBOUNCE_MS, maxWait: AUTOSAVE_MAX_WAIT_MS, deep: true },
   )
 
   onBeforeUnmount(() => {
-    // Avoid triggering another reactive save cycle during teardown.
     void persist()
   })
 

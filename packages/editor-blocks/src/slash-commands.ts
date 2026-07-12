@@ -55,6 +55,18 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Bloc de code',
     keywords: ['code', 'snippet', 'pre'],
   },
+  {
+    type: 'table',
+    label: 'Tableau',
+    description: 'Tableau GFM éditable',
+    keywords: ['table', 'tableau', 'grid'],
+  },
+  {
+    type: 'noteLink',
+    label: 'Lien note',
+    description: 'Lien vers une note du vault',
+    keywords: ['link', 'lien', 'note', 'wikilink'],
+  },
 ]
 
 export function filterSlashCommands(query: string): SlashCommand[] {

@@ -1,6 +1,6 @@
 # PRD-030 — Éditeur v2, frontmatter, navigation contextuelle & nouveaux blocs
 
-- **Status**: draft
+- **Status**: in progress (P0–P3 implemented on `feat/prd-030-p0`)
 - **Date**: 2026-07-12
 - **Tags**: #product #ux #editor #vault
 - **Depends on**: PRD-024 (block editor), PRD-029 (sidebar v1 — partiellement livré)
