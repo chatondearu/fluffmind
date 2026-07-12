@@ -1,3 +1,4 @@
+import { watchDebounced } from '@vueuse/core'
 import { $fetch } from 'ofetch'
 import { blockPlainText, serializeDocument } from '@fluffmind/editor-blocks'
 import type { BlockNode } from '@fluffmind/editor-blocks'
@@ -8,6 +9,9 @@ import { isDocumentEmpty, noteIdFromBlocks, sanitizeFolderFromQuery } from '../u
 import { refreshVaultNotes } from './useVaultTree'
 
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
+const AUTOSAVE_DEBOUNCE_MS = 1500
+const AUTOSAVE_MAX_WAIT_MS = 8000
 
 function extractErrorMessage(err: unknown): string {
   const asRecord = err as { data?: { message?: string, statusMessage?: string }, statusMessage?: string }
@@ -24,7 +28,8 @@ export function useNoteAutosave(options: {
 }) {
   const status = ref<AutosaveStatus>('idle')
   const errorMessage = ref<string | null>(null)
-  let timer: ReturnType<typeof setTimeout> | null = null
+  let saveInFlight = false
+  let saveQueued = false
 
   async function persist() {
     const documentBlocks = blocksWithTitle(options.title.value, options.blocks.value)
@@ -32,6 +37,12 @@ export function useNoteAutosave(options: {
       return
     }
 
+    if (saveInFlight) {
+      saveQueued = true
+      return
+    }
+
+    saveInFlight = true
     status.value = 'saving'
     errorMessage.value = null
 
@@ -65,24 +76,23 @@ export function useNoteAutosave(options: {
     } catch (error) {
       status.value = 'error'
       errorMessage.value = extractErrorMessage(error)
+    } finally {
+      saveInFlight = false
+      if (saveQueued) {
+        saveQueued = false
+        void persist()
+      }
     }
   }
 
-  function scheduleSave() {
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(() => {
-      void persist()
-    }, 800)
-  }
-
-  watch(
+  watchDebounced(
     () => [options.blocks.value, options.title.value] as const,
-    () => scheduleSave(),
-    { deep: true },
+    () => { void persist() },
+    { debounce: AUTOSAVE_DEBOUNCE_MS, maxWait: AUTOSAVE_MAX_WAIT_MS, deep: true },
   )
 
   onBeforeUnmount(() => {
-    if (timer) clearTimeout(timer)
+    void persist()
   })
 
   return {

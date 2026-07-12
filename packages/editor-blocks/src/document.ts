@@ -5,7 +5,7 @@ import { mdastToBlocks } from './mdast-to-blocks'
 import { markdownProcessor } from './remark'
 import type { BlockDocument, BlockNode, RoundTripResult } from './types'
 
-export { ensureTrailingSentinel, normalizeEditorBlocks, promoteBlockFromMarkdown, stripTrailingEmptyBlocks } from './block-markdown'
+export { ensureTrailingSentinel, hasMarkdownBlockSyntax, normalizeEditorBlocks, promoteBlockFromMarkdown, stripTrailingEmptyBlocks } from './block-markdown'
 
 export function assignBlockIds(blocks: BlockNode[]): BlockNode[] {
   return blocks.map(block => ({

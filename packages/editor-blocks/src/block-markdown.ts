@@ -17,10 +17,26 @@ function parseMarkdownFragment(markdown: string): BlockNode[] {
   return assignBlockIds(mdastToBlocks(ast))
 }
 
+/** True when plain text contains block-level markdown shorthand worth re-parsing. */
+export function hasMarkdownBlockSyntax(text: string): boolean {
+  const line = text.trimStart()
+  if (/^#{1,6}(?:\s|$)/.test(line)) return true
+  if (/^[-*+]\s+/.test(line)) return true
+  if (/^\d+\.\s+/.test(line)) return true
+  if (line.startsWith('>')) return true
+  if (line.startsWith('```')) return true
+  return false
+}
+
 /** Promote a block's plain text into typed block(s) after markdown parsing on blur. */
 export function promoteBlockFromMarkdown(block: BlockNode): BlockNode[] {
   const text = blockPlainText(block).trim()
   if (!text || text.startsWith('/')) return [block]
+
+  // Preserve toolbar-selected types unless the user typed markdown block syntax.
+  if (block.type !== 'paragraph' && !hasMarkdownBlockSyntax(text)) {
+    return [block]
+  }
 
   const parsed = parseMarkdownFragment(text)
   if (parsed.length === 0) return [block]

@@ -12,6 +12,21 @@ describe('block-markdown', () => {
     expect(promoted[0]?.level).toBe(2)
   })
 
+  it('keeps manually selected heading type on blur without markdown syntax', () => {
+    const block = setBlockPlainText(createEmptyBlock('heading', 2), 'Hello')
+    const promoted = promoteBlockFromMarkdown(block)
+    expect(promoted).toHaveLength(1)
+    expect(promoted[0]?.type).toBe('heading')
+    expect(promoted[0]?.level).toBe(2)
+  })
+
+  it('re-parses heading block when markdown syntax is present', () => {
+    const block = setBlockPlainText(createEmptyBlock('heading', 1), '## Subtitle')
+    const promoted = promoteBlockFromMarkdown(block)
+    expect(promoted[0]?.type).toBe('heading')
+    expect(promoted[0]?.level).toBe(2)
+  })
+
   it('keeps exactly one trailing empty paragraph while editing', () => {
     const blocks = [
       setBlockPlainText(createEmptyBlock('paragraph'), 'Hello'),
