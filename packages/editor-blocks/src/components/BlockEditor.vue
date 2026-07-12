@@ -3,11 +3,10 @@ import { useDebounceFn } from '@vueuse/core'
 import { computed, nextTick, onMounted, onUnmounted, provide, ref } from 'vue'
 
 import { ensureTrailingSentinel, promoteBlockFromMarkdown, stripTrailingEmptyBlocks } from '../block-markdown'
+import { reorderBlocksById } from '../reorder-blocks'
 import {
   blockPlainText,
   createEmptyBlock,
-  isBlockEmpty,
-  mergeBlockText,
   setBlockPlainText,
   splitTextAt,
 } from '../block-text'
@@ -31,35 +30,23 @@ const slashQuery = ref('')
 const slashAnchor = ref<DOMRect | null>(null)
 const slashBlockIndex = ref<number | null>(null)
 const slashMenu = ref<InstanceType<typeof SlashMenu> | null>(null)
-const dragFromIndex = ref<number | null>(null)
-const dragOverIndex = ref<number | null>(null)
+const dragFromBlockId = ref<string | null>(null)
+const dragOverBlockId = ref<string | null>(null)
 const hoveredIndex = ref<number | null>(null)
 const toolbarMenuOpenIndex = ref<number | null>(null)
 const suppressBlurPromotion = ref(false)
 
 const filteredCommands = computed(() => filterSlashCommands(slashQuery.value))
 
-const isDragging = computed(() => dragFromIndex.value !== null)
+const isDragging = computed(() => dragFromBlockId.value !== null)
 
-const draggedBlockId = computed(() => {
-  const from = dragFromIndex.value
-  if (from === null) return null
-  return blocks.value[from]?.id ?? null
-})
+const draggedBlockId = computed(() => dragFromBlockId.value)
 
 const visibleBlocks = computed(() => {
-  const from = dragFromIndex.value
-  const over = dragOverIndex.value
-  if (from === null || over === null) return blocks.value
-
-  const copy = [...blocks.value]
-  const [moved] = copy.splice(from, 1)
-  if (!moved) return blocks.value
-
-  let insertAt = over
-  if (from < over) insertAt = over - 1
-  copy.splice(insertAt, 0, moved)
-  return copy
+  const fromId = dragFromBlockId.value
+  const overId = dragOverBlockId.value
+  if (!fromId || !overId) return blocks.value
+  return reorderBlocksById(blocks.value, fromId, overId)
 })
 
 provide(blockEditorContextKey, {
@@ -179,13 +166,30 @@ function handleBackspaceEmpty(index: number) {
   const current = blocks.value[index]
   if (!previous || !current) return
 
-  const merged = mergeBlockText(blockPlainText(previous), blockPlainText(current))
-  updateBlock(index - 1, setBlockPlainText(previous, merged))
+  const focusOffset = blockPlainText(previous).length
+  const copy = [...blocks.value]
+  copy.splice(index, 1)
+  setBlocks(copy)
+  focusBlock(index - 1, focusOffset)
+}
+
+function handleDeleteBlock(index: number) {
+  if (slashOpen.value) return
+  closeSlash()
+
+  if (blocks.value.length <= 1) {
+    setBlocks([createEmptyBlock('paragraph')])
+    focusBlock(0, 0)
+    return
+  }
+
+  const focusIndex = index > 0 ? index - 1 : 0
+  const focusOffset = index > 0 ? blockPlainText(blocks.value[index - 1]!).length : 0
 
   const copy = [...blocks.value]
   copy.splice(index, 1)
   setBlocks(copy)
-  focusBlock(index - 1, merged.length)
+  focusBlock(focusIndex, focusOffset)
 }
 
 function handleBlur(index: number) {
@@ -194,7 +198,9 @@ function handleBlur(index: number) {
   if (block && activeBlockId.value === block.id) {
     activeBlockId.value = null
   }
-  promoteBlockAtIndex(index)
+  if (!isDragging.value) {
+    promoteBlockAtIndex(index)
+  }
 }
 
 function handleSlashChange(
@@ -270,44 +276,45 @@ function changeBlockType(index: number, command: SlashCommand) {
   })
 }
 
-function onBlockDragStart(index: number, event: DragEvent) {
-  dragFromIndex.value = index
-  dragOverIndex.value = index
+function onBlockDragStart(blockId: string, event: DragEvent) {
+  dragFromBlockId.value = blockId
+  dragOverBlockId.value = blockId
+  suppressBlurPromotion.value = true
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', String(index))
+    event.dataTransfer.setData('application/x-fluffmind-block-id', blockId)
+    event.dataTransfer.setData('text/plain', blockId)
   }
 }
 
-function onBlockDragOver(index: number, event: DragEvent) {
+function onBlockDragOver(blockId: string, event: DragEvent) {
   event.preventDefault()
-  dragOverIndex.value = index
+  dragOverBlockId.value = blockId
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move'
   }
 }
 
-function onBlockDrop(targetIndex: number, event: DragEvent) {
+function onBlockDrop(targetBlockId: string, event: DragEvent) {
   event.preventDefault()
-  const from = dragFromIndex.value
-  dragFromIndex.value = null
-  dragOverIndex.value = null
-  if (from === null) return
+  const fromId = dragFromBlockId.value
+  dragFromBlockId.value = null
+  dragOverBlockId.value = null
+  suppressBlurPromotion.value = false
+  if (!fromId || fromId === targetBlockId) return
 
-  if (from === targetIndex) return
-  const copy = [...blocks.value]
-  const [moved] = copy.splice(from, 1)
-  if (!moved) return
-  let insertAt = targetIndex
-  if (from < targetIndex) insertAt -= 1
-  copy.splice(insertAt, 0, moved)
-  setBlocks(copy)
-  focusBlock(insertAt, 0)
+  const next = reorderBlocksById(blocks.value, fromId, targetBlockId)
+  const insertAt = next.findIndex(block => block.id === fromId)
+  setBlocks(next)
+  if (insertAt !== -1) {
+    focusBlock(insertAt, 0)
+  }
 }
 
 function onBlockDragEnd() {
-  dragFromIndex.value = null
-  dragOverIndex.value = null
+  dragFromBlockId.value = null
+  dragOverBlockId.value = null
+  suppressBlurPromotion.value = false
 }
 
 function blockIndexForRender(block: BlockNode): number {
@@ -337,20 +344,20 @@ function onGlobalKeydown(event: KeyboardEvent) {
       class="group relative flex items-start gap-1 rounded-xl px-1 py-0.5 transition-all"
       :class="{
         'opacity-40': isDragging && draggedBlockId === block.id,
-        'ring-2 ring-primary/30 bg-primary/5': isDragging && dragOverIndex === blockIndexForRender(block),
+        'ring-2 ring-primary/30 bg-primary/5': isDragging && dragOverBlockId === block.id,
         'hover:bg-on-surface/5': !isDragging,
       }"
       @mouseenter="hoveredIndex = blockIndexForRender(block)"
       @mouseleave="hoveredIndex = null"
-      @dragover="onBlockDragOver(blockIndexForRender(block), $event)"
-      @drop="onBlockDrop(blockIndexForRender(block), $event)"
+      @dragover="onBlockDragOver(block.id, $event)"
+      @drop="onBlockDrop(block.id, $event)"
     >
       <button
         type="button"
         class="mt-1 cursor-grab rounded-full px-1 font-mono text-xs text-on-surface-variant opacity-0 transition-opacity hover:bg-on-surface/8 group-hover:opacity-100"
         title="Déplacer le bloc"
         draggable="true"
-        @dragstart="onBlockDragStart(blockIndexForRender(block), $event)"
+        @dragstart="onBlockDragStart(block.id, $event)"
         @dragend="onBlockDragEnd"
       >
         ⋮⋮
@@ -371,6 +378,7 @@ function onGlobalKeydown(event: KeyboardEvent) {
           @enter="handleEnter(blockIndexForRender(block), $event)"
           @shift-enter="handleShiftEnter(blockIndexForRender(block), $event)"
           @backspace-empty="handleBackspaceEmpty(blockIndexForRender(block))"
+          @delete-block="handleDeleteBlock(blockIndexForRender(block))"
           @slash-change="handleSlashChange(blockIndexForRender(block), $event)"
           @blur="handleBlur(blockIndexForRender(block))"
           @focus="handleFocus(block.id)"

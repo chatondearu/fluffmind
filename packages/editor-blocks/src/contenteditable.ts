@@ -1,3 +1,15 @@
+export function isSelectionCollapsed(element: HTMLElement): boolean {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0) {
+    return true
+  }
+  const range = selection.getRangeAt(0)
+  if (!element.contains(range.startContainer)) {
+    return true
+  }
+  return range.collapsed
+}
+
 export function getSelectionOffset(element: HTMLElement): number {
   const selection = window.getSelection()
   if (!selection || selection.rangeCount === 0) {

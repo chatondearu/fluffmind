@@ -34,6 +34,7 @@ watch(
 const noteId = ref(id.value)
 const isNew = ref(false)
 const title = ref('Sans titre')
+const frontmatter = ref<Record<string, unknown>>({})
 const blocks = ref<BlockNode[]>([createEmptyBlock('paragraph')])
 const initialized = ref(false)
 
@@ -44,6 +45,7 @@ watch(
     const parsed = parseMarkdownToDocument(value.note.content).blocks
     const split = splitTitleFromBlocks(parsed.length > 0 ? parsed : [createEmptyBlock('paragraph')])
     title.value = split.title || value.note.title
+    frontmatter.value = { ...value.note.frontmatter }
     blocks.value = split.bodyBlocks.length > 0 ? split.bodyBlocks : [createEmptyBlock('paragraph')]
     initialized.value = true
   },
@@ -54,6 +56,7 @@ const { status, errorMessage } = useNoteAutosave({
   noteId,
   title,
   blocks,
+  frontmatter,
   isNew,
   async onCreated(createdId) {
     await navigateTo(`/notes/${createdId}`, { replace: true })
