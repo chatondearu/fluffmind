@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { isKanbanBoard } from '@fluffmind/kanban'
-import { BlockEditor, createEmptyBlock, parseMarkdownToDocument, stripTrailingEmptyBlocks } from '@fluffmind/editor-blocks'
+import {
+  BlockEditor,
+  createEmptyBlock,
+  parseMarkdownToDocument,
+  serializeDocument,
+  stripTrailingEmptyBlocks,
+} from '@fluffmind/editor-blocks'
 import type { BlockNode } from '@fluffmind/editor-blocks'
+import { FluffmindButton } from '@fluffmind/design-system/src/components'
+
 import type { NoteSummary, ResolvedLink } from '../../../server/vault/index'
 
-import { useNoteAutosave } from '../../composables/useNoteAutosave'
-import { splitTitleFromBlocks } from '../../utils/note-title'
+import { useNoteAutosave, type EditorMode } from '../../composables/useNoteAutosave'
+import { useVaultTree } from '../../composables/useVaultTree'
+import { buildNoteSourceFile, parseNoteSourceFile } from '../../utils/note-source'
+import { splitTitleFromBlocks, blocksWithTitle } from '../../utils/note-title'
 
 interface NoteDetailResponse {
   note: { id: string, title: string, frontmatter: Record<string, unknown>, content: string, html: string }
@@ -36,7 +46,17 @@ const isNew = ref(false)
 const title = ref('Sans titre')
 const frontmatter = ref<Record<string, unknown>>({})
 const blocks = ref<BlockNode[]>([createEmptyBlock('paragraph')])
+const editorMode = ref<EditorMode>('blocks')
+const sourceText = ref('')
+const sourceError = ref<string | null>(null)
+const frontmatterOpen = ref(false)
+const shortcutsOpen = ref(false)
 const initialized = ref(false)
+
+const { data: vaultData } = await useFetch<{ notes: NoteSummary[] }>('/api/notes')
+const vaultNotes = computed(() =>
+  (vaultData.value?.notes ?? []).map(note => ({ id: note.id, title: note.title })),
+)
 
 watch(
   data,
@@ -47,6 +67,9 @@ watch(
     title.value = split.title || value.note.title
     frontmatter.value = { ...value.note.frontmatter }
     blocks.value = split.bodyBlocks.length > 0 ? split.bodyBlocks : [createEmptyBlock('paragraph')]
+    sourceText.value = buildNoteSourceFile(frontmatter.value, serializeDocument({
+      blocks: blocksWithTitle(title.value, blocks.value),
+    }))
     initialized.value = true
   },
   { immediate: true },
@@ -57,11 +80,37 @@ const { status, errorMessage } = useNoteAutosave({
   title,
   blocks,
   frontmatter,
+  editorMode,
+  sourceText,
   isNew,
   async onCreated(createdId) {
     await navigateTo(`/notes/${createdId}`, { replace: true })
   },
 })
+
+function switchToSource() {
+  sourceError.value = null
+  sourceText.value = buildNoteSourceFile(
+    frontmatter.value,
+    serializeDocument({ blocks: blocksWithTitle(title.value, blocks.value) }),
+  )
+  editorMode.value = 'source'
+}
+
+function switchToBlocks() {
+  const parsed = parseNoteSourceFile(sourceText.value)
+  if (parsed.error) {
+    sourceError.value = parsed.error
+    return
+  }
+  sourceError.value = null
+  frontmatter.value = { ...parsed.frontmatter }
+  const document = parseMarkdownToDocument(parsed.content)
+  const split = splitTitleFromBlocks(document.blocks.length > 0 ? document.blocks : [createEmptyBlock('paragraph')])
+  title.value = split.title
+  blocks.value = split.bodyBlocks.length > 0 ? split.bodyBlocks : [createEmptyBlock('paragraph')]
+  editorMode.value = 'blocks'
+}
 
 onBeforeUnmount(() => {
   blocks.value = stripTrailingEmptyBlocks(blocks.value)
@@ -70,12 +119,43 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="md3-page max-w-3xl">
-    <div class="mb-6 flex items-center justify-end gap-4">
+    <div class="mb-6 flex flex-wrap items-center justify-end gap-2">
+      <FluffmindButton
+        variant="text"
+        size="sm"
+        title="Raccourcis clavier"
+        @click="shortcutsOpen = !shortcutsOpen"
+      >
+        ?
+      </FluffmindButton>
+      <FluffmindButton
+        variant="tonal"
+        size="sm"
+        @click="frontmatterOpen = true"
+      >
+        Propriétés
+      </FluffmindButton>
+      <FluffmindButton
+        variant="tonal"
+        size="sm"
+        @click="editorMode === 'blocks' ? switchToSource() : switchToBlocks()"
+      >
+        {{ editorMode === 'blocks' ? 'Markdown' : 'Blocs' }}
+      </FluffmindButton>
       <span class="md3-label-md">
         <template v-if="status === 'saving'">Enregistrement…</template>
         <template v-else-if="status === 'saved'">Enregistré</template>
         <template v-else-if="status === 'error'">Erreur</template>
       </span>
+    </div>
+
+    <div
+      v-if="shortcutsOpen"
+      class="md3-card mb-4 p-3 md3-body-sm text-on-surface-variant"
+    >
+      <p><strong>Del</strong> — supprimer le bloc (texte non vide)</p>
+      <p><strong>Suppr</strong> — supprimer un bloc vide</p>
+      <p><strong>Enter</strong> — nouveau bloc · liste → puce suivante</p>
     </div>
 
     <div v-if="error" class="text-error">
@@ -85,7 +165,23 @@ onBeforeUnmount(() => {
     <template v-else-if="data">
       <NoteTitleField v-model="title" />
 
-      <BlockEditor v-model="blocks" />
+      <BlockEditor
+        v-if="editorMode === 'blocks'"
+        v-model="blocks"
+        :vault-notes="vaultNotes"
+      />
+
+      <div v-else class="flex flex-col gap-2">
+        <textarea
+          v-model="sourceText"
+          rows="24"
+          class="md3-field min-h-[60vh] resize-y font-mono md3-body-md"
+          spellcheck="false"
+        />
+        <p v-if="sourceError" class="text-sm text-error">
+          {{ sourceError }}
+        </p>
+      </div>
 
       <p v-if="errorMessage" class="mt-4 text-sm text-error">
         {{ errorMessage }}
@@ -104,5 +200,10 @@ onBeforeUnmount(() => {
         </ul>
       </section>
     </template>
+
+    <NoteFrontmatterPanel
+      v-model:open="frontmatterOpen"
+      v-model:frontmatter="frontmatter"
+    />
   </main>
 </template>

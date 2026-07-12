@@ -8,6 +8,7 @@ export type BlockType =
   | 'listItem'
   | 'code'
   | 'table'
+  | 'noteLink'
   | 'fallback'
 
 export type InlineType =

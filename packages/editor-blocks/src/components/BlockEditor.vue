@@ -21,6 +21,12 @@ import SlashMenu from './SlashMenu.vue'
 
 registerDefaultBlocks()
 
+const props = withDefaults(defineProps<{
+  vaultNotes?: Array<{ id: string, title: string }>
+}>(), {
+  vaultNotes: () => [],
+})
+
 const blocks = defineModel<BlockNode[]>({ required: true })
 
 const surfaces = new Map<string, { focus: (offset?: number) => void, getOffset: () => number }>()
@@ -51,6 +57,7 @@ const visibleBlocks = computed(() => {
 
 provide(blockEditorContextKey, {
   blockIndex: slashBlockIndex,
+  vaultNotes: computed(() => props.vaultNotes),
   registerSurface(blockId: string, surface: { focus: (offset?: number) => void, getOffset: () => number }) {
     surfaces.set(blockId, surface)
   },
@@ -137,6 +144,18 @@ function handleEnter(index: number, offset: number) {
   closeSlash()
   const block = blocks.value[index]
   if (!block) return
+
+  if (block.type === 'bulletList' || block.type === 'orderedList') {
+    const text = blockPlainText(block)
+    const [before, after] = splitTextAt(text, offset)
+    updateBlock(index, setBlockPlainText(block, before))
+    insertBlockAfter(index, createEmptyBlock(block.type))
+    if (after.length > 0) {
+      updateBlock(index + 1, setBlockPlainText(blocks.value[index + 1]!, after))
+      focusBlock(index + 1, 0)
+    }
+    return
+  }
 
   const text = blockPlainText(block)
   const [before, after] = splitTextAt(text, offset)
