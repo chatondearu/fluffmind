@@ -21,11 +21,13 @@ See also [[../architecture/roadmap|Roadmap]] and `DESIGN.md` for architecture ra
 
 ## Non-goals (for now)
 
-- Native desktop/mobile apps (100% web).
+- Native desktop/mobile **GUI** apps (still 100% web UI in the browser). A **portable
+  solo server package** (embedded Node + Nitro, no Docker/Postgres) is in scope —
+  [[../../prd/PRD-032-portable-solo-package|PRD-032]].
 - Storing note content in Postgres (identity and membership only — see
   [[../decisions/ADR-001-markdown-git-source-of-truth|ADR-001]]).
 - Third-party block editor frameworks (custom editor in P3 — see `DESIGN.md`).
-- Distributed lock for shared-volume multi-instance: [[../decisions/ADR-007-distributed-workspace-lock|ADR-007]] / [[../../prd/PRD-031-p7-distributed-workspace-lock|PRD-031]] (P7a). Multi-disk scale-out still deferred (P7b).
+- Multi-disk scale-out (P7b) and static publishing (P7c) under epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
 
 ## Related
 

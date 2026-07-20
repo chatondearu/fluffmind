@@ -41,8 +41,9 @@ Index: [[decisions/index|All ADRs]]
 | [[../prd/PRD-029-vault-sidebar-navigation|PRD-029 sidebar]] | [[../plans/PLAN-029-vault-sidebar-navigation|PLAN-029]] | shipped |
 | [[../prd/PRD-030-editor-vault-v2|PRD-030 editor v2]] | [[../plans/PLAN-030-editor-vault-v2|PLAN-030]] | shipped |
 | [[../prd/PRD-031-p7-distributed-workspace-lock|PRD-031 P7a lock]] | [[../plans/PLAN-031-p7-distributed-workspace-lock|PLAN-031]] | shipped |
+| [[../prd/PRD-032-portable-solo-package|PRD-032 portable solo]] | [[../plans/PLAN-032-portable-solo-package|PLAN-032]] | approved |
 
-**Next:** implement [[../prd/PRD-031-p7-distributed-workspace-lock|PRD-031]] (distributed lock). Static publishing remains a later slice of epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
+**Next:** implement [[../prd/PRD-032-portable-solo-package|PRD-032]] (portable solo package). P7b/c remain under epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
 
 - PRD template: `prd/template.md`
 - Plan template: `plans/template.md`
