@@ -10,7 +10,8 @@
 | [[ADR-004-vault-engine-colocated|ADR-004]] | Vault engine in `apps/web` (for now) | accepted |
 | [[ADR-005-design-system-dual-entry|ADR-005]] | design-system dual entry points | accepted |
 | [[ADR-006-better-auth-workspaces|ADR-006]] | Better Auth + hybrid GitHub sync | accepted |
+| [[ADR-007-distributed-workspace-lock|ADR-007]] | Distributed workspace lock (PG advisory + flock) | accepted |
 
 Template: [[ADR-template|ADR-template]]
 
-Distilled from `DESIGN.md`, P0–P2 implementation, and `docs/superpowers/` specs.
+Distilled from `DESIGN.md`, P0–P2 implementation, P7a lock design, and `docs/superpowers/` specs.
