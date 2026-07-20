@@ -80,6 +80,23 @@ configure GitHub OAuth (`GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`). First sign
 
 Health check: `GET /api/health` (used by Docker healthcheck).
 
+## Releasing
+
+GitHub Releases are produced by [`.github/workflows/release-portable.yml`](.github/workflows/release-portable.yml).
+
+1. Push a version tag: `git tag v0.1.0 && git push origin v0.1.0`
+2. The workflow builds portable archives on four runners (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win-x64`) and attaches them to the release, plus `SHA256SUMS`.
+3. Or run the workflow manually (**Actions → Release portable → Run workflow**) without creating a GitHub Release (artifacts only). Tag pushes both build **and** publish a Release.
+
+Each asset is an unzip-and-run solo package (embedded Node 22, no Postgres). See [Portable solo](#portable-solo-no-docker-no-postgres) above for end-user instructions.
+
+Local dry-run (current machine only):
+
+```sh
+pnpm package:portable -- --target current
+# → dist/portable/fluffmind-<os>-<arch>.tar.gz|.zip
+```
+
 ## MCP (AI agents)
 
 Fluffmind exposes vault tools over [Model Context Protocol](https://modelcontextprotocol.io):
