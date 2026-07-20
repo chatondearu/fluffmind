@@ -25,7 +25,7 @@ See also [[../architecture/roadmap|Roadmap]] and `DESIGN.md` for architecture ra
 - Storing note content in Postgres (identity and membership only — see
   [[../decisions/ADR-001-markdown-git-source-of-truth|ADR-001]]).
 - Third-party block editor frameworks (custom editor in P3 — see `DESIGN.md`).
-- Multi-instance distributed locks until proven necessary (P7 stretch).
+- Distributed lock for shared-volume multi-instance: [[../decisions/ADR-007-distributed-workspace-lock|ADR-007]] / [[../../prd/PRD-031-p7-distributed-workspace-lock|PRD-031]] (P7a). Multi-disk scale-out still deferred (P7b).
 
 ## Related
 

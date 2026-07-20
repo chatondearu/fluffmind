@@ -150,8 +150,11 @@ need reworking later.
 
 ## Roadmap
 
-P0 (foundations — read-only vault engine + viewer + design system) and P1 (Git sync)
-are done. Next: P2 (auth/workspaces) → P3 (block editor) → P4 (Kanban) → P5 (MCP) →
-P6 (hardening) → P7 (stretch: multi-instance scale-out, static publishing). P1 was
-sequenced before P3 despite being less visible, because it's the higher technical
-risk of the two.
+P0–P6 and the MVP ship (PRD-028) are done, plus post-MVP UX (PRD-029 sidebar,
+PRD-030 editor/vault v2). **Next:** P7 stretch — multi-instance scale-out
+(distributed lock; see `foam/architecture/vault-engine.md`) and optional static
+publishing. P1 was sequenced before P3 despite being less visible, because it was
+the higher technical risk of the two.
+
+Live status: `foam/architecture/roadmap.md` and the
+[Project board](https://github.com/users/chatondearu/projects/3).

@@ -1,8 +1,9 @@
 # PLAN-029 — Vault sidebar navigation
 
-- **Status**: draft
+- **Status**: shipped
 - **PRD**: [[../prd/PRD-029-vault-sidebar-navigation|PRD-029]]
 - **Date**: 2026-07-11
+- **Shipped**: 2026-07-11 — PR [#95](https://github.com/chatondearu/fluffmind/pull/95)
 
 ## Summary
 
@@ -31,8 +32,8 @@ New pages support `?folder=` prefix. Mobile uses an overlay drawer.
 
 ### Out of scope
 
-- Move/rename notes via drag-and-drop
-- Empty folder creation
+- Move/rename notes via drag-and-drop (later: PRD-030 rename/delete APIs + `⋯` menu)
+- Empty folder creation (later: PRD-030 `POST /api/folders`)
 - Sidebar search
 - Keyboard tree navigation (v1.1)
 
@@ -101,13 +102,13 @@ interface VaultTreeNode {
 
 ## Tasks
 
-- [ ] **T1** — `vault-tree.ts` + `vault-tree.test.ts` (flat, nested, kanban href, sort)
-- [ ] **T2** — `useVaultTree.ts` composable + localStorage expand state
-- [ ] **T3** — `VaultSidebar.vue` + `VaultTreeItem.vue`
-- [ ] **T4** — Refactor `app.vue` two-column layout + mobile overlay
-- [ ] **T5** — `?folder=` support in new note flow + sidebar new-page links
-- [ ] **T6** — Wire `refreshNuxtData` after autosave create; trim back links on note pages
-- [ ] **T7** — Typecheck, vitest, manual QA checklist
+- [x] **T1** — `vault-tree.ts` + `vault-tree.test.ts` (flat, nested, kanban href, sort)
+- [x] **T2** — `useVaultTree.ts` composable + localStorage expand state
+- [x] **T3** — `VaultSidebar.vue` + `VaultTreeItem.vue`
+- [x] **T4** — Refactor `app.vue` two-column layout + mobile overlay
+- [x] **T5** — `?folder=` support in new note flow + sidebar new-page links
+- [x] **T6** — Wire `refreshNuxtData` after autosave create; trim back links on note pages
+- [x] **T7** — Typecheck, vitest, manual QA checklist
 
 ## Risks & mitigations
 
@@ -120,15 +121,15 @@ interface VaultTreeNode {
 
 ## Test plan
 
-- [ ] Unit: tree from `[{ id: 'a' }, { id: 'projets/b' }]` → correct hierarchy
-- [ ] Unit: kanban frontmatter → `/boards/` href
-- [ ] Unit: `noteIdFromBlocks` with folder prefix
-- [ ] Manual: desktop sidebar visible; mobile overlay opens/closes
-- [ ] Manual: new page from folder creates `folder/title-slug`
-- [ ] Manual: workspace switch reloads tree (auth mode)
+- [x] Unit: tree from `[{ id: 'a' }, { id: 'projets/b' }]` → correct hierarchy
+- [x] Unit: kanban frontmatter → `/boards/` href
+- [x] Unit: `noteIdFromBlocks` with folder prefix
+- [x] Manual: desktop sidebar visible; mobile overlay opens/closes
+- [x] Manual: new page from folder creates `folder/title-slug`
+- [x] Manual: workspace switch reloads tree (auth mode)
 
 ## Verification
 
-- [ ] `pnpm turbo run typecheck --filter=@fluffmind/web`
-- [ ] `pnpm --filter @fluffmind/web test`
-- [ ] Update PRD-029 status → `shipped` when merged
+- [x] `pnpm turbo run typecheck --filter=@fluffmind/web`
+- [x] `pnpm --filter @fluffmind/web test`
+- [x] Update PRD-029 status → `shipped` when merged

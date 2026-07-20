@@ -31,11 +31,16 @@ Clients are thin HTTP callers, never Git writers.
 ## Consequences
 
 - **Positive**: Multi-device “just works”; MCP and UI share one write path.
-- **Negative**: MVP assumes single server instance per workspace (P7 for distributed lock).
-- **Constraint**: New write features must use `writeToWorkspace`, not direct filesystem Git.
+- **Negative**: Lock is **in-memory per process** (`Map` + promise chain in `write.ts`).
+  Safe for concurrent writers on one instance; **not** safe across replicas sharing a
+  workspace. Detail: [[../architecture/vault-engine|Vault engine — Concurrency lock]].
+  Distributed lock is P7 ([#28](https://github.com/chatondearu/fluffmind/issues/28)).
+- **Constraint**: New write features must use `writeToWorkspace` / `withWorkspaceWriteLock`,
+  not direct filesystem Git.
 
 ## References
 
 - `apps/web/server/vault/write.ts`, `packages/integrations/src/git.ts`
 - PR [#49](https://github.com/chatondearu/fluffmind/pull/49), [#53](https://github.com/chatondearu/fluffmind/pull/53)
 - Epic [#22](https://github.com/chatondearu/fluffmind/issues/22)
+- P7 epic [#28](https://github.com/chatondearu/fluffmind/issues/28)

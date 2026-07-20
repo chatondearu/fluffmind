@@ -1,10 +1,11 @@
 # PRD-030 — Éditeur v2, frontmatter, navigation contextuelle & nouveaux blocs
 
-- **Status**: in progress (P0–P3 implemented on `feat/prd-030-p0`)
+- **Status**: shipped
 - **Date**: 2026-07-12
+- **Shipped**: 2026-07-12 — PR [#118](https://github.com/chatondearu/fluffmind/pull/118) (P0–P3; DnD #106 closed earlier)
 - **Tags**: #product #ux #editor #vault
-- **Depends on**: PRD-024 (block editor), PRD-029 (sidebar v1 — partiellement livré)
-- **GitHub**: [Epic #117](https://github.com/chatondearu/fluffmind/issues/117) · [Milestone PRD-030](https://github.com/chatondearu/fluffmind/milestone/9)
+- **Depends on**: PRD-024 (block editor), PRD-029 (sidebar v1 — shipped)
+- **GitHub**: [Epic #117](https://github.com/chatondearu/fluffmind/issues/117) · [Milestone PRD-030](https://github.com/chatondearu/fluffmind/milestone/9) · Plan [[../plans/PLAN-030-editor-vault-v2|PLAN-030]]
 
 ## Problem
 
@@ -19,14 +20,14 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 ## Goals
 
-- [ ] Basculer entre **mode blocs** et **mode markdown source** sur une note
-- [ ] Éditer **frontmatter** (tags, description, champs custom) sans quitter la note
-- [ ] Raccourcis clavier cohérents pour **supprimer / fusionner** des blocs
-- [ ] **Stabiliser** le drag & drop des blocs
-- [ ] Refondre la **sidebar** : menu `⋯` au hover (dossier / note) à la place des boutons `+`
-- [ ] Nouveau bloc **lien vers note** (`[[wikilink]]`)
-- [ ] **Listes** : Enter crée un item suivant (puces par défaut)
-- [ ] Nouveau bloc **tableau** éditable (HTML → markdown table)
+- [x] Basculer entre **mode blocs** et **mode markdown source** sur une note
+- [x] Éditer **frontmatter** (tags, description, champs custom) sans quitter la note
+- [x] Raccourcis clavier cohérents pour **supprimer / fusionner** des blocs
+- [x] **Stabiliser** le drag & drop des blocs
+- [x] Refondre la **sidebar** : menu `⋯` au hover (dossier / note) à la place des boutons `+`
+- [x] Nouveau bloc **lien vers note** (`[[wikilink]]`)
+- [x] **Listes** : Enter crée un item suivant (puces par défaut)
+- [x] Nouveau bloc **tableau** éditable (HTML → markdown table)
 
 ## Non-goals (v1 de ce PRD)
 
@@ -60,14 +61,14 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 ### Requirements
 
-- [ ] **Toggle** « Markdown » dans la barre de la note (à côté du statut autosave)
-- [ ] Mode **source** : textarea ou éditeur monospace pleine largeur avec le **fichier complet** :
+- [x] **Toggle** « Markdown » dans la barre de la note (à côté du statut autosave)
+- [x] Mode **source** : textarea ou éditeur monospace pleine largeur avec le **fichier complet** :
   - Frontmatter YAML (si présent)
   - Body markdown (sans ré-injection du H1 titre si on choisit de garder le titre UI séparé — voir Open questions)
-- [ ] Bascule **blocs → source** : sérialiser l’état courant (titre + blocs) en markdown
-- [ ] Bascule **source → blocs** : parser le contenu ; erreurs de parse affichées inline (ne pas perdre le texte)
-- [ ] Autosave en mode source : debounce identique à `useNoteAutosave`
-- [ ] Conserver le **même chemin d’écriture** (`PUT /api/notes/:id` → `writeToWorkspace`)
+- [x] Bascule **blocs → source** : sérialiser l’état courant (titre + blocs) en markdown
+- [x] Bascule **source → blocs** : parser le contenu ; erreurs de parse affichées inline (ne pas perdre le texte)
+- [x] Autosave en mode source : debounce identique à `useNoteAutosave`
+- [x] Conserver le **même chemin d’écriture** (`PUT /api/notes/:id` → `writeToWorkspace`)
 
 ### Acceptance criteria
 
@@ -87,21 +88,21 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 #### B1 — Persistance frontmatter (prérequis)
 
-- [ ] Étendre le contrat de sauvegarde :
+- [x] Étendre le contrat de sauvegarde :
   - Option A : `PUT { content, frontmatter }` (recommandé)
   - Option B : `content` = fichier complet avec YAML (plus simple, unifie avec Epic A)
-- [ ] `writeToWorkspace` / sérialisation : **réinjecter** le frontmatter avec `gray-matter` avant écriture
-- [ ] Ne jamais écraser des clés inconnues (merge shallow ou remplacement explicite du bag édité)
+- [x] `writeToWorkspace` / sérialisation : **réinjecter** le frontmatter avec `gray-matter` avant écriture
+- [x] Ne jamais écraser des clés inconnues (merge shallow ou remplacement explicite du bag édité)
 
 #### B2 — UI « Propriétés »
 
-- [ ] Bouton **Propriétés** (ou panneau latéral / dialog MD3) sur la page note
-- [ ] Champs v1 :
+- [x] Bouton **Propriétés** (ou panneau latéral / dialog MD3) sur la page note
+- [x] Champs v1 :
   - **Tags** : liste éditable (chips + input), sérialisées en `tags: [string]`
   - **Description** : textarea → clé `description` (string)
   - **Champs custom** : paires clé/valeur (string) ; types avancés en v1.1
-- [ ] Preview YAML read-only optionnelle pour power users
-- [ ] Kanban : si `kanban-plugin` présent, afficher badge read-only + lien board
+- [x] Preview YAML read-only optionnelle pour power users
+- [x] Kanban : si `kanban-plugin` présent, afficher badge read-only + lien board
 
 ### Acceptance criteria
 
@@ -125,9 +126,9 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 | `Backspace` (`Suppr`) | Bloc focus, **vide** | Supprimer le bloc ; focus sur bloc précédent au **dernier caractère** (comportement Notion) |
 | _(existant)_ | `Backspace` vide, bloc non seul | Fusion avec précédent (conserver ou aligner sur spec ci-dessus) |
 
-- [ ] Ne pas intercepter si sélection de texte non collapsed (comportement natif)
-- [ ] Ne pas déclencher en mode slash menu ouvert
-- [ ] Documenter raccourcis dans un tooltip « ? » discret
+- [x] Ne pas intercepter si sélection de texte non collapsed (comportement natif)
+- [x] Ne pas déclencher en mode slash menu ouvert
+- [x] Documenter raccourcis dans un tooltip « ? » discret
 
 ### Acceptance criteria
 
@@ -152,13 +153,13 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 ### Requirements
 
-- [ ] Audit repro : Firefox / Chromium / Zen — documenter cas de échec
-- [ ] **Option 1 (v1)** : corriger l’implémentation actuelle
+- [x] Audit repro : Firefox / Chromium / Zen — documenter cas de échec
+- [x] **Option 1 (v1)** : corriger l’implémentation actuelle
   - Pointer stable par `block.id` (pas index) pour source et cible
   - Désactiver promotion markdown + autosave churn pendant `isDragging`
   - Zone de drop = ligne entière du bloc
-- [ ] **Option 2 (v1.1 si insuffisant)** : `@vueuse/integrations/useSortable` ou `@dnd-kit` (accessibilité clavier)
-- [ ] Tests manuels checklist + test unitaire pur sur fonction `reorderBlocks(ids, from, to)`
+- [x] **Option 2 (v1.1 si insuffisant)** : `@vueuse/integrations/useSortable` ou `@dnd-kit` (accessibilité clavier)
+- [x] Tests manuels checklist + test unitaire pur sur fonction `reorderBlocks(ids, from, to)`
 
 ### Acceptance criteria
 
@@ -178,9 +179,9 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 #### E1 — UI
 
-- [ ] **Retirer** les boutons `+` / `VaultAddMenu` inline
-- [ ] Au **hover** d’une ligne dossier ou note : icône `⋯` (MD3 `FluffmindIconButton`)
-- [ ] Menu dropdown MD3 ancré à la ligne
+- [x] **Retirer** les boutons `+` / `VaultAddMenu` inline
+- [x] Au **hover** d’une ligne dossier ou note : icône `⋯` (MD3 `FluffmindIconButton`)
+- [x] Menu dropdown MD3 ancré à la ligne
 
 #### E2 — Actions dossier
 
@@ -201,8 +202,8 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 | Déplacer | ✅ | **Nouveau** `PATCH /api/notes/:id` `{ folder }` ou rename id |
 | Supprimer | ✅ | **Nouveau** `DELETE /api/notes/:id` |
 
-- [ ] Dialogs de confirmation pour suppressions (mentionner nombre de notes si dossier)
-- [ ] Refresh arbre via `refreshVaultNotes()` après chaque mutation
+- [x] Dialogs de confirmation pour suppressions (mentionner nombre de notes si dossier)
+- [x] Refresh arbre via `refreshVaultNotes()` après chaque mutation
 
 ### Non-goals sidebar v2
 
@@ -220,13 +221,13 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 ### Requirements
 
-- [ ] Block type `noteLink` (ou réutiliser paragraphe spécialisé) :
+- [x] Block type `noteLink` (ou réutiliser paragraphe spécialisé) :
   - Affichage : titre de la note cible + icône lien
   - Édition : autocomplete sur les ids/titres du vault (`GET /api/notes`)
   - Sérialisation : `[[note-id]]` ou `[[note-id|label]]`
-- [ ] Slash command : `/ lien`, `/ link`, `/ note`
-- [ ] Toolbar type : entrée « Lien note »
-- [ ] Clic : navigation vers `/notes/:id` (mode lecture dans l’éditeur — ouvrir sans quitter, v1.1)
+- [x] Slash command : `/ lien`, `/ link`, `/ note`
+- [x] Toolbar type : entrée « Lien note »
+- [x] Clic : navigation vers `/notes/:id` (mode lecture dans l’éditeur — ouvrir sans quitter, v1.1)
 
 ### Acceptance criteria
 
@@ -244,12 +245,12 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 ### Requirements
 
-- [ ] Dans un bloc `bulletList` focus :
+- [x] Dans un bloc `bulletList` focus :
   - `Enter` → nouveau bloc `bulletList` **en dessous** (pas paragraphe)
   - Conserver la continuité visuelle (même puce `•`)
-- [ ] `Backspace` sur item vide : revenir au paragraphe ou fusionner avec item précédent (aligné Epic C)
-- [ ] Nouvelle liste via slash / toolbar : **puces par défaut** (`bulletList`, pas ordered)
-- [ ] v1 : liste plate (pas d’indentation Tab)
+- [x] `Backspace` sur item vide : revenir au paragraphe ou fusionner avec item précédent (aligné Epic C)
+- [x] Nouvelle liste via slash / toolbar : **puces par défaut** (`bulletList`, pas ordered)
+- [x] v1 : liste plate (pas d’indentation Tab)
 
 ### Modèle de données
 
@@ -273,14 +274,14 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 ### Requirements
 
-- [ ] Block type `table` v2 :
+- [x] Block type `table` v2 :
   - Rendu : **table HTML** `contenteditable` ou grille `<table>` avec cellules éditables
   - Toolbar ligne/colonne : ajouter / supprimer
   - Navigation Tab entre cellules
-- [ ] Sérialisation : GFM pipe table via `blocks-to-markdown`
-- [ ] Parse : mdast `table` → structure interne (rows × cells)
-- [ ] Slash `/ table` + toolbar
-- [ ] Taille par défaut : 2×2 vide
+- [x] Sérialisation : GFM pipe table via `blocks-to-markdown`
+- [x] Parse : mdast `table` → structure interne (rows × cells)
+- [x] Slash `/ table` + toolbar
+- [x] Taille par défaut : 2×2 vide
 
 ### Acceptance criteria
 
@@ -291,23 +292,23 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 ## Cross-cutting — Non-functional
 
-- [ ] **Performance** : pas de re-render complet des blocs à chaque frappe (sentinel + focus déjà adressés — PR #105)
-- [ ] **Accessibilité** : menus `⋯` et toggles keyboard-reachable ; DnD v1.1 clavier
-- [ ] **i18n** : libellés FR (UI actuelle)
-- [ ] **Tests** :
+- [x] **Performance** : pas de re-render complet des blocs à chaque frappe (sentinel + focus déjà adressés — PR #105)
+- [x] **Accessibilité** : menus `⋯` et toggles keyboard-reachable ; DnD v1.1 clavier
+- [x] **i18n** : libellés FR (UI actuelle)
+- [x] **Tests** :
   - Unit : serialize/parse nouveaux blocs, reorder, list Enter logic
   - E2E smoke : toggle markdown, edit frontmatter, sidebar rename
 
 ---
 
-## Phasing proposé
+## Phasing (livré)
 
-| Phase | Epics | Priorité | Effort estimé |
-| ----- | ----- | -------- | ------------- |
-| **P0 — Correctifs & base** | D (DnD), C (raccourcis), B1 (persistance frontmatter) | Haute | S |
-| **P1 — UX note** | B2 (UI frontmatter), A (vue markdown) | Haute | M |
-| **P2 — Sidebar v2** | E (menu ⋯ + APIs rename/delete/move) | Haute | L |
-| **P3 — Blocs** | G (listes), F (lien note), H (tables HTML) | Moyenne | L |
+| Phase | Epics | Statut |
+| ----- | ----- | ------ |
+| **P0 — Correctifs & base** | D (DnD), C (raccourcis), B1 (persistance frontmatter) | shipped (#106 + commits P0) |
+| **P1 — UX note** | B2 (UI frontmatter), A (vue markdown) | shipped (PR #118) |
+| **P2 — Sidebar v2** | E (menu ⋯ + APIs rename/delete/move) | shipped (PR #118) |
+| **P3 — Blocs** | G (listes), F (lien note), H (tables HTML) | shipped (PR #118) |
 
 ---
 
@@ -333,15 +334,11 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 ## Implementation pointer
 
-Découpage suggéré en plans :
+Plan consolidé (les sous-plans a–e n’ont pas été créés séparément) :
 
 | Plan | Fichier | Scope |
 | ---- | ------- | ----- |
-| PLAN-030a | `plans/PLAN-030a-frontmatter-persist.md` | B1 + API PUT étendue |
-| PLAN-030b | `plans/PLAN-030b-markdown-source-view.md` | Epic A |
-| PLAN-030c | `plans/PLAN-030c-keyboard-dnd.md` | Epic C + D |
-| PLAN-030d | `plans/PLAN-030d-sidebar-context-menu.md` | Epic E + APIs vault |
-| PLAN-030e | `plans/PLAN-030e-new-block-types.md` | Epic F + G + H |
+| PLAN-030 | `plans/PLAN-030-editor-vault-v2.md` | Epics A–H (P0–P3) — shipped |
 
 ### Fichiers code probablement touchés
 
@@ -362,18 +359,19 @@ packages/editor-blocks/src/slash-commands.ts
 
 ---
 
-## Backlog issue titles (GitHub)
+## GitHub issues (all closed — reconciled 2026-07-20)
 
-| # | Issue | Phase |
-| - | ----- | ----- |
-| [#106](https://github.com/chatondearu/fluffmind/issues/106) | `fix(editor): stabilize block drag-and-drop by block id` | P0 |
-| [#107](https://github.com/chatondearu/fluffmind/issues/107) | `feat(editor): keyboard delete empty/non-empty blocks` | P0 |
-| [#108](https://github.com/chatondearu/fluffmind/issues/108) | `fix(vault): preserve frontmatter on note save` | P0 |
-| [#109](https://github.com/chatondearu/fluffmind/issues/109) | `feat(notes): frontmatter properties panel (tags, description, custom)` | P1 |
-| [#110](https://github.com/chatondearu/fluffmind/issues/110) | `feat(notes): markdown source view toggle` | P1 |
-| [#111](https://github.com/chatondearu/fluffmind/issues/111) | `feat(sidebar): hover ⋯ context menu for folders and notes` | P2 |
-| [#112](https://github.com/chatondearu/fluffmind/issues/112) | `feat(api): note rename, move, delete` | P2 |
-| [#113](https://github.com/chatondearu/fluffmind/issues/113) | `feat(api): folder rename, recursive delete` | P2 |
-| [#114](https://github.com/chatondearu/fluffmind/issues/114) | `feat(blocks): note link block with vault autocomplete` | P3 |
-| [#115](https://github.com/chatondearu/fluffmind/issues/115) | `feat(blocks): list Enter creates next bullet block` | P3 |
-| [#116](https://github.com/chatondearu/fluffmind/issues/116) | `feat(blocks): HTML editable table block` | P3 |
+| # | Issue | Phase | Status |
+| - | ----- | ----- | ------ |
+| [#106](https://github.com/chatondearu/fluffmind/issues/106) | `fix(editor): stabilize block drag-and-drop by block id` | P0 | closed |
+| [#107](https://github.com/chatondearu/fluffmind/issues/107) | `feat(editor): keyboard delete empty/non-empty blocks` | P0 | closed |
+| [#108](https://github.com/chatondearu/fluffmind/issues/108) | `fix(vault): preserve frontmatter on note save` | P0 | closed |
+| [#109](https://github.com/chatondearu/fluffmind/issues/109) | `feat(notes): frontmatter properties panel (tags, description, custom)` | P1 | closed |
+| [#110](https://github.com/chatondearu/fluffmind/issues/110) | `feat(notes): markdown source view toggle` | P1 | closed |
+| [#111](https://github.com/chatondearu/fluffmind/issues/111) | `feat(sidebar): hover ⋯ context menu for folders and notes` | P2 | closed |
+| [#112](https://github.com/chatondearu/fluffmind/issues/112) | `feat(api): note rename, move, delete` | P2 | closed |
+| [#113](https://github.com/chatondearu/fluffmind/issues/113) | `feat(api): folder rename, recursive delete` | P2 | closed |
+| [#114](https://github.com/chatondearu/fluffmind/issues/114) | `feat(blocks): note link block with vault autocomplete` | P3 | closed |
+| [#115](https://github.com/chatondearu/fluffmind/issues/115) | `feat(blocks): list Enter creates next bullet block` | P3 | closed |
+| [#116](https://github.com/chatondearu/fluffmind/issues/116) | `feat(blocks): HTML editable table block` | P3 | closed |
+| [#117](https://github.com/chatondearu/fluffmind/issues/117) | epic PRD-030 | — | closed |

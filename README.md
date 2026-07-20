@@ -12,8 +12,8 @@ Fluffmind is a self-hostable, git-backed personal knowledge management (PKM) app
 
 ## Status
 
-**MVP-ready:** P0–P6 shipped (vault engine, Git sync, auth/workspaces, block editor, Kanban, MCP, hardening).
-P7 stretch (scale-out, static publishing) is deferred until after real-world iteration.
+**MVP + post-MVP UX shipped:** P0–P6, PRD-028 (MVP), PRD-029 (sidebar), PRD-030 (editor/vault v2).
+**Next:** P7 stretch (distributed lock / multi-instance, optional static publishing) — epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
 
 See the [Project board](https://github.com/users/chatondearu/projects/3) and
 [Milestones](https://github.com/chatondearu/fluffmind/milestones) for history.
