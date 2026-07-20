@@ -12,8 +12,8 @@ Fluffmind is a self-hostable, git-backed personal knowledge management (PKM) app
 
 ## Status
 
-**MVP + post-MVP UX shipped:** P0–P6, PRD-028 (MVP), PRD-029 (sidebar), PRD-030 (editor/vault v2).
-**Next:** P7 stretch (distributed lock / multi-instance, optional static publishing) — epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
+**MVP + post-MVP UX shipped**, plus **P7a** distributed lock and **P8a** portable solo packaging (PRD-032).
+P7b/c (multi-disk, static publish) remain deferred under epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
 
 See the [Project board](https://github.com/users/chatondearu/projects/3) and
 [Milestones](https://github.com/chatondearu/fluffmind/milestones) for history.
@@ -26,6 +26,29 @@ Architecture decisions and rationale: `DESIGN.md`. Conventions and gotchas for a
 Nuxt 3 · pnpm workspaces + Turborepo · Reka UI · UnoCSS · Material Design 3 · Drizzle ORM · Postgres · Better Auth · Model Context Protocol (MCP)
 
 ## Running it
+
+### Portable solo (no Docker, no Postgres)
+
+Download a release asset for your OS from [Releases](https://github.com/chatondearu/fluffmind/releases)
+(`fluffmind-darwin-arm64.tar.gz`, `linux-x64`, `win-x64`, …), unzip, then:
+
+```sh
+./bin/fluffmind                          # uses ./vault next to the package
+./bin/fluffmind --vault /path/to/notes   # existing Foam/Obsidian vault
+./bin/fluffmind --port 3456 --no-open
+```
+
+Requires **Git on PATH**. Node is embedded. Auth/Postgres are disabled.
+
+Build a package locally:
+
+```sh
+pnpm install
+pnpm package:portable                    # current OS/arch
+pnpm package:portable -- --target all  # or darwin-arm64|linux-x64|…
+```
+
+Artifacts land in `dist/portable/`.
 
 ### Directly (fastest inner loop)
 

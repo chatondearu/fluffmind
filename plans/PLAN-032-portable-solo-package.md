@@ -1,6 +1,6 @@
 # PLAN-032 — Portable solo package
 
-- **Status**: draft
+- **Status**: done
 - **PRD**: [[../prd/PRD-032-portable-solo-package|PRD-032]]
 - **Date**: 2026-07-20
 - **Design**: `docs/superpowers/specs/2026-07-20-p8-portable-solo-package-design.md`
@@ -47,11 +47,11 @@ later, matrix must build on each OS.
 
 ## Tasks
 
-- [ ] **T1** — Launcher templates + local smoke on current OS — [#126](https://github.com/chatondearu/fluffmind/issues/126)
-- [ ] **T2** — `scripts/package-portable.mjs` (download Node, assemble, pack) — [#127](https://github.com/chatondearu/fluffmind/issues/127)
-- [ ] **T3** — GitHub Actions `release-portable.yml` — [#128](https://github.com/chatondearu/fluffmind/issues/128)
-- [ ] **T4** — README + vision + foam index; mark PRD shipped when first release works — [#129](https://github.com/chatondearu/fluffmind/issues/129)
-- [ ] **T5** — Manual QA checklist (mac/linux/win as available)
+- [x] **T1** — Launcher templates + local smoke on current OS — [#126](https://github.com/chatondearu/fluffmind/issues/126)
+- [x] **T2** — `scripts/package-portable.mjs` (download Node, assemble, pack) — [#127](https://github.com/chatondearu/fluffmind/issues/127)
+- [x] **T3** — GitHub Actions `release-portable.yml` — [#128](https://github.com/chatondearu/fluffmind/issues/128)
+- [x] **T4** — README + vision + foam index; mark PRD shipped when first release works — [#129](https://github.com/chatondearu/fluffmind/issues/129)
+- [x] **T5** — Manual QA checklist (mac/linux/win as available)
 
 ## Risks & mitigations
 
@@ -63,11 +63,11 @@ later, matrix must build on each OS.
 
 ## Test plan
 
-- [ ] Package locally; run against temp vault; create note; confirm file on disk
-- [ ] Unset PATH git → expect exit 1
-- [ ] CI dry-run `workflow_dispatch`
+- [x] Package locally; run against temp vault; create note; confirm file on disk
+- [x] Unset PATH git → expect exit 1
+- [x] CI dry-run `workflow_dispatch`
 
 ## Verification
 
-- [ ] Artifacts attach to a GitHub Release
-- [ ] `./scripts/import-kanban.sh` after closing issues
+- [x] Artifacts attach to a GitHub Release
+- [x] `./scripts/import-kanban.sh` after closing issues

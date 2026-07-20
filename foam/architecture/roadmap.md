@@ -19,9 +19,9 @@ and epics on the [Fluffmind board](https://github.com/users/chatondearu/projects
 | Post-MVP | Sidebar | PRD-029 | **Shipped** | [[../../prd/PRD-029-vault-sidebar-navigation|PRD-029]], PR [#95](https://github.com/chatondearu/fluffmind/pull/95) |
 | Post-MVP | Editor & vault v2 | PRD-030 | **Shipped** | [[../../prd/PRD-030-editor-vault-v2|PRD-030]], [[../../plans/PLAN-030-editor-vault-v2|PLAN-030]], PR [#118](https://github.com/chatondearu/fluffmind/pull/118) |
 | P7a | Distributed lock | [#28](https://github.com/chatondearu/fluffmind/issues/28) | **Shipped** | [[../../prd/PRD-031-p7-distributed-workspace-lock|PRD-031]], PR lock commit on main |
-| **P8a** | Portable solo | [#125](https://github.com/chatondearu/fluffmind/issues/125) | **Next** | [[../../prd/PRD-032-portable-solo-package|PRD-032]], [[../../plans/PLAN-032-portable-solo-package|PLAN-032]] |
+| **P8a** | Portable solo | [#125](https://github.com/chatondearu/fluffmind/issues/125) | **Shipped** | [[../../prd/PRD-032-portable-solo-package|PRD-032]], [[../../plans/PLAN-032-portable-solo-package|PLAN-032]] |
 
-**Next agent pick:** **P8a** — portable solo package ([#125](https://github.com/chatondearu/fluffmind/issues/125)). P7b/c remain deferred under [#28](https://github.com/chatondearu/fluffmind/issues/28).
+**Next agent pick:** P8b folder picker (optional) or P7b/c under [#28](https://github.com/chatondearu/fluffmind/issues/28).
 
 ## Superpowers archive
 

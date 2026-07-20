@@ -34,4 +34,4 @@ See [[../architecture/roadmap|Roadmap (P0–P7)]] for milestone descriptions and
 | [[../../prd/PRD-029-vault-sidebar-navigation|PRD-029]] | Post-MVP | shipped |
 | [[../../prd/PRD-030-editor-vault-v2|PRD-030]] | Post-MVP | shipped |
 | [[../../prd/PRD-031-p7-distributed-workspace-lock|PRD-031]] | P7a | shipped |
-| [[../../prd/PRD-032-portable-solo-package|PRD-032]] | P8a | approved |
+| [[../../prd/PRD-032-portable-solo-package|PRD-032]] | P8a | shipped |
