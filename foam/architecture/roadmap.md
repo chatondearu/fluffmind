@@ -14,7 +14,7 @@ and epics on the [Fluffmind board](https://github.com/users/chatondearu/projects
 | P4 | Kanban | [#25](https://github.com/chatondearu/fluffmind/issues/25) | **Shipped** | [[../../prd/PRD-025-p4-kanban|PRD-025]], PR [#72](https://github.com/chatondearu/fluffmind/pull/72) |
 | P5 | MCP server | [#26](https://github.com/chatondearu/fluffmind/issues/26) | **Shipped** | [[../../prd/PRD-026-p5-mcp-server|PRD-026]], PR [#78](https://github.com/chatondearu/fluffmind/pull/78) |
 | P6 | Hardening | [#27](https://github.com/chatondearu/fluffmind/issues/27) | **Shipped** | [[../../prd/PRD-027-p6-hardening|PRD-027]], PR [#85](https://github.com/chatondearu/fluffmind/pull/85) |
-| P7 | Stretch | [#28](https://github.com/chatondearu/fluffmind/issues/28) | **In progress (P7a)** | [[../../prd/PRD-031-p7-distributed-workspace-lock|PRD-031]] lock; static publish deferred |
+| P7 | Stretch | [#28](https://github.com/chatondearu/fluffmind/issues/28) | **P7a shipped** (P7b/c open) | [[../../prd/PRD-031-p7-distributed-workspace-lock|PRD-031]] lock shipped; static publish / multi-disk deferred |
 | **MVP** | Ship | PRD-028 | **Shipped** | [[../../prd/PRD-028-mvp-ship|PRD-028]], PR [#91](https://github.com/chatondearu/fluffmind/pull/91) |
 | Post-MVP | Sidebar | PRD-029 | **Shipped** | [[../../prd/PRD-029-vault-sidebar-navigation|PRD-029]], PR [#95](https://github.com/chatondearu/fluffmind/pull/95) |
 | Post-MVP | Editor & vault v2 | PRD-030 | **Shipped** | [[../../prd/PRD-030-editor-vault-v2|PRD-030]], [[../../plans/PLAN-030-editor-vault-v2|PLAN-030]], PR [#118](https://github.com/chatondearu/fluffmind/pull/118) |

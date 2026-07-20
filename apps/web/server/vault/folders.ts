@@ -2,6 +2,7 @@ import { access, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import { InvalidNoteIdError } from './note-id'
 import { invalidateVaultIndex } from './service'
+import { withWorkspaceWriteLock } from './write'
 import { resolveWorkspaceConfig } from './workspace'
 
 export const FOLDER_MARKER = '.fluffmind-folder'
@@ -27,7 +28,8 @@ export async function listVaultFolders(vaultPath: string): Promise<string[]> {
           await access(markerPath)
           const folderPath = toPosixPath(vaultPath, fullPath)
           if (folderPath) folders.push(folderPath)
-        } catch {
+        }
+        catch {
           // no marker — still walk for nested markers
         }
         await walk(fullPath)
@@ -47,11 +49,13 @@ export async function createVaultFolder(workspaceId: string, folderPath: string)
     }
   }
 
-  const config = await resolveWorkspaceConfig(workspaceId)
-  const targetDir = join(config.path, ...segments)
-  const markerPath = join(targetDir, FOLDER_MARKER)
+  return withWorkspaceWriteLock(workspaceId, async () => {
+    const config = await resolveWorkspaceConfig(workspaceId)
+    const targetDir = join(config.path, ...segments)
+    const markerPath = join(targetDir, FOLDER_MARKER)
 
-  await mkdir(targetDir, { recursive: true })
-  await writeFile(markerPath, '{}\n', 'utf-8')
-  invalidateVaultIndex(workspaceId)
+    await mkdir(targetDir, { recursive: true })
+    await writeFile(markerPath, '{}\n', 'utf-8')
+    invalidateVaultIndex(workspaceId)
+  })
 }

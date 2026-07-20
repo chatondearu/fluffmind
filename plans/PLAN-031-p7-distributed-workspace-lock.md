@@ -1,6 +1,6 @@
 # PLAN-031 — P7a Distributed workspace lock
 
-- **Status**: draft
+- **Status**: done
 - **PRD**: [[../prd/PRD-031-p7-distributed-workspace-lock|PRD-031]]
 - **GitHub**: Epic [#28](https://github.com/chatondearu/fluffmind/issues/28)
 - **Date**: 2026-07-20
@@ -52,13 +52,13 @@ promise chain; wait ~45s then 503. Public API `withWorkspaceWriteLock` stays sta
 
 ## Tasks
 
-- [ ] **T1** — `lock.ts` skeleton + local chain + `WorkspaceLockTimeoutError` — [#119](https://github.com/chatondearu/fluffmind/issues/119)
-- [ ] **T2** — Postgres advisory backend + tests — [#120](https://github.com/chatondearu/fluffmind/issues/120)
-- [ ] **T3** — Flock backend + path outside git work tree + tests — [#121](https://github.com/chatondearu/fluffmind/issues/121)
-- [ ] **T4** — Switch `write.ts` to `lock.ts`; verify mutations still covered
-- [ ] **T5** — HTTP 503 mapping + `LOCK_WAIT_MS` in `.env.example` — [#122](https://github.com/chatondearu/fluffmind/issues/122)
-- [ ] **T6** — Concurrent two-process smoke — [#123](https://github.com/chatondearu/fluffmind/issues/123)
-- [ ] **T7** — Docs: DESIGN, `apps/web/AGENTS.md`, foam; close issues — [#124](https://github.com/chatondearu/fluffmind/issues/124)
+- [x] **T1** — `lock.ts` skeleton + local chain + `WorkspaceLockTimeoutError` — [#119](https://github.com/chatondearu/fluffmind/issues/119)
+- [x] **T2** — Postgres advisory backend + tests — [#120](https://github.com/chatondearu/fluffmind/issues/120)
+- [x] **T3** — Flock backend + path outside git work tree + tests — [#121](https://github.com/chatondearu/fluffmind/issues/121)
+- [x] **T4** — Switch `write.ts` to `lock.ts`; verify mutations still covered
+- [x] **T5** — HTTP 503 mapping + `LOCK_WAIT_MS` in `.env.example` — [#122](https://github.com/chatondearu/fluffmind/issues/122)
+- [x] **T6** — Concurrent two-process smoke — [#123](https://github.com/chatondearu/fluffmind/issues/123)
+- [x] **T7** — Docs: DESIGN, `apps/web/AGENTS.md`, foam; close issues — [#124](https://github.com/chatondearu/fluffmind/issues/124)
 
 ## Risks & mitigations
 
@@ -71,13 +71,13 @@ promise chain; wait ~45s then 503. Public API `withWorkspaceWriteLock` stays sta
 
 ## Test plan
 
-- [ ] Unit: key stability; timeout error
-- [ ] Unit/integration: PG backend acquire/release
-- [ ] Unit: flock serialize two async critical sections
-- [ ] Manual/smoke: two processes shared dir + Postgres
+- [x] Unit: key stability; timeout error
+- [x] Unit/integration: PG backend acquire/release
+- [x] Unit: flock serialize two async critical sections
+- [x] Manual/smoke: two processes shared dir + Postgres
 
 ## Verification
 
-- [ ] `pnpm --filter @fluffmind/web` test / typecheck
-- [ ] Update PRD-031 checkboxes when shipped
-- [ ] `./scripts/import-kanban.sh` after closing issues
+- [x] `pnpm --filter @fluffmind/web` test / typecheck
+- [x] Update PRD-031 checkboxes when shipped
+- [x] `./scripts/import-kanban.sh` after closing issues

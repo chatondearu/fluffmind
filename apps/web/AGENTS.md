@@ -29,11 +29,15 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   `getWorkspaceSyncStatus()` for `GET /api/sync-status`.
 - `workspace.ts` — env-based workspace config resolution (single hardcoded workspace
   until P2).
-- `write.ts` — `writeToWorkspace(workspaceId, id, content)`, the single write path
-  (P1 spike — see `DESIGN.md`'s Git sync section). Per-workspace in-memory lock,
-  updates existing notes or creates new ones (`note-id.ts` validates ids on create).
+- `write.ts` — `writeToWorkspace(workspaceId, id, content)`: delegates to `lock.ts`,
+  then updates/creates notes via Git (`note-id.ts` validates ids on create).
   Git plumbing itself (`ensureWorkingCopy`/`commitAndPush`) lives in
   `@fluffmind/integrations`, not here.
+- `lock.ts` — `withWorkspaceLock` / `withWorkspaceWriteLock` (P7a, ADR-007): local
+  promise chain + Postgres session advisory lock when `DATABASE_URL` is set, else
+  cross-process file lock via `proper-lockfile` under `WORKSPACES_ROOT/.fluffmind-locks/`
+  (outside each workspace git dir). `LOCK_WAIT_MS` (default 45000) →
+  `WorkspaceLockTimeoutError` → HTTP 503 on mutation routes.
 
 ## Config
 

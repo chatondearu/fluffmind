@@ -56,10 +56,11 @@ Clients are thin HTTP callers, never a second Git writer. This also makes multi-
 "free": there's nothing device-specific to reconcile, because the server is the only
 stateful Git actor.
 
-**Known MVP limit:** this assumes one server instance owns a given workspace at a
-time. Scaling out horizontally per workspace would need a distributed lock (Postgres
-advisory lock or Redis) — deliberately out of scope until the need is proven (see the
-P7 milestone).
+**Known MVP→P7a limit evolution:** P1 assumed one server instance owns a given
+workspace at a time. **P7a (ADR-007)** adds a distributed lock for **shared-volume**
+multi-instance: Postgres session advisory locks when `DATABASE_URL` is set, else a
+cross-process file lock. Multi-disk / Git-remote-only scale-out remains a later
+slice (P7b).
 
 **P1 shipped** (spike scope): `writeToWorkspace` exists (`apps/web/server/vault/write.ts` +
 `packages/integrations/src/git.ts`), validated against a disposable GitHub repo —

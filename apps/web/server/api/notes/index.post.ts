@@ -1,7 +1,8 @@
 import { access } from 'node:fs/promises'
 import { readJsonBody } from '../../utils/read-json-body'
 import { requireWorkspacePermission } from '../../utils/auth'
-import { writeToWorkspace, GitConflictError, InvalidNoteIdError } from '../../vault/write'
+import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
+import { writeToWorkspace } from '../../vault/write'
 import { resolveNoteFilePath } from '../../vault/note-id'
 import { resolveWorkspaceConfig } from '../../vault/workspace'
 
@@ -33,19 +34,15 @@ export default defineEventHandler(async (event) => {
     try {
       await access(filePath)
       throw createError({ statusCode: 409, statusMessage: 'Note already exists' })
-    } catch (error) {
+    }
+    catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
     return await writeToWorkspace(workspaceId, id, body.content, {
       frontmatter: body.frontmatter,
     })
-  } catch (error) {
-    if (error instanceof GitConflictError) {
-      throw createError({ statusCode: 409, statusMessage: 'Conflict', message: error.message })
-    }
-    if (error instanceof InvalidNoteIdError) {
-      throw createError({ statusCode: 400, statusMessage: error.message })
-    }
-    throw error
+  }
+  catch (error) {
+    rethrowVaultMutationError(error)
   }
 })

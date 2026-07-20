@@ -21,8 +21,9 @@ is set, use the same backend.
    distributed + local serialization primitive; `withWorkspaceWriteLock` delegates to it.
 2. **If `DATABASE_URL` is set:** acquire a **Postgres session-level advisory lock** on a
    dedicated `PoolClient` for the duration of the mutation (including `git commit/push`).
-3. **Else:** acquire an exclusive **`flock`** on a lockfile stored **outside** the Git
-   working tree when possible (`WORKSPACES_ROOT/.fluffmind-locks/…`).
+3. **Else:** acquire an exclusive **cross-process file lock** (`proper-lockfile`,
+   flock/mkdir-based) on a lockfile stored **outside** the Git working tree when
+   possible (`WORKSPACES_ROOT/.fluffmind-locks/…`).
 4. Keep the in-process promise chain **inside** the distributed acquire.
 5. On lock wait timeout (`LOCK_WAIT_MS`, default 45000): fail with a typed error mapped
    to HTTP **503**.

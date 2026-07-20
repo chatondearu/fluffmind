@@ -1,7 +1,7 @@
 import { readJsonBody } from '../../utils/read-json-body'
 import { requireWorkspacePermission } from '../../utils/auth'
-import { renameNoteInWorkspace, VaultConflictError } from '../../vault/mutations'
-import { GitConflictError, InvalidNoteIdError } from '../../vault/write'
+import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
+import { renameNoteInWorkspace } from '../../vault/mutations'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -23,16 +23,8 @@ export default defineEventHandler(async (event) => {
 
   try {
     return await renameNoteInWorkspace(workspaceId, id, targetId)
-  } catch (error) {
-    if (error instanceof GitConflictError) {
-      throw createError({ statusCode: 409, statusMessage: 'Conflict', message: error.message })
-    }
-    if (error instanceof VaultConflictError) {
-      throw createError({ statusCode: 409, statusMessage: error.message })
-    }
-    if (error instanceof InvalidNoteIdError) {
-      throw createError({ statusCode: 400, statusMessage: error.message })
-    }
-    throw error
+  }
+  catch (error) {
+    rethrowVaultMutationError(error)
   }
 })

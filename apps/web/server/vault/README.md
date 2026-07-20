@@ -21,13 +21,16 @@ path. Reads always go through the in-memory index; writes go exclusively through
   first index build. In dev, a chokidar watcher invalidates the cache on file changes.
 - `note-id.ts` — validates caller-supplied note ids on create (path traversal guards).
 
-## Write path (P1)
+## Write path (P1 / P7a)
 
-- `workspace.ts` — resolves the single hardcoded workspace from env vars until P2.
+- `workspace.ts` — resolves workspace config (env or Postgres).
 - `sync.ts` — `bootstrapWorkspace()` (clone/init/fetch at boot) and sync-status for
   `GET /api/sync-status`.
-- `write.ts` — `writeToWorkspace(workspaceId, id, content)`: per-workspace lock,
-  create or update a note, commit + optional push via `@fluffmind/integrations`.
+- `lock.ts` — `withWorkspaceLock` (ADR-007): Postgres advisory when `DATABASE_URL`
+  is set, else `proper-lockfile` under `WORKSPACES_ROOT/.fluffmind-locks/`.
+- `write.ts` — `writeToWorkspace`: lock, create/update note, commit + optional push
+  via `@fluffmind/integrations`.
+- `mutations.ts` — rename/delete note & folder (same lock).
 
 ## Read-only guarantee (P0-AC-6)
 

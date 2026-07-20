@@ -1,6 +1,6 @@
 import { isAuthEnabled, requireWorkspacePermission } from '../../utils/auth'
-import { deleteVaultFolder, VaultConflictError } from '../../vault/mutations'
-import { GitConflictError, InvalidNoteIdError } from '../../vault/write'
+import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
+import { deleteVaultFolder } from '../../vault/mutations'
 import { resolveActiveWorkspaceId } from '../../vault/workspace'
 
 export default defineEventHandler(async (event) => {
@@ -23,16 +23,8 @@ export default defineEventHandler(async (event) => {
 
   try {
     return await deleteVaultFolder(workspaceId, folderPath, recursive)
-  } catch (error) {
-    if (error instanceof GitConflictError) {
-      throw createError({ statusCode: 409, statusMessage: 'Conflict', message: error.message })
-    }
-    if (error instanceof VaultConflictError) {
-      throw createError({ statusCode: 409, statusMessage: error.message })
-    }
-    if (error instanceof InvalidNoteIdError) {
-      throw createError({ statusCode: 400, statusMessage: error.message })
-    }
-    throw error
+  }
+  catch (error) {
+    rethrowVaultMutationError(error)
   }
 })

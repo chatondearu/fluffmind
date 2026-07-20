@@ -1,36 +1,14 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { ensureWorkingCopy, commitAndPush, GitConflictError } from '@fluffmind/integrations'
+import { withWorkspaceLock } from './lock'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { parseNote, serializeNoteFile } from './parser'
 import { invalidateVaultIndex } from './service'
 import { resolveWorkspaceConfig } from './workspace'
 
 export { GitConflictError, InvalidNoteIdError }
-
-// In-memory lock per workspace: a chain of promises, so writes to the same workspace
-// are strictly sequential. A failed write never poisons the chain — the next write
-// still runs. Single-process only, matching DESIGN.md's documented MVP limit (a
-// distributed lock across server instances is out of scope until P7).
-const locks = new Map<string, Promise<unknown>>()
-
-function withWorkspaceLock<T>(workspaceId: string, run: () => Promise<T>): Promise<T> {
-  const previous = locks.get(workspaceId) ?? Promise.resolve()
-  const settled = previous.then(run, run)
-  locks.set(
-    workspaceId,
-    settled.then(
-      () => undefined,
-      () => undefined
-    )
-  )
-  return settled
-}
-
-/** Shared workspace lock for all vault mutations (writes, renames, deletes). */
-export function withWorkspaceWriteLock<T>(workspaceId: string, run: () => Promise<T>): Promise<T> {
-  return withWorkspaceLock(workspaceId, run)
-}
+export { WorkspaceLockTimeoutError, withWorkspaceLock as withWorkspaceWriteLock } from './lock'
 
 export interface WriteResult {
   committed: boolean
@@ -58,7 +36,8 @@ async function resolveFrontmatterForWrite(
   try {
     const existing = await readFile(filePath, 'utf-8')
     return parseNote(existing).frontmatter
-  } catch (error) {
+  }
+  catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return {}
     }
@@ -88,7 +67,8 @@ export async function writeToWorkspace(
     let isCreate = false
     try {
       await access(filePath)
-    } catch (error) {
+    }
+    catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       await mkdir(dirname(filePath), { recursive: true })
       isCreate = true
@@ -102,7 +82,7 @@ export async function writeToWorkspace(
     const result = await commitAndPush(git, {
       branch: config.branch,
       message: isCreate ? `Create ${id}` : `Update ${id}`,
-      remoteConfigured: Boolean(config.remoteUrl)
+      remoteConfigured: Boolean(config.remoteUrl),
     })
     invalidateVaultIndex(workspaceId)
     return result

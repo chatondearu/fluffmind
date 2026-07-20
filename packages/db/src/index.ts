@@ -8,6 +8,6 @@
 
 export { ac, roles } from './permissions'
 export { getAuth } from './auth'
-export { db, getDb } from './client'
+export { db, getDb, getPool } from './client'
 export * from './schema/auth'
 export * from './schema/workspace'

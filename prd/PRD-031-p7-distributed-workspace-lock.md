@@ -1,7 +1,8 @@
 # PRD-031 — P7a Distributed workspace lock
 
-- **Status**: approved
+- **Status**: shipped
 - **Date**: 2026-07-20
+- **Shipped**: 2026-07-20 — lock module + 503 mapping + flock/PG backends
 - **Tags**: #architecture #data #deployment
 - **GitHub**: Epic [#28](https://github.com/chatondearu/fluffmind/issues/28) · Milestone [P7 — Stretch](https://github.com/chatondearu/fluffmind/milestone/8)
 - **Depends on**: ADR-002 (server-side Git), P2 Postgres (`DATABASE_URL`)
@@ -20,12 +21,12 @@ present (Compose always includes Postgres, including `AUTH_DISABLED`).
 
 ## Goals
 
-- [ ] Cross-process serialization of vault mutations per `workspaceId` when `DATABASE_URL` is set (Postgres session advisory locks)
-- [ ] Fallback serialization via **flock** when no database URL (bare local dev)
-- [ ] Keep `withWorkspaceWriteLock` as the single entry point for write/rename/delete
-- [ ] Wait up to ~45s (`LOCK_WAIT_MS`); then **503** workspace busy
-- [ ] Document env + operator assumption: v1 scale-out = **shared volume** for working copies
-- [ ] Automated tests covering timeout + dual-backend selection; concurrent smoke where practical
+- [x] Cross-process serialization of vault mutations per `workspaceId` when `DATABASE_URL` is set (Postgres session advisory locks)
+- [x] Fallback serialization via **file lock** (`proper-lockfile`) when no database URL (bare local dev)
+- [x] Keep `withWorkspaceWriteLock` as the single entry point for write/rename/delete
+- [x] Wait up to ~45s (`LOCK_WAIT_MS`); then **503** workspace busy
+- [x] Document env + operator assumption: v1 scale-out = **shared volume** for working copies
+- [x] Automated tests covering timeout + dual-backend selection; concurrent smoke where practical
 
 ## Non-goals
 

@@ -30,6 +30,15 @@ export function getDb(): DbClient {
   return dbInstance
 }
 
+/** Underlying `pg` pool — used for session advisory locks that must hold a dedicated client. */
+export function getPool(): Pool {
+  getDb()
+  if (!poolInstance) {
+    throw new Error('Postgres pool is not initialized')
+  }
+  return poolInstance
+}
+
 export const db = new Proxy({} as DbClient, {
   get(_target, property, receiver) {
     return Reflect.get(getDb() as object, property, receiver)

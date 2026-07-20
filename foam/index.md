@@ -40,7 +40,7 @@ Index: [[decisions/index|All ADRs]]
 | [[../prd/PRD-028-mvp-ship|PRD-028 MVP]] | _(inline in PRD)_ | shipped |
 | [[../prd/PRD-029-vault-sidebar-navigation|PRD-029 sidebar]] | [[../plans/PLAN-029-vault-sidebar-navigation|PLAN-029]] | shipped |
 | [[../prd/PRD-030-editor-vault-v2|PRD-030 editor v2]] | [[../plans/PLAN-030-editor-vault-v2|PLAN-030]] | shipped |
-| [[../prd/PRD-031-p7-distributed-workspace-lock|PRD-031 P7a lock]] | [[../plans/PLAN-031-p7-distributed-workspace-lock|PLAN-031]] | approved |
+| [[../prd/PRD-031-p7-distributed-workspace-lock|PRD-031 P7a lock]] | [[../plans/PLAN-031-p7-distributed-workspace-lock|PLAN-031]] | shipped |
 
 **Next:** implement [[../prd/PRD-031-p7-distributed-workspace-lock|PRD-031]] (distributed lock). Static publishing remains a later slice of epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
 

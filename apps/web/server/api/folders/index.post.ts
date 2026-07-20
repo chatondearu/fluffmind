@@ -1,4 +1,5 @@
 import { isAuthEnabled, requireWorkspacePermission } from '../../utils/auth'
+import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
 import { createVaultFolder } from '../../vault/folders'
 import { InvalidNoteIdError } from '../../vault/note-id'
 import { resolveActiveWorkspaceId } from '../../vault/workspace'
@@ -21,10 +22,11 @@ export default defineEventHandler(async (event) => {
   try {
     await createVaultFolder(workspaceId, folderPath)
     return { path: folderPath }
-  } catch (error) {
+  }
+  catch (error) {
     if (error instanceof InvalidNoteIdError) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid folder path.' })
     }
-    throw error
+    rethrowVaultMutationError(error)
   }
 })
