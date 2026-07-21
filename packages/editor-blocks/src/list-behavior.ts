@@ -5,6 +5,7 @@ import {
   setBlockPlainText,
   splitTextAt,
 } from './block-text'
+import { splitInlinesAt } from './inline-marks'
 import { clampListIndent, isListBlock, listIndent } from './list-utils'
 import type { BlockNode } from './types'
 
@@ -62,14 +63,39 @@ export function applyListEnter(
     }
   }
 
-  const [before, after] = splitTextAt(editable, offset)
-  let nextBlocks = replaceAt(blocks, index, setBlockPlainText(block, before))
   const sibling = createEmptyBlock(block.type)
   sibling.indent = listIndent(block)
   if (block.type === 'taskList') {
     sibling.checked = false
   }
-  nextBlocks = insertAfter(nextBlocks, index, sibling)
+  let nextBlocks = insertAfter(blocks, index, sibling)
+
+  const item = block.children?.[0]
+  const paragraph = item?.children?.[0]
+
+  if (item && paragraph) {
+    // Split by plain-text offset (matches getSelectionOffset), not markdown,
+    // so marks aren't corrupted (C1).
+    const { before, after } = splitInlinesAt(paragraph.inlines ?? [{ type: 'text', value: '' }], offset)
+    nextBlocks = replaceAt(nextBlocks, index, {
+      ...block,
+      children: [{ ...item, children: [{ ...paragraph, inlines: before }] }],
+    })
+    const siblingItem = sibling.children![0]!
+    const siblingParagraph = siblingItem.children![0]!
+    nextBlocks = replaceAt(nextBlocks, index + 1, {
+      ...sibling,
+      children: [{ ...siblingItem, children: [{ ...siblingParagraph, inlines: after }] }],
+    })
+    return {
+      blocks: nextBlocks,
+      focusIndex: index + 1,
+      focusOffset: 0,
+    }
+  }
+
+  const [before, after] = splitTextAt(editable, offset)
+  nextBlocks = replaceAt(nextBlocks, index, setBlockPlainText(block, before))
   if (after.length > 0) {
     nextBlocks = replaceAt(nextBlocks, index + 1, setBlockPlainText(nextBlocks[index + 1]!, after))
   }

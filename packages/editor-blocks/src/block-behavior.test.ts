@@ -82,6 +82,34 @@ describe('list-behavior (Enter / Tab / tasks)', () => {
     expect(mutation!.blocks[1]?.checked).toBe(false)
   })
 
+  it('Enter splits a marked list item by plain-text offset, preserving marks (C1)', () => {
+    const first = createEmptyBlock('bulletList')
+    first.children = [{
+      id: first.children![0]!.id,
+      type: 'listItem',
+      children: [{
+        id: first.children![0]!.children![0]!.id,
+        type: 'paragraph',
+        inlines: [
+          { type: 'text', value: 'hello ' },
+          { type: 'strong', value: '', children: [{ type: 'text', value: 'world' }] },
+        ],
+      }],
+    }]
+
+    // Plain offset 11 = end of "hello world"; the markdown string "hello **world**"
+    // is 16 chars, so splitting by markdown offset here would corrupt the `**` marker.
+    const mutation = applyListEnter([first], 0, 11)
+    expect(blocksToMarkdown([mutation!.blocks[0]!])).toBe('- hello **world**')
+    expect(blockPlainText(mutation!.blocks[1]!)).toBe('')
+    expect(blocksToMarkdown([mutation!.blocks[1]!])).toBe('-')
+
+    // Splitting mid-mark keeps the mark intact on both resulting items.
+    const midSplit = applyListEnter([first], 0, 8)
+    expect(blocksToMarkdown([midSplit!.blocks[0]!])).toBe('- hello **wo**')
+    expect(blocksToMarkdown([midSplit!.blocks[1]!])).toBe('- **rld**')
+  })
+
   it('Tab indents when previous sibling is a list', () => {
     const a = setBlockPlainText(createEmptyBlock('bulletList'), 'a')
     const b = setBlockPlainText(createEmptyBlock('bulletList'), 'b')

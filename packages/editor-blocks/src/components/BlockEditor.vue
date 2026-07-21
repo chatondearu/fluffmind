@@ -13,6 +13,7 @@ import {
 } from '../block-text'
 import { blockEditorContextKey } from '../block-editor-context'
 import { createBlockId } from '../ids'
+import { splitInlinesAt } from '../inline-marks'
 import { applyListEnter, applyListShiftTab, applyListTab } from '../list-behavior'
 import { isListBlock } from '../list-utils'
 import { registerDefaultBlocks } from '../register-defaults'
@@ -157,6 +158,17 @@ function handleEnter(index: number, offset: number) {
     return
   }
 
+  if (block.inlines?.length) {
+    // Split by plain-text offset (matches getSelectionOffset), not markdown,
+    // so marks aren't corrupted (C1).
+    const { before, after } = splitInlinesAt(block.inlines, offset)
+    updateBlock(index, { ...block, inlines: before })
+    insertBlockAfter(index, createEmptyBlock('paragraph'))
+    updateBlock(index + 1, { ...blocks.value[index + 1]!, inlines: after })
+    focusBlock(index + 1, 0)
+    return
+  }
+
   const text = blockEditableText(block)
   const [before, after] = splitTextAt(text, offset)
   updateBlock(index, setBlockPlainText(block, before))
@@ -187,6 +199,14 @@ function handleShiftEnter(index: number, offset: number) {
   closeSlash()
   const block = blocks.value[index]
   if (!block) return
+
+  if (block.inlines?.length) {
+    const { before, after } = splitInlinesAt(block.inlines, offset)
+    updateBlock(index, { ...block, inlines: [...before, { type: 'text', value: '\n' }, ...after] })
+    focusBlock(index, offset + 1)
+    return
+  }
+
   const text = blockEditableText(block)
   const [before, after] = splitTextAt(text, offset)
   updateBlock(index, setBlockPlainText(block, `${before}\n${after}`))

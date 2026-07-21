@@ -1,4 +1,4 @@
-import { inlinesToPlainText } from './inlines'
+import { inlinesToPlainText, stripCaretArtifacts } from './inlines'
 import type { InlineNode } from './types'
 
 export type ToggleableMark = 'strong' | 'emphasis' | 'inlineCode'
@@ -101,6 +101,25 @@ function splitInlines(inlines: InlineNode[], offset: number): { left: InlineNode
   }
 
   return { left, right: [] }
+}
+
+/**
+ * Split inline nodes at a plain-text caret offset (same offset space as
+ * `getSelectionOffset`), unlike `blockEditableText` which is markdown.
+ * Used by Enter/Shift+Enter so marks aren't corrupted by mismatched offsets.
+ */
+export function splitInlinesAt(
+  inlines: InlineNode[],
+  offset: number,
+): { before: InlineNode[], after: InlineNode[] } {
+  const clean = stripCaretArtifacts(inlines)
+  const total = inlinesToPlainText(clean).length
+  const clamped = Math.max(0, Math.min(offset, total))
+  const { left, right } = splitInlines(clean, clamped)
+  return {
+    before: left.length > 0 ? normalizeInlines(left) : [{ type: 'text', value: '' }],
+    after: right.length > 0 ? normalizeInlines(right) : [{ type: 'text', value: '' }],
+  }
 }
 
 interface PlainRange {
