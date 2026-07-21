@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { blockEditableText, blockPlainText, setBlockPlainText, createEmptyBlock } from './block-text'
-import { hasRichInlines, inlinesToPlainText, parseInlineMarkdown } from './inlines'
+import { hasRichInlines, inlinesToMarkdown, inlinesToPlainText, parseInlineMarkdown, stripCaretArtifacts } from './inlines'
 import { parseMarkdownToDocument } from './document'
 
 describe('inline rich text helpers', () => {
@@ -36,5 +36,18 @@ describe('inline rich text helpers', () => {
     const next = setBlockPlainText(createEmptyBlock('paragraph'), '**bold** and [[n]]')
     expect(next.inlines?.some(n => n.type === 'strong')).toBe(true)
     expect(next.inlines?.some(n => n.type === 'wikilink')).toBe(true)
+  })
+
+  it('strips caret artifacts before emitting or serializing inlines', () => {
+    const inlines = [
+      { type: 'strong' as const, value: '', children: [{ type: 'text' as const, value: 'hi' }] },
+      { type: 'text' as const, value: '\u200bz' },
+    ]
+
+    expect(stripCaretArtifacts(inlines)).toEqual([
+      { type: 'strong', value: '', children: [{ type: 'text', value: 'hi' }] },
+      { type: 'text', value: 'z' },
+    ])
+    expect(inlinesToMarkdown(inlines)).toBe('**hi**z')
   })
 })

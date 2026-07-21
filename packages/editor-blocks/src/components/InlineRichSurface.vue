@@ -6,7 +6,7 @@ import { domToInlines, writeInlinesToDom } from '../inline-dom'
 import { tryApplyInputRuleToInlines } from '../inline-input-rules'
 import { selectionHasMark, toggleMark, wrapLink, wrapWikilink } from '../inline-marks'
 import type { ToggleableMark } from '../inline-marks'
-import { inlinesToPlainText } from '../inlines'
+import { inlinesToPlainText, stripCaretArtifacts } from '../inlines'
 import { matchSlashQuery } from '../slash-commands'
 import type { InlineNode } from '../types'
 import InlineFormatToolbar from './InlineFormatToolbar.vue'
@@ -91,7 +91,7 @@ function writeDom(inlines: InlineNode[]) {
 }
 
 function emitInlines(next: InlineNode[]) {
-  emit('update:inlines', next)
+  emit('update:inlines', stripCaretArtifacts(next))
 }
 
 function refreshSlash() {

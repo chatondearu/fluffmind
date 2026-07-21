@@ -51,14 +51,14 @@ describe('setSelectionOffset', () => {
         value: '',
         children: [{ type: 'text', value: 'ok' }],
       },
-      { type: 'text', value: '' },
+      { type: 'text', value: '\u200b' },
     ]
     writeInlinesToDom(root, inlines)
 
-    setSelectionOffset(root, 2)
+    setSelectionOffset(root, 3)
     document.execCommand('insertText', false, 'z')
 
     expect(root.querySelector('strong')?.textContent).toBe('ok')
-    expect(root.querySelector('strong')?.nextSibling?.textContent).toBe('z')
+    expect(root.querySelector('strong')?.nextSibling?.textContent).toBe('\u200bz')
   })
 })

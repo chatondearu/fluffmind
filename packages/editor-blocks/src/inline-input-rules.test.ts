@@ -68,9 +68,9 @@ describe('applyInputRule', () => {
     const result = applyInputRule('**hi**', match)
     expect(result.inlines).toEqual([
       { type: 'strong', value: '', children: [{ type: 'text', value: 'hi' }] },
-      { type: 'text', value: '' },
+      { type: 'text', value: '\u200b' },
     ])
-    expect(result.caret).toBe(2)
+    expect(result.caret).toBe(3)
   })
 })
 
@@ -85,7 +85,7 @@ describe('tryApplyInputRuleToInlines', () => {
     const result = tryApplyInputRuleToInlines(inlines, 7)
     expect(result).not.toBeNull()
     expect(inlinesToMarkdown(result!.inlines)).toBe('**A** **B**')
-    expect(result!.caret).toBe(3)
+    expect(result!.caret).toBe(4)
   })
 
   it('returns null when caret sits inside a non-text top-level node', () => {
@@ -105,6 +105,6 @@ describe('tryApplyInputRuleToInlines', () => {
     const result = tryApplyInputRuleToInlines(inlines, 10)
     expect(result).not.toBeNull()
     expect(inlinesToMarkdown(result!.inlines)).toBe('say **hi**')
-    expect(result!.caret).toBe(6)
+    expect(result!.caret).toBe(7)
   })
 })

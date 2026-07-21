@@ -1,6 +1,8 @@
 import { inlinesToPlainText } from './inlines'
 import type { InlineNode } from './types'
 
+export const CARET_ZWS = '\u200b'
+
 export type InputRuleMatch =
   | { kind: 'strong' | 'emphasis' | 'inlineCode', start: number, end: number, content: string }
   | { kind: 'link', start: number, end: number, content: string, url: string }
@@ -252,11 +254,11 @@ export function applyInputRule(
     inlines.push({ type: 'text', value: before })
   }
   inlines.push(buildMarkNode(match))
-  inlines.push({ type: 'text', value: after })
+  inlines.push({ type: 'text', value: after === '' ? CARET_ZWS : after })
 
   return {
     inlines,
-    caret: before.length + plainContentLength(match),
+    caret: before.length + plainContentLength(match) + (after === '' ? CARET_ZWS.length : 0),
   }
 }
 

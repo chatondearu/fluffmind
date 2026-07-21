@@ -3,8 +3,19 @@ import { markdownProcessor } from './remark'
 import type { InlineNode } from './types'
 import { wikilinkToMarkdown } from './wikilinks'
 
+const CARET_ARTIFACT_PATTERN = /\u200b/g
+
 export function inlinesToMarkdown(inlines: InlineNode[]): string {
   return inlines.map(inlineToMarkdown).join('')
+}
+
+/** Remove invisible caret anchors before exposing editor state. */
+export function stripCaretArtifacts(inlines: InlineNode[]): InlineNode[] {
+  return inlines.map(node => ({
+    ...node,
+    value: node.type === 'text' ? node.value.replace(CARET_ARTIFACT_PATTERN, '') : node.value,
+    ...(node.children ? { children: stripCaretArtifacts(node.children) } : {}),
+  }))
 }
 
 /** Plain visible text for empty checks / caret length (walks nested marks). */
@@ -22,7 +33,7 @@ function inlinePlainText(node: InlineNode): string {
 function inlineToMarkdown(node: InlineNode): string {
   switch (node.type) {
     case 'text':
-      return node.value
+      return node.value.replace(CARET_ARTIFACT_PATTERN, '')
     case 'strong':
       return `**${serializeInlineChildren(node)}**`
     case 'emphasis':
