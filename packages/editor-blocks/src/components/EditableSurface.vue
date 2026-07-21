@@ -21,6 +21,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
   enter: [offset: number]
   shiftEnter: [offset: number]
+  tab: []
+  shiftTab: []
   backspaceEmpty: []
   deleteBlock: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
@@ -62,6 +64,17 @@ function onBlur() {
 }
 
 function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Tab') {
+    event.preventDefault()
+    if (event.shiftKey) {
+      emit('shiftTab')
+    }
+    else {
+      emit('tab')
+    }
+    return
+  }
+
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     const offset = getSelectionOffset(root.value!)

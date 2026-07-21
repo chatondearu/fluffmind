@@ -19,6 +19,13 @@ export const FIXTURE_ORDERED_LIST = `## Steps
 2. Pick an issue from the board
 3. Implement with tests`
 
+export const FIXTURE_NESTED_LIST = `## Nested
+
+- parent
+  - child a
+  - child b
+- sibling`
+
 export const FIXTURE_CODE_FENCE = `## Example
 
 \`\`\`ts
@@ -37,3 +44,26 @@ export const FIXTURE_TABLE = `| Col A | Col B |
 | --- | --- |
 | **one** | two |
 | three | four |`
+
+export const FIXTURE_BLOCKQUOTE = `> A quoted line
+> continues here`
+
+export const FIXTURE_DIVIDER = `Before
+
+---
+
+After`
+
+export const FIXTURE_TASK_LIST = `- [ ] open task
+- [x] done task`
+
+export const FIXTURE_IMAGE = `![Diagram](https://example.com/diagram.png)`
+
+export const FIXTURE_CALLOUT = `> [!tip] Useful tip
+> Remember to commit often.`
+
+export const FIXTURE_MERMAID = `\`\`\`mermaid
+flowchart TD
+  A --> B
+\`\`\``
+

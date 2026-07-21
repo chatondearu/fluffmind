@@ -1,5 +1,6 @@
 import matter from 'gray-matter'
 import { remark } from 'remark'
+import remarkGfm from 'remark-gfm'
 import type { Root } from 'mdast'
 
 export interface ParsedNote {
@@ -15,7 +16,7 @@ export interface ParsedNote {
   ast: Root
 }
 
-const processor = remark()
+const processor = remark().use(remarkGfm)
 
 /**
  * Parses a single note's raw file content into frontmatter + markdown AST.

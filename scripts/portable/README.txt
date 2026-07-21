@@ -1,13 +1,18 @@
 Fluffmind — portable solo package
 =================================
 
-Run (macOS / Linux):
+Run in the background (recommended — no terminal needed):
+  ./bin/fluffmind start              # macOS / Linux
+  bin\fluffmind.cmd start            # Windows
+
+  ./bin/fluffmind status
+  ./bin/fluffmind stop
+
+Foreground (keeps the terminal open):
   ./bin/fluffmind
+  ./bin/fluffmind run
 
-Run (Windows):
-  bin\fluffmind.cmd
-
-Options:
+Options (work with run/start):
   --vault <path>   Vault folder (default: ./vault next to this package)
   --port <n>       Port (default: 3000)
   --host <addr>    Bind address (default: 127.0.0.1)
@@ -18,6 +23,7 @@ Requirements:
   - No Docker or Postgres needed (solo mode)
 
 Point at an existing Foam/Obsidian vault:
-  ./bin/fluffmind --vault /path/to/your/vault
+  ./bin/fluffmind start --vault /path/to/your/vault
 
+Background PID/log live in ./data/fluffmind.pid and ./data/fluffmind.log.
 Data / lock files live in ./data (not inside your vault git tree).

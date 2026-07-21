@@ -1,6 +1,8 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
+  // Skip anonymous telemetry consent prompt (blocks non-interactive builds).
+  telemetry: false,
   devtools: { enabled: true },
   modules: ['@nuxt/eslint', '@unocss/nuxt'],
   css: [
@@ -8,7 +10,7 @@ export default defineNuxtConfig({
     '~/assets/css/app.css',
   ],
   build: {
-    transpile: ['@fluffmind/editor-blocks', '@fluffmind/kanban'],
+    transpile: ['@fluffmind/editor-blocks', '@fluffmind/kanban', 'mermaid'],
   },
   runtimeConfig: {
     public: {

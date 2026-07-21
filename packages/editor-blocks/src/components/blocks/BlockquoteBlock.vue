@@ -3,7 +3,6 @@ import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
 import { blockPlainText, setBlockPlainText } from '../../block-text'
 import { blockEditorContextKey } from '../../block-editor-context'
-import { listIndent, orderedListNumber } from '../../list-utils'
 import type { BlockNode } from '../../types'
 import EditableSurface from '../EditableSurface.vue'
 
@@ -21,45 +20,16 @@ const emit = defineEmits<{
   backspaceEmpty: []
   deleteBlock: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
+  blur: []
+  focus: []
 }>()
 
 const editor = inject(blockEditorContextKey, null)
 const surface = ref<InstanceType<typeof EditableSurface> | null>(null)
 
-const indent = computed(() => listIndent(props.block))
-
-const marker = computed(() => {
-  if (props.block.type === 'orderedList') {
-    const blocks = editor?.blocks.value ?? [props.block]
-    const index = editor
-      ? blocks.findIndex(item => item.id === props.block.id)
-      : 0
-    const number = orderedListNumber(blocks, index === -1 ? 0 : index)
-    return `${number}.`
-  }
-  return '•'
-})
-
-const indentStyle = computed(() => ({
-  paddingLeft: `${indent.value * 1.5}rem`,
-}))
-
 const text = computed({
-  get: () => {
-    const item = props.block.children?.[0]
-    const paragraph = item?.children?.[0]
-    return paragraph ? blockPlainText(paragraph) : ''
-  },
-  set: (value: string) => {
-    const item = props.block.children?.[0]
-    const paragraph = item?.children?.[0]
-    if (!item || !paragraph) return
-    const nextItem = {
-      ...item,
-      children: [setBlockPlainText(paragraph, value)],
-    }
-    emit('update', { ...props.block, children: [nextItem] })
-  },
+  get: () => blockPlainText(props.block),
+  set: (value: string) => emit('update', setBlockPlainText(props.block, value)),
 })
 
 onMounted(() => {
@@ -75,15 +45,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    class="flex items-start gap-2"
-    :style="indentStyle"
-  >
-    <span class="mt-0.5 shrink-0 text-on-surface-variant">{{ marker }}</span>
+  <div class="border-l-4 border-primary/40 pl-3 text-on-surface-variant">
     <EditableSurface
       ref="surface"
       v-model="text"
-      placeholder="Liste"
+      placeholder="Citation"
       @enter="emit('enter', $event)"
       @shift-enter="emit('shiftEnter', $event)"
       @tab="emit('tab')"
@@ -91,6 +57,8 @@ onUnmounted(() => {
       @backspace-empty="emit('backspaceEmpty')"
       @delete-block="emit('deleteBlock')"
       @slash-change="emit('slashChange', $event)"
+      @blur="emit('blur')"
+      @focus="emit('focus')"
     />
   </div>
 </template>

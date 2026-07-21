@@ -50,10 +50,46 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ['numbered', 'ol', 'ordered', 'num'],
   },
   {
+    type: 'taskList',
+    label: 'Tâche',
+    description: 'Case à cocher',
+    keywords: ['task', 'todo', 'checkbox', 'tache', 'check'],
+  },
+  {
+    type: 'blockquote',
+    label: 'Citation',
+    description: 'Bloc citation',
+    keywords: ['quote', 'blockquote', 'citation', 'quote'],
+  },
+  {
+    type: 'callout',
+    label: 'Callout',
+    description: 'Encadré Obsidian',
+    keywords: ['callout', 'note', 'tip', 'warning', 'info'],
+  },
+  {
+    type: 'divider',
+    label: 'Séparateur',
+    description: 'Ligne horizontale',
+    keywords: ['divider', 'hr', 'separateur', 'line', '---'],
+  },
+  {
+    type: 'image',
+    label: 'Image',
+    description: 'Image markdown',
+    keywords: ['image', 'img', 'photo', 'picture'],
+  },
+  {
     type: 'code',
     label: 'Code',
     description: 'Bloc de code',
     keywords: ['code', 'snippet', 'pre'],
+  },
+  {
+    type: 'mermaid',
+    label: 'Mermaid',
+    description: 'Diagramme Mermaid',
+    keywords: ['mermaid', 'diagram', 'flowchart', 'sequence'],
   },
   {
     type: 'table',

@@ -23,8 +23,11 @@ export function hasMarkdownBlockSyntax(text: string): boolean {
   if (/^#{1,6}(?:\s|$)/.test(line)) return true
   if (/^[-*+]\s+/.test(line)) return true
   if (/^\d+\.\s+/.test(line)) return true
+  if (/^-\s+\[[ xX]\]\s+/.test(line)) return true
   if (line.startsWith('>')) return true
   if (line.startsWith('```')) return true
+  if (/^---+$/.test(line)) return true
+  if (/^!\[/.test(line)) return true
   return false
 }
 

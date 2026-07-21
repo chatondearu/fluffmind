@@ -12,6 +12,8 @@ import {
 } from '../block-text'
 import { blockEditorContextKey } from '../block-editor-context'
 import { createBlockId } from '../ids'
+import { applyListEnter, applyListShiftTab, applyListTab } from '../list-behavior'
+import { isListBlock } from '../list-utils'
 import { registerDefaultBlocks } from '../register-defaults'
 import { filterSlashCommands, type SlashCommand } from '../slash-commands'
 import type { BlockNode } from '../types'
@@ -57,6 +59,7 @@ const visibleBlocks = computed(() => {
 
 provide(blockEditorContextKey, {
   blockIndex: slashBlockIndex,
+  blocks,
   vaultNotes: computed(() => props.vaultNotes),
   registerSurface(blockId: string, surface: { focus: (offset?: number) => void, getOffset: () => number }) {
     surfaces.set(blockId, surface)
@@ -145,15 +148,11 @@ function handleEnter(index: number, offset: number) {
   const block = blocks.value[index]
   if (!block) return
 
-  if (block.type === 'bulletList' || block.type === 'orderedList') {
-    const text = blockPlainText(block)
-    const [before, after] = splitTextAt(text, offset)
-    updateBlock(index, setBlockPlainText(block, before))
-    insertBlockAfter(index, createEmptyBlock(block.type))
-    if (after.length > 0) {
-      updateBlock(index + 1, setBlockPlainText(blocks.value[index + 1]!, after))
-      focusBlock(index + 1, 0)
-    }
+  if (isListBlock(block)) {
+    const mutation = applyListEnter(blocks.value, index, offset)
+    if (!mutation) return
+    setBlocks(mutation.blocks)
+    focusBlock(mutation.focusIndex, mutation.focusOffset)
     return
   }
 
@@ -165,6 +164,22 @@ function handleEnter(index: number, offset: number) {
     updateBlock(index + 1, setBlockPlainText(blocks.value[index + 1]!, after))
     focusBlock(index + 1, 0)
   }
+}
+
+function handleTab(index: number) {
+  closeSlash()
+  const mutation = applyListTab(blocks.value, index)
+  if (!mutation) return
+  setBlocks(mutation.blocks)
+  focusBlock(mutation.focusIndex)
+}
+
+function handleShiftTab(index: number) {
+  closeSlash()
+  const mutation = applyListShiftTab(blocks.value, index)
+  if (!mutation) return
+  setBlocks(mutation.blocks)
+  focusBlock(mutation.focusIndex)
 }
 
 function handleShiftEnter(index: number, offset: number) {
@@ -396,6 +411,8 @@ function onGlobalKeydown(event: KeyboardEvent) {
           @update="updateBlock(blockIndexForRender(block), $event)"
           @enter="handleEnter(blockIndexForRender(block), $event)"
           @shift-enter="handleShiftEnter(blockIndexForRender(block), $event)"
+          @tab="handleTab(blockIndexForRender(block))"
+          @shift-tab="handleShiftTab(blockIndexForRender(block))"
           @backspace-empty="handleBackspaceEmpty(blockIndexForRender(block))"
           @delete-block="handleDeleteBlock(blockIndexForRender(block))"
           @slash-change="handleSlashChange(blockIndexForRender(block), $event)"

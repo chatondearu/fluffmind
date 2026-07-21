@@ -24,7 +24,7 @@ describe('list enter behavior', () => {
       ...second.children![0]!.children![0]!,
       inlines: [{ type: 'text', value: 'item 2' }],
     }
-    expect(blocksToMarkdown([first, second])).toBe('- item 1\n\n- item 2')
+    expect(blocksToMarkdown([first, second])).toBe('- item 1\n- item 2')
   })
 })
 

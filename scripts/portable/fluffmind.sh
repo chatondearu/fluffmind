@@ -7,18 +7,27 @@ NODE_BIN="$ROOT/runtime/node/bin/node"
 SERVER_ENTRY="$ROOT/app/.output/server/index.mjs"
 DEFAULT_VAULT="$ROOT/vault"
 DATA_DIR="$ROOT/data"
+PID_FILE="$DATA_DIR/fluffmind.pid"
+LOG_FILE="$DATA_DIR/fluffmind.log"
 
 VAULT=""
 PORT="${PORT:-3000}"
 HOST="${HOST:-127.0.0.1}"
 OPEN_BROWSER=1
+CMD="run"
 
 usage() {
   cat <<'EOF'
 Fluffmind portable (solo mode — no Docker, no Postgres)
 
 Usage:
-  fluffmind [--vault <path>] [--port <n>] [--host <addr>] [--no-open] [--help]
+  fluffmind [command] [--vault <path>] [--port <n>] [--host <addr>] [--no-open] [--help]
+
+Commands:
+  run      Start in the foreground (default; Ctrl+C stops)
+  start    Start in the background (no terminal needed)
+  stop     Stop a background instance
+  status   Show whether a background instance is running
 
 Vault resolution (first match wins):
   1. --vault <path>
@@ -29,8 +38,20 @@ Requires: git on PATH
 EOF
 }
 
+is_running() {
+  [[ -f "$PID_FILE" ]] || return 1
+  local pid
+  pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+  [[ -n "$pid" ]] || return 1
+  kill -0 "$pid" 2>/dev/null
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    run|start|stop|status)
+      CMD="$1"
+      shift
+      ;;
     --vault)
       VAULT="${2:-}"
       shift 2
@@ -59,6 +80,43 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+mkdir -p "$DATA_DIR"
+
+if [[ "$CMD" == "status" ]]; then
+  if is_running; then
+    pid="$(cat "$PID_FILE")"
+    echo "Fluffmind is running (pid $pid)"
+    echo "  log: $LOG_FILE"
+    exit 0
+  fi
+  echo "Fluffmind is not running"
+  [[ -f "$PID_FILE" ]] && rm -f "$PID_FILE"
+  exit 1
+fi
+
+if [[ "$CMD" == "stop" ]]; then
+  if ! is_running; then
+    echo "Fluffmind is not running"
+    rm -f "$PID_FILE"
+    exit 0
+  fi
+  pid="$(cat "$PID_FILE")"
+  echo "Stopping Fluffmind (pid $pid)…"
+  kill "$pid" 2>/dev/null || true
+  for _ in $(seq 1 20); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      break
+    fi
+    sleep 0.25
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -9 "$pid" 2>/dev/null || true
+  fi
+  rm -f "$PID_FILE"
+  echo "Stopped."
+  exit 0
+fi
+
 if [[ -z "$VAULT" ]]; then
   if [[ -n "${VAULT_PATH:-}" ]]; then
     VAULT="$VAULT_PATH"
@@ -69,7 +127,6 @@ fi
 
 mkdir -p "$VAULT" "$DATA_DIR"
 
-# Resolve to absolute path
 if command -v realpath >/dev/null 2>&1; then
   VAULT="$(realpath "$VAULT")"
 else
@@ -109,16 +166,11 @@ export NITRO_HOST="$HOST"
 export NITRO_PORT="$PORT"
 
 URL="http://${HOST}:${PORT}"
-echo "Fluffmind solo"
-echo "  vault: $VAULT_PATH"
-echo "  url:   $URL"
-echo "  (Ctrl+C to stop)"
 
 open_browser() {
   if [[ "$OPEN_BROWSER" != "1" ]]; then
     return 0
   fi
-  # Wait until the server accepts connections (max ~30s)
   for _ in $(seq 1 60); do
     if command -v curl >/dev/null 2>&1; then
       if curl -sf -o /dev/null "$URL/api/health" 2>/dev/null || curl -sf -o /dev/null "$URL/" 2>/dev/null; then
@@ -136,5 +188,36 @@ open_browser() {
   esac
 }
 
+if [[ "$CMD" == "start" ]]; then
+  if is_running; then
+    echo "Fluffmind is already running (pid $(cat "$PID_FILE"))."
+    echo "  url: $URL"
+    echo "  Use: $(basename "$0") stop"
+    exit 1
+  fi
+  rm -f "$PID_FILE"
+  echo "Fluffmind solo (background)"
+  echo "  vault: $VAULT_PATH"
+  echo "  url:   $URL"
+  echo "  log:   $LOG_FILE"
+  echo "  stop:  $(basename "$0") stop"
+  nohup "$NODE_BIN" "$SERVER_ENTRY" >>"$LOG_FILE" 2>&1 &
+  echo $! >"$PID_FILE"
+  # Give the process a moment; fail if it died immediately
+  sleep 0.4
+  if ! is_running; then
+    echo "error: server exited immediately — see $LOG_FILE" >&2
+    rm -f "$PID_FILE"
+    exit 1
+  fi
+  open_browser &
+  exit 0
+fi
+
+# Foreground (run)
+echo "Fluffmind solo"
+echo "  vault: $VAULT_PATH"
+echo "  url:   $URL"
+echo "  (Ctrl+C to stop — or use: $(basename "$0") start)"
 open_browser &
 exec "$NODE_BIN" "$SERVER_ENTRY"

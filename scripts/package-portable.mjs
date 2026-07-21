@@ -113,6 +113,10 @@ function ensureWebBuild(skipBuild) {
     cwd: REPO_ROOT,
     stdio: 'inherit',
     shell: process.platform === 'win32',
+    env: {
+      ...process.env,
+      NUXT_TELEMETRY_DISABLED: '1',
+    },
   })
   if (!existsSync(entry)) {
     throw new Error(`Build finished but missing ${entry}`)

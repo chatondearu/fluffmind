@@ -17,6 +17,14 @@ export {
 export { defineBlock, getBlockDefinition, getRegisteredBlockTypes } from './registry'
 export { registerDefaultBlocks } from './register-defaults'
 export { mdastToBlocks } from './mdast-to-blocks'
+export { clampListIndent, isListBlock, listIndent, MAX_LIST_INDENT, orderedListNumber } from './list-utils'
+export {
+  applyListEnter,
+  applyListShiftTab,
+  applyListTab,
+  applyTaskToggle,
+} from './list-behavior'
+export type { EditorMutation } from './list-behavior'
 export type { BlockDefinition } from './registry'
 export type {
   BlockDocument,

@@ -13,7 +13,10 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "package:portable": "node scripts/package-portable.mjs"
+    "package:portable": "node scripts/package-portable.mjs",
+    "portable:start": "node scripts/run-portable.mjs start",
+    "portable:stop": "node scripts/run-portable.mjs stop",
+    "portable:status": "node scripts/run-portable.mjs status"
   },
   "devDependencies": {
     "eslint": "^10.6.0",

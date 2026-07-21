@@ -30,6 +30,7 @@ COPY tsconfig.base.json ./tsconfig.base.json
 
 # ---- Production build -------------------------------------------------------------
 FROM installer AS builder
+ENV NUXT_TELEMETRY_DISABLED=1
 RUN pnpm turbo run build --filter=@fluffmind/web
 
 # ---- Local dev image (see docker-compose.yml) ------------------------------------

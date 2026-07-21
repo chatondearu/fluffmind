@@ -32,6 +32,7 @@
     "rehype-stringify": "^10.0.1",
     "reka-ui": "^2.10.1",
     "remark": "^15.0.1",
+    "remark-gfm": "^4.0.1",
     "remark-rehype": "^11.1.2",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",

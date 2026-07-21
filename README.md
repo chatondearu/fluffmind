@@ -33,12 +33,17 @@ Download a release asset for your OS from [Releases](https://github.com/chatonde
 (`fluffmind-darwin-arm64.tar.gz`, `linux-x64`, `win-x64`, …), unzip, then:
 
 ```sh
-./bin/fluffmind                          # uses ./vault next to the package
-./bin/fluffmind --vault /path/to/notes   # existing Foam/Obsidian vault
-./bin/fluffmind --port 3456 --no-open
+./bin/fluffmind start                    # background — close the terminal freely
+./bin/fluffmind status
+./bin/fluffmind stop
+
+./bin/fluffmind                          # foreground (Ctrl+C to stop)
+./bin/fluffmind start --vault /path/to/notes
+./bin/fluffmind start --port 3456 --no-open
 ```
 
 Requires **Git on PATH**. Node is embedded. Auth/Postgres are disabled.
+Background PID/log: `data/fluffmind.pid` / `data/fluffmind.log`.
 
 Build a package locally:
 
@@ -46,6 +51,12 @@ Build a package locally:
 pnpm install
 pnpm package:portable                    # current OS/arch
 pnpm package:portable -- --target all  # or darwin-arm64|linux-x64|…
+
+# Then from the repo (uses dist/portable/fluffmind-<os>-<arch>/):
+pnpm portable:start                      # background
+pnpm portable:status
+pnpm portable:stop
+pnpm portable:start -- --vault /path/to/notes --port 3456
 ```
 
 Artifacts land in `dist/portable/`.

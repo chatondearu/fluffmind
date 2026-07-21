@@ -16,6 +16,8 @@ const emit = defineEmits<{
   update: [block: BlockNode]
   enter: [offset: number]
   shiftEnter: [offset: number]
+  tab: []
+  shiftTab: []
   backspaceEmpty: []
   deleteBlock: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
@@ -44,6 +46,8 @@ function onUpdate(next: BlockNode) {
     @update="onUpdate"
     @enter="emit('enter', $event)"
     @shift-enter="emit('shiftEnter', $event)"
+    @tab="emit('tab')"
+    @shift-tab="emit('shiftTab')"
     @backspace-empty="emit('backspaceEmpty')"
     @delete-block="emit('deleteBlock')"
     @slash-change="emit('slashChange', $event)"
