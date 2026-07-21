@@ -46,6 +46,18 @@ describe('matchInputRule', () => {
   it('returns null when caret is not at end of a match', () => {
     expect(matchInputRule('**hi** there', 12)).toBeNull()
   })
+
+  it('does not match emphasis when open delimiter starts **', () => {
+    expect(matchInputRule('**y*', 4)).toBeNull()
+  })
+
+  it('does not match emphasis when open delimiter starts __', () => {
+    expect(matchInputRule('__y_', 4)).toBeNull()
+  })
+
+  it('does not match emphasis when close delimiter is part of **', () => {
+    expect(matchInputRule('*y**', 3)).toBeNull()
+  })
 })
 
 describe('applyInputRule', () => {

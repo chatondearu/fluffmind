@@ -159,7 +159,10 @@ function tryMatchEmphasis(text: string, caret: number): InputRuleMatch | null {
     return null
   }
 
-  if (caret >= 2 && text[caret - 2] === closeChar) {
+  if (
+    (caret >= 2 && text[caret - 2] === closeChar)
+    || (caret < text.length && text[caret] === closeChar)
+  ) {
     return null
   }
 
@@ -167,7 +170,10 @@ function tryMatchEmphasis(text: string, caret: number): InputRuleMatch | null {
     if (text[i] !== closeChar || isEscaped(text, i)) {
       continue
     }
-    if (i > 0 && text[i - 1] === closeChar) {
+    if (
+      (i > 0 && text[i - 1] === closeChar)
+      || (i + 1 < text.length && text[i + 1] === closeChar)
+    ) {
       continue
     }
 
