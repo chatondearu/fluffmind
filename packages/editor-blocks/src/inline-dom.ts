@@ -40,13 +40,16 @@ function domChildrenToInlines(parent: ParentNode): InlineNode[] {
         ...(alias === undefined ? {} : { alias }),
       })
     }
-    else if (tagName === 'A') {
+    else if (tagName === 'A' && element.hasAttribute('href')) {
       inlines.push({
         type: 'link',
         value: '',
         url: element.getAttribute('href') ?? '',
         children: domChildrenToInlines(element),
       })
+    }
+    else if (tagName === 'A') {
+      inlines.push(...domChildrenToInlines(element))
     }
     else {
       inlines.push(...domChildrenToInlines(element))

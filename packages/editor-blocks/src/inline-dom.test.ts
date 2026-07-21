@@ -74,4 +74,12 @@ describe('inline-dom', () => {
       target: 'target',
     }])
   })
+
+  it('treats anchors without href as plain text, not links', () => {
+    const root = document.createElement('div')
+    root.innerHTML = '<a>label</a>'
+
+    expect(domToInlines(root)).toEqual([{ type: 'text', value: 'label' }])
+    expect(inlinesToMarkdown(domToInlines(root))).toBe('label')
+  })
 })
