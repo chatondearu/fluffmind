@@ -3,7 +3,7 @@ import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
 import { blockEditorContextKey } from '../../block-editor-context'
 import type { BlockNode, InlineNode } from '../../types'
-import InlineEditable from '../InlineEditable.vue'
+import InlineRichSurface from '../InlineRichSurface.vue'
 
 const props = defineProps<{
   block: BlockNode
@@ -24,7 +24,7 @@ const emit = defineEmits<{
 }>()
 
 const editor = inject(blockEditorContextKey, null)
-const surface = ref<InstanceType<typeof InlineEditable> | null>(null)
+const surface = ref<InstanceType<typeof InlineRichSurface> | null>(null)
 
 const inlines = computed({
   get: () => props.block.inlines ?? [{ type: 'text', value: '' }],
@@ -45,7 +45,7 @@ onUnmounted(() => {
 
 <template>
   <div class="rounded-r-lg border-l-4 border-primary bg-primary/5 py-2 pl-4 pr-2 italic text-on-surface-variant">
-    <InlineEditable
+    <InlineRichSurface
       ref="surface"
       v-model:inlines="inlines"
       placeholder="Citation"

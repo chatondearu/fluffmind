@@ -3,7 +3,7 @@ import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
 import { blockEditorContextKey } from '../../block-editor-context'
 import type { BlockNode, InlineNode } from '../../types'
-import InlineEditable from '../InlineEditable.vue'
+import InlineRichSurface from '../InlineRichSurface.vue'
 
 const CALLOUT_KINDS = ['note', 'tip', 'info', 'warning', 'important', 'caution', 'success', 'question'] as const
 
@@ -37,7 +37,7 @@ const emit = defineEmits<{
 }>()
 
 const editor = inject(blockEditorContextKey, null)
-const bodySurface = ref<InstanceType<typeof InlineEditable> | null>(null)
+const bodySurface = ref<InstanceType<typeof InlineRichSurface> | null>(null)
 
 const kind = computed({
   get: () => props.block.calloutKind ?? 'note',
@@ -96,7 +96,7 @@ onUnmounted(() => {
         @blur="emit('blur')"
       >
     </div>
-    <InlineEditable
+    <InlineRichSurface
       ref="bodySurface"
       v-model:inlines="inlines"
       placeholder="Contenu du callout"

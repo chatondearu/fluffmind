@@ -3,7 +3,7 @@ import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
 import { blockEditorContextKey } from '../../block-editor-context'
 import type { BlockNode, InlineNode } from '../../types'
-import InlineEditable from '../InlineEditable.vue'
+import InlineRichSurface from '../InlineRichSurface.vue'
 
 const props = defineProps<{
   block: BlockNode
@@ -22,7 +22,7 @@ const emit = defineEmits<{
 }>()
 
 const editor = inject(blockEditorContextKey, null)
-const surface = ref<InstanceType<typeof InlineEditable> | null>(null)
+const surface = ref<InstanceType<typeof InlineRichSurface> | null>(null)
 
 const level = computed(() => Math.min(6, Math.max(1, props.block.level ?? 1)))
 
@@ -53,7 +53,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <InlineEditable
+  <InlineRichSurface
     ref="surface"
     v-model:inlines="inlines"
     placeholder="Titre"

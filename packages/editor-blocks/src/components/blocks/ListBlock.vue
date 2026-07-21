@@ -4,7 +4,7 @@ import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 import { blockEditorContextKey } from '../../block-editor-context'
 import { listIndent, orderedListNumber } from '../../list-utils'
 import type { BlockNode, InlineNode } from '../../types'
-import InlineEditable from '../InlineEditable.vue'
+import InlineRichSurface from '../InlineRichSurface.vue'
 
 const props = defineProps<{
   block: BlockNode
@@ -25,7 +25,7 @@ const emit = defineEmits<{
 }>()
 
 const editor = inject(blockEditorContextKey, null)
-const surface = ref<InstanceType<typeof InlineEditable> | null>(null)
+const surface = ref<InstanceType<typeof InlineRichSurface> | null>(null)
 
 const indent = computed(() => listIndent(props.block))
 
@@ -82,7 +82,7 @@ onUnmounted(() => {
     :style="indentStyle"
   >
     <span class="mt-0.5 shrink-0 select-none text-on-surface-variant">{{ marker }}</span>
-    <InlineEditable
+    <InlineRichSurface
       ref="surface"
       v-model:inlines="inlines"
       placeholder="Liste"

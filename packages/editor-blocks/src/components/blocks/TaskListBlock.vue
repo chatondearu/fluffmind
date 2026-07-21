@@ -4,7 +4,7 @@ import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 import { blockEditorContextKey } from '../../block-editor-context'
 import { listIndent } from '../../list-utils'
 import type { BlockNode, InlineNode } from '../../types'
-import InlineEditable from '../InlineEditable.vue'
+import InlineRichSurface from '../InlineRichSurface.vue'
 
 const props = defineProps<{
   block: BlockNode
@@ -25,7 +25,7 @@ const emit = defineEmits<{
 }>()
 
 const editor = inject(blockEditorContextKey, null)
-const surface = ref<InstanceType<typeof InlineEditable> | null>(null)
+const surface = ref<InstanceType<typeof InlineRichSurface> | null>(null)
 
 const indentStyle = computed(() => ({
   paddingLeft: `${listIndent(props.block) * 1.5}rem`,
@@ -78,7 +78,7 @@ onUnmounted(() => {
       class="mt-1.5 size-4 shrink-0 accent-primary"
       aria-label="Tâche"
     >
-    <InlineEditable
+    <InlineRichSurface
       ref="surface"
       v-model:inlines="inlines"
       placeholder="Tâche"
