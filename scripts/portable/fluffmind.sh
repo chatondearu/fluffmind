@@ -38,12 +38,51 @@ Requires: git on PATH
 EOF
 }
 
+# Find a live process still serving this package's Nitro entry.
+# Needed after `package:portable` overwrites data/ and drops the PID file
+# while an old Node process keeps running with stale chunk hashes.
+find_server_pid() {
+  pgrep -f "$SERVER_ENTRY" 2>/dev/null | head -n1 || true
+}
+
+recover_pid_file() {
+  if [[ -f "$PID_FILE" ]]; then
+    local pid
+    pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+    rm -f "$PID_FILE"
+  fi
+  local orphan
+  orphan="$(find_server_pid)"
+  if [[ -n "$orphan" ]]; then
+    echo "$orphan" >"$PID_FILE"
+  fi
+}
+
 is_running() {
+  recover_pid_file
   [[ -f "$PID_FILE" ]] || return 1
   local pid
   pid="$(cat "$PID_FILE" 2>/dev/null || true)"
   [[ -n "$pid" ]] || return 1
   kill -0 "$pid" 2>/dev/null
+}
+
+stop_pid() {
+  local pid="$1"
+  [[ -n "$pid" ]] || return 0
+  kill "$pid" 2>/dev/null || true
+  for _ in $(seq 1 20); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      break
+    fi
+    sleep 0.25
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -9 "$pid" 2>/dev/null || true
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -102,16 +141,14 @@ if [[ "$CMD" == "stop" ]]; then
   fi
   pid="$(cat "$PID_FILE")"
   echo "Stopping Fluffmind (pid $pid)…"
-  kill "$pid" 2>/dev/null || true
-  for _ in $(seq 1 20); do
-    if ! kill -0 "$pid" 2>/dev/null; then
-      break
-    fi
-    sleep 0.25
+  stop_pid "$pid"
+  # Sweep any leftover orphans from a previous rebuild.
+  while true; do
+    orphan="$(find_server_pid)"
+    [[ -n "$orphan" ]] || break
+    echo "Stopping orphan Fluffmind (pid $orphan)…"
+    stop_pid "$orphan"
   done
-  if kill -0 "$pid" 2>/dev/null; then
-    kill -9 "$pid" 2>/dev/null || true
-  fi
   rm -f "$PID_FILE"
   echo "Stopped."
   exit 0
