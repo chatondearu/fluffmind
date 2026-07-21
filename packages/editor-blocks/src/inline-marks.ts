@@ -7,15 +7,32 @@ function nodePlainLength(node: InlineNode): number {
   return inlinesToPlainText([node]).length
 }
 
-function mergeAdjacentText(inlines: InlineNode[]): InlineNode[] {
+function normalizeInlines(inlines: InlineNode[]): InlineNode[] {
   const result: InlineNode[] = []
   for (const node of inlines) {
+    const normalized = node.children
+      ? { ...node, children: normalizeInlines(node.children) }
+      : { ...node }
     const prev = result[result.length - 1]
-    if (prev?.type === 'text' && node.type === 'text') {
-      prev.value += node.value
+    if (prev?.type === 'text' && normalized.type === 'text') {
+      prev.value += normalized.value
+    }
+    else if (
+      prev
+      && (normalized.type === 'strong' || normalized.type === 'emphasis')
+      && prev.type === normalized.type
+    ) {
+      prev.children = normalizeInlines([
+        ...(prev.children ?? [{ type: 'text', value: prev.value }]),
+        ...(normalized.children ?? [{ type: 'text', value: normalized.value }]),
+      ])
+      prev.value = ''
+    }
+    else if (prev?.type === 'inlineCode' && normalized.type === 'inlineCode') {
+      prev.value += normalized.value
     }
     else {
-      result.push({ ...node })
+      result.push(normalized)
     }
   }
   return result
@@ -41,23 +58,6 @@ function splitNode(node: InlineNode, offset: number): { left: InlineNode | null,
     return {
       left: { type: 'inlineCode', value: node.value.slice(0, offset) },
       right: { type: 'inlineCode', value: node.value.slice(offset) },
-    }
-  }
-
-  if (node.type === 'wikilink') {
-    return {
-      left: {
-        type: 'wikilink',
-        value: node.value.slice(0, offset),
-        target: node.target ?? node.value,
-        ...(node.alias ? { alias: node.alias } : {}),
-      },
-      right: {
-        type: 'wikilink',
-        value: node.value.slice(offset),
-        target: node.target ?? node.value,
-        ...(node.alias ? { alias: node.alias } : {}),
-      },
     }
   }
 
@@ -103,13 +103,53 @@ function splitInlines(inlines: InlineNode[], offset: number): { left: InlineNode
   return { left, right: [] }
 }
 
+interface PlainRange {
+  start: number
+  end: number
+}
+
+function atomicRanges(inlines: InlineNode[], offset = 0): PlainRange[] {
+  const ranges: PlainRange[] = []
+  let cursor = offset
+  for (const node of inlines) {
+    const length = nodePlainLength(node)
+    if (node.type === 'link' || node.type === 'wikilink') {
+      ranges.push({ start: cursor, end: cursor + length })
+    }
+    else if (node.children?.length) {
+      ranges.push(...atomicRanges(node.children, cursor))
+    }
+    cursor += length
+  }
+  return ranges
+}
+
+function expandAcrossAtomicNodes(
+  inlines: InlineNode[],
+  from: number,
+  to: number,
+): { from: number, to: number } {
+  let expandedFrom = from
+  let expandedTo = to
+  for (const range of atomicRanges(inlines)) {
+    if (expandedFrom > range.start && expandedFrom < range.end) {
+      expandedFrom = range.start
+    }
+    if (expandedTo > range.start && expandedTo < range.end) {
+      expandedTo = range.end
+    }
+  }
+  return { from: expandedFrom, to: expandedTo }
+}
+
 function extractRange(
   inlines: InlineNode[],
   from: number,
   to: number,
 ): { left: InlineNode[], middle: InlineNode[], right: InlineNode[] } {
-  const { left, right: fromToEnd } = splitInlines(inlines, from)
-  const { left: middle, right } = splitInlines(fromToEnd, to - from)
+  const expanded = expandAcrossAtomicNodes(inlines, from, to)
+  const { left, right: fromToEnd } = splitInlines(inlines, expanded.from)
+  const { left: middle, right } = splitInlines(fromToEnd, expanded.to - expanded.from)
   return { left, middle, right }
 }
 
@@ -126,14 +166,10 @@ export function selectionHasMark(
   }
 
   if (mark === 'inlineCode') {
-    return middle.length === 1
-      && middle[0]!.type === 'inlineCode'
-      && middle[0]!.value === plain
+    return middle.every(node => node.type === 'inlineCode')
   }
 
-  return middle.length === 1
-    && middle[0]!.type === mark
-    && inlinesToPlainText(middle[0]!.children ?? []) === plain
+  return middle.every(node => node.type === mark)
 }
 
 function unwrapMark(nodes: InlineNode[], mark: ToggleableMark): InlineNode[] {
@@ -151,7 +187,7 @@ function unwrapMark(nodes: InlineNode[], mark: ToggleableMark): InlineNode[] {
       result.push(node)
     }
   }
-  return mergeAdjacentText(result)
+  return normalizeInlines(result)
 }
 
 function wrapMark(nodes: InlineNode[], mark: ToggleableMark): InlineNode[] {
@@ -162,7 +198,10 @@ function wrapMark(nodes: InlineNode[], mark: ToggleableMark): InlineNode[] {
   if (mark === 'inlineCode') {
     return [{ type: 'inlineCode', value: plain }]
   }
-  return [{ type: mark, value: '', children: nodes }]
+  const children = nodes.flatMap(node => node.type === mark
+    ? node.children ?? [{ type: 'text' as const, value: node.value }]
+    : [node])
+  return [{ type: mark, value: '', children: normalizeInlines(children) }]
 }
 
 export function toggleMark(
@@ -175,7 +214,7 @@ export function toggleMark(
   const nextMiddle = selectionHasMark(inlines, from, to, mark)
     ? unwrapMark(middle, mark)
     : wrapMark(middle, mark)
-  return mergeAdjacentText([...left, ...nextMiddle, ...right])
+  return normalizeInlines([...left, ...nextMiddle, ...right])
 }
 
 export function wrapLink(
@@ -195,7 +234,7 @@ export function wrapLink(
     url,
     children: middle.length > 0 ? middle : [{ type: 'text', value: plain }],
   }
-  return mergeAdjacentText([...left, linkNode, ...right])
+  return normalizeInlines([...left, linkNode, ...right])
 }
 
 export function wrapWikilink(
@@ -216,5 +255,5 @@ export function wrapWikilink(
     target,
     ...(alias ? { alias } : {}),
   }
-  return mergeAdjacentText([...left, wikilink, ...right])
+  return normalizeInlines([...left, wikilink, ...right])
 }
