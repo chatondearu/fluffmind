@@ -11,6 +11,7 @@
 | [[ADR-005-design-system-dual-entry|ADR-005]] | design-system dual entry points | accepted |
 | [[ADR-006-better-auth-workspaces|ADR-006]] | Better Auth + hybrid GitHub sync | accepted |
 | [[ADR-007-distributed-workspace-lock|ADR-007]] | Distributed workspace lock (PG advisory + flock) | accepted |
+| [[ADR-008-inline-rich-contenteditable|ADR-008]] | Contenteditable inline marks (markdown-as-you-type) | accepted |
 
 Template: [[ADR-template|ADR-template]]
 

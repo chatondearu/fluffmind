@@ -35,7 +35,7 @@ Markdown round-trip unchanged (`BlockNode` → `serializeDocument` → disk).
 
 1. **Phase 1** (this PR): paragraph, heading, slash, keyboard, new page, autosave
 2. **Phase 2**: lists, code, backspace merge polish, drag handle
-3. **Phase 3**: markdown shortcuts, inline marks WYSIWYG, wikilinks
+3. **Phase 3**: markdown shortcuts, inline marks WYSIWYG, wikilinks — see `2026-07-21-inline-rich-editing-design.md` + ADR-008
 
 ## Out of scope
 

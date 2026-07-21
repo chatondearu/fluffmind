@@ -31,7 +31,7 @@ L’éditeur Notion-like et la sidebar v1 couvrent l’édition bloc-à-bloc et 
 
 ## Non-goals (v1 de ce PRD)
 
-- Éditeur WYSIWYG inline (gras/italique sans markdown)
+- ~~Éditeur WYSIWYG inline (gras/italique sans markdown)~~ — **supersédé** (2026-07-21) par [[../docs/superpowers/specs/2026-07-21-inline-rich-editing-design|spec inline rich editing]] + [[../foam/decisions/ADR-008-inline-rich-contenteditable|ADR-008]] (contenteditable + input rules, pas TipTap)
 - CRDT / édition collaborative temps réel
 - Drag & drop de notes/dossiers dans la sidebar (API move — prévu mais phase séparée)
 - Schéma frontmatter imposé par le workspace (reste un bag YAML libre)

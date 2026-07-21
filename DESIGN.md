@@ -106,10 +106,12 @@ deliberately, to avoid inheriting a generalist editor's compatibility risk. Desi
   drop, custom block types (wikilink, backlinks embed, Kanban card, transclusion) all
   go through the same registry.
 - **Rich text scope kept deliberately small**: `contenteditable` + markdown-as-you-type
-  parsing for common marks (bold, italic, inline code, links), *not* a full
-  ProseMirror-style rich-text engine with marks/selection/IME handling. That's the
-  single biggest hidden-cost trap for a "simple" custom editor — scope it down on
-  purpose, expand only if a real limitation shows up in use.
+  parsing for common marks (bold, italic, inline code, links, wikilinks), *not* a full
+  ProseMirror-style rich-text engine. That's the single biggest hidden-cost trap for a
+  "simple" custom editor — scope it down on purpose. Inline editing-in-render + input
+  rules + selection bubble are in scope via
+  `docs/superpowers/specs/2026-07-21-inline-rich-editing-design.md` and ADR-008; still
+  no TipTap/ProseMirror/CRDT.
 - Markdown round-trip has to stay clean enough that a file edited through the block
   UI still opens sanely in VS Code/Obsidian afterwards.
 
