@@ -2,11 +2,21 @@
 import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
 import { blockEditorContextKey } from '../../block-editor-context'
-import { inlinesToMarkdown } from '../../inlines'
-import type { BlockNode } from '../../types'
-import EditableSurface from '../EditableSurface.vue'
+import type { BlockNode, InlineNode } from '../../types'
+import InlineEditable from '../InlineEditable.vue'
 
 const CALLOUT_KINDS = ['note', 'tip', 'info', 'warning', 'important', 'caution', 'success', 'question'] as const
+
+const KIND_STYLES: Record<string, string> = {
+  note: 'border-primary/50 bg-primary/5',
+  tip: 'border-tertiary/50 bg-tertiary/5',
+  info: 'border-secondary/50 bg-secondary/5',
+  warning: 'border-error/40 bg-error/5',
+  important: 'border-error/50 bg-error/8',
+  caution: 'border-error/40 bg-error/5',
+  success: 'border-tertiary/50 bg-tertiary/8',
+  question: 'border-outline bg-surface-container-low',
+}
 
 const props = defineProps<{
   block: BlockNode
@@ -27,7 +37,7 @@ const emit = defineEmits<{
 }>()
 
 const editor = inject(blockEditorContextKey, null)
-const bodySurface = ref<InstanceType<typeof EditableSurface> | null>(null)
+const bodySurface = ref<InstanceType<typeof InlineEditable> | null>(null)
 
 const kind = computed({
   get: () => props.block.calloutKind ?? 'note',
@@ -39,13 +49,12 @@ const title = computed({
   set: (value: string) => emit('update', { ...props.block, text: value }),
 })
 
-const body = computed({
-  get: () => inlinesToMarkdown(props.block.inlines ?? []),
-  set: (value: string) => emit('update', {
-    ...props.block,
-    inlines: [{ type: 'text', value }],
-  }),
+const inlines = computed({
+  get: () => props.block.inlines ?? [{ type: 'text', value: '' }],
+  set: (value: InlineNode[]) => emit('update', { ...props.block, inlines: value }),
 })
+
+const shellClass = computed(() => KIND_STYLES[kind.value] ?? KIND_STYLES.note)
 
 onMounted(() => {
   editor?.registerSurface(props.block.id, {
@@ -60,7 +69,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="rounded-lg border border-outline-variant/50 bg-surface-container-low/60 p-3">
+  <div
+    class="rounded-lg border-l-4 p-3"
+    :class="shellClass"
+  >
     <div class="mb-2 flex flex-wrap items-center gap-2">
       <select
         v-model="kind"
@@ -84,9 +96,9 @@ onUnmounted(() => {
         @blur="emit('blur')"
       >
     </div>
-    <EditableSurface
+    <InlineEditable
       ref="bodySurface"
-      v-model="body"
+      v-model:inlines="inlines"
       placeholder="Contenu du callout"
       @enter="emit('enter', $event)"
       @shift-enter="emit('shiftEnter', $event)"

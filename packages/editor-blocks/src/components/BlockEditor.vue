@@ -5,6 +5,7 @@ import { computed, nextTick, onMounted, onUnmounted, provide, ref } from 'vue'
 import { ensureTrailingSentinel, promoteBlockFromMarkdown, stripTrailingEmptyBlocks } from '../block-markdown'
 import { reorderBlocksById } from '../reorder-blocks'
 import {
+  blockEditableText,
   blockPlainText,
   createEmptyBlock,
   setBlockPlainText,
@@ -156,7 +157,7 @@ function handleEnter(index: number, offset: number) {
     return
   }
 
-  const text = blockPlainText(block)
+  const text = blockEditableText(block)
   const [before, after] = splitTextAt(text, offset)
   updateBlock(index, setBlockPlainText(block, before))
   insertBlockAfter(index, createEmptyBlock('paragraph'))
@@ -186,7 +187,7 @@ function handleShiftEnter(index: number, offset: number) {
   closeSlash()
   const block = blocks.value[index]
   if (!block) return
-  const text = blockPlainText(block)
+  const text = blockEditableText(block)
   const [before, after] = splitTextAt(text, offset)
   updateBlock(index, setBlockPlainText(block, `${before}\n${after}`))
   focusBlock(index, offset + 1)

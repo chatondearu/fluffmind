@@ -1,4 +1,4 @@
-export { blockPlainText, createEmptyBlock, isBlockEmpty, setBlockPlainText } from './block-text'
+export { blockPlainText, blockEditableText, createEmptyBlock, isBlockEmpty, setBlockPlainText } from './block-text'
 export { blocksToMarkdown } from './blocks-to-markdown'
 export { filterSlashCommands, SLASH_COMMANDS } from './slash-commands'
 export { BlockEditor, BlockRenderer } from './components'
@@ -25,6 +25,7 @@ export {
   applyTaskToggle,
 } from './list-behavior'
 export type { EditorMutation } from './list-behavior'
+export { hasRichInlines, inlinesToMarkdown, inlinesToPlainText, parseInlineMarkdown } from './inlines'
 export type { BlockDefinition } from './registry'
 export type {
   BlockDocument,

@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
-import { blockPlainText, setBlockPlainText } from '../../block-text'
 import { blockEditorContextKey } from '../../block-editor-context'
 import { listIndent, orderedListNumber } from '../../list-utils'
-import type { BlockNode } from '../../types'
-import EditableSurface from '../EditableSurface.vue'
+import type { BlockNode, InlineNode } from '../../types'
+import InlineEditable from '../InlineEditable.vue'
 
 const props = defineProps<{
   block: BlockNode
@@ -21,10 +20,12 @@ const emit = defineEmits<{
   backspaceEmpty: []
   deleteBlock: []
   slashChange: [payload: { active: boolean, query: string, rect: DOMRect | null }]
+  blur: []
+  focus: []
 }>()
 
 const editor = inject(blockEditorContextKey, null)
-const surface = ref<InstanceType<typeof EditableSurface> | null>(null)
+const surface = ref<InstanceType<typeof InlineEditable> | null>(null)
 
 const indent = computed(() => listIndent(props.block))
 
@@ -44,21 +45,22 @@ const indentStyle = computed(() => ({
   paddingLeft: `${indent.value * 1.5}rem`,
 }))
 
-const text = computed({
+const inlines = computed({
   get: () => {
-    const item = props.block.children?.[0]
-    const paragraph = item?.children?.[0]
-    return paragraph ? blockPlainText(paragraph) : ''
+    const paragraph = props.block.children?.[0]?.children?.[0]
+    return paragraph?.inlines ?? [{ type: 'text', value: '' }]
   },
-  set: (value: string) => {
+  set: (value: InlineNode[]) => {
     const item = props.block.children?.[0]
     const paragraph = item?.children?.[0]
     if (!item || !paragraph) return
-    const nextItem = {
-      ...item,
-      children: [setBlockPlainText(paragraph, value)],
-    }
-    emit('update', { ...props.block, children: [nextItem] })
+    emit('update', {
+      ...props.block,
+      children: [{
+        ...item,
+        children: [{ ...paragraph, inlines: value }],
+      }],
+    })
   },
 })
 
@@ -79,10 +81,10 @@ onUnmounted(() => {
     class="flex items-start gap-2"
     :style="indentStyle"
   >
-    <span class="mt-0.5 shrink-0 text-on-surface-variant">{{ marker }}</span>
-    <EditableSurface
+    <span class="mt-0.5 shrink-0 select-none text-on-surface-variant">{{ marker }}</span>
+    <InlineEditable
       ref="surface"
-      v-model="text"
+      v-model:inlines="inlines"
       placeholder="Liste"
       @enter="emit('enter', $event)"
       @shift-enter="emit('shiftEnter', $event)"
@@ -91,6 +93,8 @@ onUnmounted(() => {
       @backspace-empty="emit('backspaceEmpty')"
       @delete-block="emit('deleteBlock')"
       @slash-change="emit('slashChange', $event)"
+      @blur="emit('blur')"
+      @focus="emit('focus')"
     />
   </div>
 </template>

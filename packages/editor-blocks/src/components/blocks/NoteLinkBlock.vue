@@ -55,9 +55,9 @@ const isBroken = computed(() => Boolean(target.value) && !notes.value.some(note 
 <template>
   <div
     class="flex flex-wrap items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2"
-    :class="{ 'opacity-60': isBroken }"
+    :class="{ 'border-error/40 opacity-80': isBroken }"
   >
-    <span aria-hidden="true">🔗</span>
+    <span class="md3-label-md shrink-0 text-on-surface-variant">Note</span>
     <input
       v-model="target"
       :list="listId"
@@ -73,7 +73,7 @@ const isBroken = computed(() => Boolean(target.value) && !notes.value.some(note 
     <a
       v-if="target"
       :href="`/notes/${target}`"
-      class="md3-body-sm text-primary hover:underline"
+      class="md3-body-sm font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
     >
       Ouvrir
     </a>

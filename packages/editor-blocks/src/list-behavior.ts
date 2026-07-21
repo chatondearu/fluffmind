@@ -1,4 +1,5 @@
 import {
+  blockEditableText,
   blockPlainText,
   createEmptyBlock,
   setBlockPlainText,
@@ -40,9 +41,10 @@ export function applyListEnter(
   const block = blocks[index]
   if (!block || !isListBlock(block)) return null
 
-  const text = blockPlainText(block)
+  const plain = blockPlainText(block)
+  const editable = blockEditableText(block)
 
-  if (text.length === 0 && offset === 0) {
+  if (plain.length === 0 && offset === 0) {
     const indent = listIndent(block)
     if (indent > 0) {
       return {
@@ -60,7 +62,7 @@ export function applyListEnter(
     }
   }
 
-  const [before, after] = splitTextAt(text, offset)
+  const [before, after] = splitTextAt(editable, offset)
   let nextBlocks = replaceAt(blocks, index, setBlockPlainText(block, before))
   const sibling = createEmptyBlock(block.type)
   sibling.indent = listIndent(block)

@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
-import { blockPlainText, setBlockPlainText } from '../../block-text'
 import { blockEditorContextKey } from '../../block-editor-context'
 import { listIndent } from '../../list-utils'
-import type { BlockNode } from '../../types'
-import EditableSurface from '../EditableSurface.vue'
+import type { BlockNode, InlineNode } from '../../types'
+import InlineEditable from '../InlineEditable.vue'
 
 const props = defineProps<{
   block: BlockNode
@@ -26,7 +25,7 @@ const emit = defineEmits<{
 }>()
 
 const editor = inject(blockEditorContextKey, null)
-const surface = ref<InstanceType<typeof EditableSurface> | null>(null)
+const surface = ref<InstanceType<typeof InlineEditable> | null>(null)
 
 const indentStyle = computed(() => ({
   paddingLeft: `${listIndent(props.block) * 1.5}rem`,
@@ -37,9 +36,23 @@ const checked = computed({
   set: (value: boolean) => emit('update', { ...props.block, checked: value }),
 })
 
-const text = computed({
-  get: () => blockPlainText(props.block),
-  set: (value: string) => emit('update', setBlockPlainText(props.block, value)),
+const inlines = computed({
+  get: () => {
+    const paragraph = props.block.children?.[0]?.children?.[0]
+    return paragraph?.inlines ?? [{ type: 'text', value: '' }]
+  },
+  set: (value: InlineNode[]) => {
+    const item = props.block.children?.[0]
+    const paragraph = item?.children?.[0]
+    if (!item || !paragraph) return
+    emit('update', {
+      ...props.block,
+      children: [{
+        ...item,
+        children: [{ ...paragraph, inlines: value }],
+      }],
+    })
+  },
 })
 
 onMounted(() => {
@@ -65,11 +78,11 @@ onUnmounted(() => {
       class="mt-1.5 size-4 shrink-0 accent-primary"
       aria-label="Tâche"
     >
-    <EditableSurface
+    <InlineEditable
       ref="surface"
-      v-model="text"
+      v-model:inlines="inlines"
       placeholder="Tâche"
-      :class="{ 'line-through opacity-60': checked }"
+      :text-class="checked ? 'md3-body-md line-through opacity-60' : 'md3-body-md'"
       @enter="emit('enter', $event)"
       @shift-enter="emit('shiftEnter', $event)"
       @tab="emit('tab')"

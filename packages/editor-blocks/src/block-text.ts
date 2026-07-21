@@ -1,4 +1,5 @@
 import { createBlockId } from './ids'
+import { inlinesToMarkdown, inlinesToPlainText, parseInlineMarkdown } from './inlines'
 import type { BlockNode, BlockType, InlineNode } from './types'
 
 export function blockPlainText(block: BlockNode): string {
@@ -22,13 +23,38 @@ export function blockPlainText(block: BlockNode): string {
   }
   if (block.type === 'callout') {
     const title = block.text ?? ''
-    const body = block.inlines?.map(i => i.value).join('') ?? ''
+    const body = inlinesToPlainText(block.inlines ?? [])
     return title ? `${title}\n${body}` : body
   }
   if (block.inlines?.length) {
-    return block.inlines.map((i: { value: string }) => i.value).join('')
+    return inlinesToPlainText(block.inlines)
   }
   return ''
+}
+
+/**
+ * Text used in the editable surface (markdown with marks/links),
+ * so caret offsets from contenteditable match split/insert behavior.
+ */
+export function blockEditableText(block: BlockNode): string {
+  if (block.type === 'code' || block.type === 'mermaid') {
+    return block.text ?? ''
+  }
+  if (block.type === 'bulletList' || block.type === 'orderedList' || block.type === 'taskList') {
+    const item = block.children?.[0]
+    const paragraph = item?.children?.[0]
+    return paragraph ? blockEditableText(paragraph) : ''
+  }
+  if (block.type === 'callout') {
+    return inlinesToMarkdown(block.inlines ?? [])
+  }
+  if (block.type === 'noteLink') {
+    return blockPlainText(block)
+  }
+  if (block.inlines?.length) {
+    return inlinesToMarkdown(block.inlines)
+  }
+  return blockPlainText(block)
 }
 
 export function setBlockPlainText(block: BlockNode, text: string): BlockNode {
@@ -75,13 +101,30 @@ export function setBlockPlainText(block: BlockNode, text: string): BlockNode {
     return {
       ...block,
       text: text.slice(0, newline),
-      inlines: [{ type: 'text', value: text.slice(newline + 1) }],
+      inlines: parseInlineMarkdownPreservingBlocks(text.slice(newline + 1)),
     }
   }
   return {
     ...block,
-    inlines: [{ type: 'text', value: text }],
+    inlines: parseInlineMarkdownPreservingBlocks(text),
   }
+}
+
+/** Avoid eating ATX/list markers so blur promotion still sees block syntax. */
+function parseInlineMarkdownPreservingBlocks(text: string): InlineNode[] {
+  const line = text.trimStart()
+  if (
+    /^#{1,6}(?:\s|$)/.test(line)
+    || /^[-*+]\s+/.test(line)
+    || /^\d+\.\s+/.test(line)
+    || /^-\s+\[[ xX]\]\s+/.test(line)
+    || line.startsWith('>')
+    || line.startsWith('```')
+    || /^---+$/.test(line)
+  ) {
+    return [{ type: 'text', value: text }]
+  }
+  return parseInlineMarkdown(text)
 }
 
 function emptyListItem(): BlockNode {

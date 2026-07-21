@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
-import { blockPlainText, setBlockPlainText } from '../../block-text'
 import { blockEditorContextKey } from '../../block-editor-context'
-import type { BlockNode } from '../../types'
-import EditableSurface from '../EditableSurface.vue'
+import type { BlockNode, InlineNode } from '../../types'
+import InlineEditable from '../InlineEditable.vue'
 
 const props = defineProps<{
   block: BlockNode
@@ -23,7 +22,7 @@ const emit = defineEmits<{
 }>()
 
 const editor = inject(blockEditorContextKey, null)
-const surface = ref<InstanceType<typeof EditableSurface> | null>(null)
+const surface = ref<InstanceType<typeof InlineEditable> | null>(null)
 
 const level = computed(() => Math.min(6, Math.max(1, props.block.level ?? 1)))
 
@@ -36,9 +35,9 @@ const headingClass = computed(() => {
   }
 })
 
-const text = computed({
-  get: () => blockPlainText(props.block),
-  set: (value: string) => emit('update', setBlockPlainText(props.block, value)),
+const inlines = computed({
+  get: () => props.block.inlines ?? [{ type: 'text', value: '' }],
+  set: (value: InlineNode[]) => emit('update', { ...props.block, inlines: value }),
 })
 
 onMounted(() => {
@@ -54,9 +53,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <EditableSurface
+  <InlineEditable
     ref="surface"
-    v-model="text"
+    v-model:inlines="inlines"
     placeholder="Titre"
     :multiline="false"
     :text-class="headingClass"

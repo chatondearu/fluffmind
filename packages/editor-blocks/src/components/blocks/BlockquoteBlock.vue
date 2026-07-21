@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 
-import { blockPlainText, setBlockPlainText } from '../../block-text'
 import { blockEditorContextKey } from '../../block-editor-context'
-import type { BlockNode } from '../../types'
-import EditableSurface from '../EditableSurface.vue'
+import type { BlockNode, InlineNode } from '../../types'
+import InlineEditable from '../InlineEditable.vue'
 
 const props = defineProps<{
   block: BlockNode
@@ -25,11 +24,11 @@ const emit = defineEmits<{
 }>()
 
 const editor = inject(blockEditorContextKey, null)
-const surface = ref<InstanceType<typeof EditableSurface> | null>(null)
+const surface = ref<InstanceType<typeof InlineEditable> | null>(null)
 
-const text = computed({
-  get: () => blockPlainText(props.block),
-  set: (value: string) => emit('update', setBlockPlainText(props.block, value)),
+const inlines = computed({
+  get: () => props.block.inlines ?? [{ type: 'text', value: '' }],
+  set: (value: InlineNode[]) => emit('update', { ...props.block, inlines: value }),
 })
 
 onMounted(() => {
@@ -45,11 +44,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="border-l-4 border-primary/40 pl-3 text-on-surface-variant">
-    <EditableSurface
+  <div class="rounded-r-lg border-l-4 border-primary bg-primary/5 py-2 pl-4 pr-2 italic text-on-surface-variant">
+    <InlineEditable
       ref="surface"
-      v-model="text"
+      v-model:inlines="inlines"
       placeholder="Citation"
+      text-class="md3-body-md italic text-on-surface-variant"
       @enter="emit('enter', $event)"
       @shift-enter="emit('shiftEnter', $event)"
       @tab="emit('tab')"
