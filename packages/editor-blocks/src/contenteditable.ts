@@ -39,7 +39,14 @@ export function setSelectionOffset(element: HTMLElement, offset: number): void {
     if (remaining <= length) {
       const parent = node.parentElement
       if (remaining === length && parent?.matches('strong, b, em, i, code, a')) {
-        range.setStartAfter(parent)
+        const sibling = parent.nextSibling
+        const text = sibling?.nodeType === Node.TEXT_NODE
+          ? sibling
+          : document.createTextNode('')
+        if (text !== sibling) {
+          parent.after(text)
+        }
+        range.setStart(text, 0)
       }
       else {
         range.setStart(node, remaining)

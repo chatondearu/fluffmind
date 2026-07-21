@@ -252,9 +252,7 @@ export function applyInputRule(
     inlines.push({ type: 'text', value: before })
   }
   inlines.push(buildMarkNode(match))
-  if (after) {
-    inlines.push({ type: 'text', value: after })
-  }
+  inlines.push({ type: 'text', value: after })
 
   return {
     inlines,

@@ -68,6 +68,7 @@ describe('applyInputRule', () => {
     const result = applyInputRule('**hi**', match)
     expect(result.inlines).toEqual([
       { type: 'strong', value: '', children: [{ type: 'text', value: 'hi' }] },
+      { type: 'text', value: '' },
     ])
     expect(result.caret).toBe(2)
   })
