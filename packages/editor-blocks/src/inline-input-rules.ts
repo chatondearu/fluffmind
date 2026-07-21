@@ -1,3 +1,4 @@
+import { inlinesToPlainText } from './inlines'
 import type { InlineNode } from './types'
 
 export type InputRuleMatch =
@@ -259,4 +260,45 @@ export function applyInputRule(
     inlines,
     caret: before.length + plainContentLength(match),
   }
+}
+
+/**
+ * Apply an input rule scoped to the single top-level text node covering `caret`,
+ * leaving sibling nodes (including already-applied marks) untouched.
+ * Returns `null` when caret falls inside a non-text node or no rule matches.
+ */
+export function tryApplyInputRuleToInlines(
+  inlines: InlineNode[],
+  caret: number,
+): { inlines: InlineNode[], caret: number } | null {
+  let start = 0
+
+  for (let i = 0; i < inlines.length; i++) {
+    const node = inlines[i]!
+    const length = inlinesToPlainText([node]).length
+    const end = start + length
+
+    if (caret > end) {
+      start = end
+      continue
+    }
+
+    if (node.type !== 'text' || caret < start) {
+      return null
+    }
+
+    const localCaret = caret - start
+    const match = matchInputRule(node.value, localCaret)
+    if (!match) {
+      return null
+    }
+
+    const applied = applyInputRule(node.value, match)
+    return {
+      inlines: [...inlines.slice(0, i), ...applied.inlines, ...inlines.slice(i + 1)],
+      caret: start + applied.caret,
+    }
+  }
+
+  return null
 }

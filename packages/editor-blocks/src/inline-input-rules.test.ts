@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { applyInputRule, matchInputRule } from './inline-input-rules'
+import { inlinesToMarkdown } from './inlines'
+import { applyInputRule, matchInputRule, tryApplyInputRuleToInlines } from './inline-input-rules'
+import type { InlineNode } from './types'
 
 describe('matchInputRule', () => {
   it('matches bold with **', () => {
@@ -68,5 +70,40 @@ describe('applyInputRule', () => {
       { type: 'strong', value: '', children: [{ type: 'text', value: 'hi' }] },
     ])
     expect(result.caret).toBe(2)
+  })
+})
+
+describe('tryApplyInputRuleToInlines', () => {
+  it('applies bold inside a text node without touching a preceding mark', () => {
+    const inlines: InlineNode[] = [
+      { type: 'strong', value: '', children: [{ type: 'text', value: 'A' }] },
+      { type: 'text', value: ' **B**' },
+    ]
+    // plain text is "A **B**" (length 7); caret at the very end (7) sits inside
+    // the trailing text node (" **B**", local offset 6).
+    const result = tryApplyInputRuleToInlines(inlines, 7)
+    expect(result).not.toBeNull()
+    expect(inlinesToMarkdown(result!.inlines)).toBe('**A** **B**')
+    expect(result!.caret).toBe(3)
+  })
+
+  it('returns null when caret sits inside a non-text top-level node', () => {
+    const inlines: InlineNode[] = [
+      { type: 'inlineCode', value: '**not bold**' },
+    ]
+    expect(tryApplyInputRuleToInlines(inlines, 5)).toBeNull()
+  })
+
+  it('returns null when the covering text node has no closing pattern', () => {
+    const inlines: InlineNode[] = [{ type: 'text', value: 'plain text' }]
+    expect(tryApplyInputRuleToInlines(inlines, 10)).toBeNull()
+  })
+
+  it('applies a rule on a plain (all-text) inline array', () => {
+    const inlines: InlineNode[] = [{ type: 'text', value: 'say **hi**' }]
+    const result = tryApplyInputRuleToInlines(inlines, 10)
+    expect(result).not.toBeNull()
+    expect(inlinesToMarkdown(result!.inlines)).toBe('say **hi**')
+    expect(result!.caret).toBe(6)
   })
 })
