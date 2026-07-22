@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { blockEditorContextKey } from '../block-editor-context'
 import { focusElement, getSelectionOffset, isSelectionCollapsed, setSelectionOffset } from '../contenteditable'
 import { domToInlines, writeInlinesToDom } from '../inline-dom'
 import { tryApplyInputRuleToInlines } from '../inline-input-rules'
@@ -35,6 +36,8 @@ const emit = defineEmits<{
   blur: []
   focus: []
 }>()
+
+const editor = inject(blockEditorContextKey, null)
 
 const root = ref<HTMLElement | null>(null)
 const isUnmounting = ref(false)
@@ -171,12 +174,12 @@ function applyToggle(mark: ToggleableMark) {
   updateToolbar()
 }
 
-function promptLink() {
-  if (!root.value) return
+async function promptLink() {
+  if (!root.value || !editor) return
   const plainRange = getPlainSelectionRange(root.value)
   if (!plainRange || plainRange.from === plainRange.to) return
-  const url = window.prompt('URL du lien :')
-  if (!url) return
+  const url = await editor.requestInlinePrompt('link')
+  if (!url || !root.value) return
   const current = domToInlines(root.value)
   const next = wrapLink(current, plainRange.from, plainRange.to, url)
   writeDom(next)
@@ -185,12 +188,12 @@ function promptLink() {
   toolbarOpen.value = false
 }
 
-function promptWikilink() {
-  if (!root.value) return
+async function promptWikilink() {
+  if (!root.value || !editor) return
   const plainRange = getPlainSelectionRange(root.value)
   if (!plainRange || plainRange.from === plainRange.to) return
-  const target = window.prompt('Cible du wikilink (chemin de la note) :')
-  if (!target) return
+  const target = await editor.requestInlinePrompt('wikilink')
+  if (!target || !root.value) return
   const current = domToInlines(root.value)
   const next = wrapWikilink(current, plainRange.from, plainRange.to, target)
   writeDom(next)
