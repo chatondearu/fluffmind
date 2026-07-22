@@ -14,6 +14,7 @@ import {
 import { blockEditorContextKey } from '../block-editor-context'
 import { createBlockId } from '../ids'
 import { splitInlinesAt } from '../inline-marks'
+import { createInlinePromptController, type InlinePromptKind } from '../inline-prompt'
 import { applyListEnter, applyListShiftTab, applyListTab } from '../list-behavior'
 import { isListBlock } from '../list-utils'
 import { registerDefaultBlocks } from '../register-defaults'
@@ -46,6 +47,14 @@ const hoveredIndex = ref<number | null>(null)
 const toolbarMenuOpenIndex = ref<number | null>(null)
 const suppressBlurPromotion = ref(false)
 
+const emit = defineEmits<{
+  'inline-prompt': [payload: { kind: InlinePromptKind }]
+}>()
+
+const inlinePrompt = createInlinePromptController((kind) => {
+  emit('inline-prompt', { kind })
+})
+
 const filteredCommands = computed(() => filterSlashCommands(slashQuery.value))
 
 const isDragging = computed(() => dragFromBlockId.value !== null)
@@ -62,6 +71,7 @@ const visibleBlocks = computed(() => {
 provide(blockEditorContextKey, {
   blockIndex: slashBlockIndex,
   blocks,
+  requestInlinePrompt: inlinePrompt.request,
   vaultNotes: computed(() => props.vaultNotes),
   registerSurface(blockId: string, surface: { focus: (offset?: number) => void, getOffset: () => number }) {
     surfaces.set(blockId, surface)
@@ -143,6 +153,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKeydown)
   suppressBlurPromotion.value = true
   blocks.value = stripTrailingEmptyBlocks(blocks.value)
+  inlinePrompt.dispose()
 })
 
 function handleEnter(index: number, offset: number) {
@@ -389,6 +400,12 @@ function onToolbarMenuOpenChange(block: BlockNode, open: boolean) {
 function onGlobalKeydown(event: KeyboardEvent) {
   slashMenu.value?.onKeydown(event)
 }
+
+defineExpose({
+  confirmInlinePrompt(value: string | null) {
+    inlinePrompt.confirm(value)
+  },
+})
 </script>
 
 <template>
