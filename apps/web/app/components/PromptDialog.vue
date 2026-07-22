@@ -12,6 +12,7 @@ const props = defineProps<{
   description?: string
   initialValue?: string
   placeholder?: string
+  confirmLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -51,7 +52,7 @@ function submit() {
           Annuler
         </FluffmindButton>
         <FluffmindButton type="submit" :disabled="!value.trim()">
-          Valider
+          {{ confirmLabel ?? 'Valider' }}
         </FluffmindButton>
       </div>
     </form>

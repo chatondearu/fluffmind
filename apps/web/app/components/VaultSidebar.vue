@@ -244,7 +244,7 @@ function extractErrorMessage(err: unknown): string {
       @confirm="confirmNewFolder"
     />
 
-    <RenameDialog
+    <PromptDialog
       v-model:open="renameOpen"
       :initial-value="renameInitialValue"
       :description="renameTarget?.kind === 'folder' ? 'Nouveau nom pour ce dossier.' : 'Nouveau titre pour cette note (utilisé comme identifiant).'"
