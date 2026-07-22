@@ -48,11 +48,17 @@ const toolbarMenuOpenIndex = ref<number | null>(null)
 const suppressBlurPromotion = ref(false)
 
 const emit = defineEmits<{
-  'inline-prompt': [payload: { kind: InlinePromptKind }]
+  'inline-prompt': [payload: {
+    kind: InlinePromptKind
+    confirm: (value: string | null) => void
+  }]
 }>()
 
 const inlinePrompt = createInlinePromptController((kind) => {
-  emit('inline-prompt', { kind })
+  emit('inline-prompt', {
+    kind,
+    confirm: (value: string | null) => inlinePrompt.confirm(value),
+  })
 })
 
 const filteredCommands = computed(() => filterSlashCommands(slashQuery.value))

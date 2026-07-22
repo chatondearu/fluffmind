@@ -11,9 +11,9 @@ const noteId = ref('new')
 const isNew = ref(true)
 const title = ref('Sans titre')
 const blocks = ref<BlockNode[]>([createEmptyBlock('paragraph')])
-const editorRef = ref<{ confirmInlinePrompt: (value: string | null) => void } | null>(null)
 const inlinePromptOpen = ref(false)
 const inlinePromptKind = ref<'link' | 'wikilink'>('link')
+let inlinePromptConfirm: ((value: string | null) => void) | null = null
 
 const inlinePromptTitle = computed(() =>
   inlinePromptKind.value === 'link' ? 'URL du lien' : 'Cible du wikilink',
@@ -22,20 +22,25 @@ const inlinePromptPlaceholder = computed(() =>
   inlinePromptKind.value === 'link' ? 'https://…' : 'chemin de la note',
 )
 
-function onInlinePrompt(payload: { kind: 'link' | 'wikilink' }) {
+function onInlinePrompt(payload: {
+  kind: 'link' | 'wikilink'
+  confirm: (value: string | null) => void
+}) {
   inlinePromptKind.value = payload.kind
+  inlinePromptConfirm = payload.confirm
   inlinePromptOpen.value = true
 }
 
 function onInlinePromptConfirm(value: string) {
-  editorRef.value?.confirmInlinePrompt(value)
+  inlinePromptConfirm?.(value)
 }
 
 watch(inlinePromptOpen, (open) => {
   if (!open) {
     // Closing without confirm still settles the pending Promise.
-    // confirmInlinePrompt is idempotent when already settled by submit.
-    editorRef.value?.confirmInlinePrompt(null)
+    // The controller ignores this when submit already settled the request.
+    inlinePromptConfirm?.(null)
+    inlinePromptConfirm = null
   }
 })
 
@@ -71,7 +76,6 @@ onBeforeUnmount(() => {
     <NoteTitleField v-model="title" />
 
     <BlockEditor
-      ref="editorRef"
       v-model="blocks"
       @inline-prompt="onInlinePrompt"
     />
