@@ -51,6 +51,33 @@ const sourceError = ref<string | null>(null)
 const frontmatterOpen = ref(false)
 const shortcutsOpen = ref(false)
 const initialized = ref(false)
+const editorRef = ref<{ confirmInlinePrompt: (value: string | null) => void } | null>(null)
+const inlinePromptOpen = ref(false)
+const inlinePromptKind = ref<'link' | 'wikilink'>('link')
+
+const inlinePromptTitle = computed(() =>
+  inlinePromptKind.value === 'link' ? 'URL du lien' : 'Cible du wikilink',
+)
+const inlinePromptPlaceholder = computed(() =>
+  inlinePromptKind.value === 'link' ? 'https://…' : 'chemin de la note',
+)
+
+function onInlinePrompt(payload: { kind: 'link' | 'wikilink' }) {
+  inlinePromptKind.value = payload.kind
+  inlinePromptOpen.value = true
+}
+
+function onInlinePromptConfirm(value: string) {
+  editorRef.value?.confirmInlinePrompt(value)
+}
+
+watch(inlinePromptOpen, (open) => {
+  if (!open) {
+    // Closing without confirm still settles the pending Promise.
+    // confirmInlinePrompt is idempotent when already settled by submit.
+    editorRef.value?.confirmInlinePrompt(null)
+  }
+})
 
 const { data: vaultData } = await useFetch<{ notes: NoteSummary[] }>('/api/notes')
 const vaultNotes = computed(() =>
@@ -179,8 +206,10 @@ onBeforeUnmount(() => {
 
       <BlockEditor
         v-if="editorMode === 'blocks'"
+        ref="editorRef"
         v-model="blocks"
         :vault-notes="vaultNotes"
+        @inline-prompt="onInlinePrompt"
       />
 
       <div v-else class="flex flex-col gap-2">
@@ -216,6 +245,12 @@ onBeforeUnmount(() => {
     <NoteFrontmatterPanel
       v-model:open="frontmatterOpen"
       v-model:frontmatter="frontmatter"
+    />
+    <PromptDialog
+      v-model:open="inlinePromptOpen"
+      :title="inlinePromptTitle"
+      :placeholder="inlinePromptPlaceholder"
+      @confirm="onInlinePromptConfirm"
     />
   </main>
 </template>

@@ -11,6 +11,33 @@ const noteId = ref('new')
 const isNew = ref(true)
 const title = ref('Sans titre')
 const blocks = ref<BlockNode[]>([createEmptyBlock('paragraph')])
+const editorRef = ref<{ confirmInlinePrompt: (value: string | null) => void } | null>(null)
+const inlinePromptOpen = ref(false)
+const inlinePromptKind = ref<'link' | 'wikilink'>('link')
+
+const inlinePromptTitle = computed(() =>
+  inlinePromptKind.value === 'link' ? 'URL du lien' : 'Cible du wikilink',
+)
+const inlinePromptPlaceholder = computed(() =>
+  inlinePromptKind.value === 'link' ? 'https://…' : 'chemin de la note',
+)
+
+function onInlinePrompt(payload: { kind: 'link' | 'wikilink' }) {
+  inlinePromptKind.value = payload.kind
+  inlinePromptOpen.value = true
+}
+
+function onInlinePromptConfirm(value: string) {
+  editorRef.value?.confirmInlinePrompt(value)
+}
+
+watch(inlinePromptOpen, (open) => {
+  if (!open) {
+    // Closing without confirm still settles the pending Promise.
+    // confirmInlinePrompt is idempotent when already settled by submit.
+    editorRef.value?.confirmInlinePrompt(null)
+  }
+})
 
 const { status, errorMessage } = useNoteAutosave({
   noteId,
@@ -43,10 +70,21 @@ onBeforeUnmount(() => {
 
     <NoteTitleField v-model="title" />
 
-    <BlockEditor v-model="blocks" />
+    <BlockEditor
+      ref="editorRef"
+      v-model="blocks"
+      @inline-prompt="onInlinePrompt"
+    />
 
     <p v-if="errorMessage" class="mt-4 text-sm text-error">
       {{ errorMessage }}
     </p>
+
+    <PromptDialog
+      v-model:open="inlinePromptOpen"
+      :title="inlinePromptTitle"
+      :placeholder="inlinePromptPlaceholder"
+      @confirm="onInlinePromptConfirm"
+    />
   </main>
 </template>
