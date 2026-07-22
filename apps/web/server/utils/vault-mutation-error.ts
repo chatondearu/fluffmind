@@ -1,5 +1,6 @@
-import { GitConflictError, InvalidNoteIdError, WorkspaceLockTimeoutError } from '../vault/write'
 import { VaultConflictError } from '../vault/mutations'
+import { VaultReadOnlyError } from '../vault/readonly'
+import { GitConflictError, InvalidNoteIdError, WorkspaceLockTimeoutError } from '../vault/write'
 
 /**
  * Maps vault mutation errors to HTTP errors. Prefer this in note/folder write routes.
@@ -8,6 +9,13 @@ import { VaultConflictError } from '../vault/mutations'
 export function rethrowVaultMutationError(error: unknown): never {
   if (error && typeof error === 'object' && 'statusCode' in error) {
     throw error
+  }
+  if (error instanceof VaultReadOnlyError) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Vault read-only',
+      message: error.message,
+    })
   }
   if (error instanceof WorkspaceLockTimeoutError) {
     throw createError({

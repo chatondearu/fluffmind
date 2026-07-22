@@ -13,6 +13,7 @@ import {
   resolveFlockPath,
   withWorkspaceLock,
 } from './lock'
+import { VaultReadOnlyError } from './readonly'
 
 describe('advisoryLockKeys', () => {
   it('returns a stable int32 pair for the same workspace id', () => {
@@ -56,7 +57,14 @@ describe('withWorkspaceLock (local chain + flock)', () => {
     delete process.env.DATABASE_URL
     delete process.env.LOCK_WAIT_MS
     delete process.env.WORKSPACES_ROOT
+    delete process.env.VAULT_READONLY
     __testOnly.resetLocalChains()
+  })
+
+  it('rejects before locking when VAULT_READONLY=true', async () => {
+    process.env.VAULT_READONLY = 'true'
+    process.env.WORKSPACES_ROOT = await mkdtemp(join(tmpdir(), 'fluffmind-lock-ro-'))
+    await expect(withWorkspaceLock('ws-ro', async () => 'ok')).rejects.toBeInstanceOf(VaultReadOnlyError)
   })
 
   it('serializes concurrent critical sections for the same workspace', async () => {

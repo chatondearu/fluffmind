@@ -39,10 +39,12 @@ Download a release asset for your OS from [Releases](https://github.com/chatonde
 
 ./bin/fluffmind                          # foreground (Ctrl+C to stop)
 ./bin/fluffmind start --vault /path/to/notes
+./bin/fluffmind start --vault /path/to/notes --readonly
 ./bin/fluffmind start --port 3456 --no-open
 ```
 
 Requires **Git on PATH**. Node is embedded. Auth/Postgres are disabled.
+`--readonly` (or `VAULT_READONLY=true`) rejects note/folder mutations with HTTP 403.
 Background PID/log: `data/fluffmind.pid` / `data/fluffmind.log`.
 
 Build a package locally:
@@ -56,7 +58,7 @@ pnpm package:portable -- --target all  # or darwin-arm64|linux-x64|…
 pnpm portable:start                      # background
 pnpm portable:status
 pnpm portable:stop
-pnpm portable:start -- --vault /path/to/notes --port 3456
+pnpm portable:start -- --vault /path/to/notes --port 3456 --readonly
 ```
 
 Artifacts land in `dist/portable/`.
@@ -66,6 +68,9 @@ Artifacts land in `dist/portable/`.
 ```sh
 pnpm install
 VAULT_PATH=/absolute/path/to/a/markdown/vault pnpm --filter @fluffmind/web dev
+
+# Browse without allowing writes:
+VAULT_PATH=/absolute/path/to/a/markdown/vault VAULT_READONLY=true pnpm --filter @fluffmind/web dev
 ```
 
 ### With Docker

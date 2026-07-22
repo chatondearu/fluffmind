@@ -4,7 +4,7 @@
 # without installing it on the host.
 #
 # Usage: copy .env.example to .env (set VAULT_PATH to a real markdown vault, e.g. this
-# Foam vault), then `docker compose up`.
+# Foam vault), then `docker compose up`. Optional: VAULT_READONLY=true to reject writes.
 
 services:
   web:
@@ -17,6 +17,7 @@ services:
       - '3000:3000'
     environment:
       VAULT_PATH: /vault
+      VAULT_READONLY: ${VAULT_READONLY:-}
       GIT_REMOTE_URL: ${GIT_REMOTE_URL:-}
       GIT_BRANCH: ${GIT_BRANCH:-main}
       AUTH_DISABLED: ${AUTH_DISABLED:-true}

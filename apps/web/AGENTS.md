@@ -37,13 +37,18 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   promise chain + Postgres session advisory lock when `DATABASE_URL` is set, else
   cross-process file lock via `proper-lockfile` under `WORKSPACES_ROOT/.fluffmind-locks/`
   (outside each workspace git dir). `LOCK_WAIT_MS` (default 45000) →
-  `WorkspaceLockTimeoutError` → HTTP 503 on mutation routes.
+  `WorkspaceLockTimeoutError` → HTTP 503 on mutation routes. Calls
+  `assertVaultWritable()` first when `VAULT_READONLY=true`.
+- `readonly.ts` — `VAULT_READONLY=true` gate (`assertVaultWritable` / `VaultReadOnlyError`).
 
 ## Config
 
 - `VAULT_PATH` (required) — absolute path to a folder of markdown notes. Also the
-  server's Git working copy when auth is disabled (P1 mode) — needs to be writable
-  (no `:ro` mount).
+  server's Git working copy when auth is disabled (P1 mode). When writable (default),
+  needs a writeable mount (no `:ro`). With `VAULT_READONLY=true`, mutations are
+  rejected even if the filesystem is writable.
+- `VAULT_READONLY` (optional) — when exactly `true`, all vault mutations fail with
+  HTTP 403 (portable: `--readonly`). UI may still look editable; server enforces.
 - `AUTH_DISABLED` (optional) — when `true`, force legacy P1 behavior (no auth, single
   workspace).
 - `WORKSPACES_ROOT` (optional, default `/data/workspaces`) — root dir for per-org

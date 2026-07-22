@@ -27,6 +27,7 @@ services:
     environment:
       - SERVICE_FQDN_WEB_3000
       - VAULT_PATH=/data/vault
+      - VAULT_READONLY=${VAULT_READONLY:-}
       - GIT_REMOTE_URL=${GIT_REMOTE_URL:-}
       - GIT_BRANCH=${GIT_BRANCH:-main}
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}

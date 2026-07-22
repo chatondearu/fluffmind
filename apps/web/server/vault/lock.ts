@@ -5,6 +5,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 import lockfile from 'proper-lockfile'
 
+import { assertVaultWritable } from './readonly'
+
 export class WorkspaceLockTimeoutError extends Error {
   constructor(workspaceId: string, waitMs: number) {
     super(`Timed out after ${waitMs}ms waiting for workspace lock "${workspaceId}"`)
@@ -145,9 +147,15 @@ async function withPostgresLock<T>(workspaceId: string, run: () => Promise<T>): 
 /**
  * Serialize vault mutations for a workspace across processes (Postgres advisory lock
  * when DATABASE_URL is set, otherwise cross-process file lock) and within the current
- * process (promise chain).
+ * process (promise chain). Rejects immediately when `VAULT_READONLY=true`.
  */
 export function withWorkspaceLock<T>(workspaceId: string, run: () => Promise<T>): Promise<T> {
+  try {
+    assertVaultWritable()
+  }
+  catch (error) {
+    return Promise.reject(error)
+  }
   return withLocalChain(workspaceId, () => {
     if (usePostgresLock()) {
       return withPostgresLock(workspaceId, run)

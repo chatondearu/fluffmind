@@ -14,6 +14,7 @@ VAULT=""
 PORT="${PORT:-3000}"
 HOST="${HOST:-127.0.0.1}"
 OPEN_BROWSER=1
+READONLY=0
 CMD="run"
 
 usage() {
@@ -21,7 +22,7 @@ usage() {
 Fluffmind portable (solo mode — no Docker, no Postgres)
 
 Usage:
-  fluffmind [command] [--vault <path>] [--port <n>] [--host <addr>] [--no-open] [--help]
+  fluffmind [command] [--vault <path>] [--port <n>] [--host <addr>] [--readonly] [--no-open] [--help]
 
 Commands:
   run      Start in the foreground (default; Ctrl+C stops)
@@ -33,6 +34,9 @@ Vault resolution (first match wins):
   1. --vault <path>
   2. VAULT_PATH environment variable
   3. <package>/vault
+
+Options:
+  --readonly   Reject vault mutations (sets VAULT_READONLY=true)
 
 Requires: git on PATH
 EOF
@@ -105,6 +109,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-open)
       OPEN_BROWSER=0
+      shift
+      ;;
+    --readonly)
+      READONLY=1
       shift
       ;;
     -h|--help)
@@ -202,6 +210,18 @@ export NODE_ENV=production
 export NITRO_HOST="$HOST"
 export NITRO_PORT="$PORT"
 
+if [[ "$READONLY" == "1" ]]; then
+  export VAULT_READONLY=true
+else
+  # Preserve an already-exported VAULT_READONLY from the environment.
+  :
+fi
+
+READONLY_LABEL="no"
+if [[ "${VAULT_READONLY:-}" == "true" ]]; then
+  READONLY_LABEL="yes"
+fi
+
 URL="http://${HOST}:${PORT}"
 
 open_browser() {
@@ -235,6 +255,7 @@ if [[ "$CMD" == "start" ]]; then
   rm -f "$PID_FILE"
   echo "Fluffmind solo (background)"
   echo "  vault: $VAULT_PATH"
+  echo "  readonly: $READONLY_LABEL"
   echo "  url:   $URL"
   echo "  log:   $LOG_FILE"
   echo "  stop:  $(basename "$0") stop"
@@ -254,6 +275,7 @@ fi
 # Foreground (run)
 echo "Fluffmind solo"
 echo "  vault: $VAULT_PATH"
+echo "  readonly: $READONLY_LABEL"
 echo "  url:   $URL"
 echo "  (Ctrl+C to stop — or use: $(basename "$0") start)"
 open_browser &

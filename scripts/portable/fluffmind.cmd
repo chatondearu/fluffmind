@@ -16,6 +16,7 @@ set "VAULT="
 if not defined PORT set "PORT=3000"
 if not defined HOST set "HOST=127.0.0.1"
 set "OPEN_BROWSER=1"
+set "READONLY=0"
 set "CMD=run"
 
 :parse
@@ -63,6 +64,11 @@ if /I "%~1"=="--no-open" (
   shift
   goto parse
 )
+if /I "%~1"=="--readonly" (
+  set "READONLY=1"
+  shift
+  goto parse
+)
 if /I "%~1"=="--help" goto usage
 if /I "%~1"=="-h" goto usage
 echo Unknown argument: %~1
@@ -72,7 +78,7 @@ goto usage
 echo Fluffmind portable ^(solo mode — no Docker, no Postgres^)
 echo.
 echo Usage:
-echo   fluffmind [command] [--vault path] [--port n] [--host addr] [--no-open] [--help]
+echo   fluffmind [command] [--vault path] [--port n] [--host addr] [--readonly] [--no-open] [--help]
 echo.
 echo Commands:
 echo   run      Foreground ^(default; Ctrl+C stops^)
@@ -81,6 +87,7 @@ echo   stop     Stop background instance
 echo   status   Show background status
 echo.
 echo Vault: --vault, else VAULT_PATH env, else ^<package^>\vault
+echo Options: --readonly rejects vault mutations ^(VAULT_READONLY=true^)
 echo Requires: git on PATH
 exit /b 1
 
@@ -123,6 +130,10 @@ set "DATABASE_URL="
 set "NODE_ENV=production"
 set "NITRO_HOST=%HOST%"
 set "NITRO_PORT=%PORT%"
+if "%READONLY%"=="1" set "VAULT_READONLY=true"
+
+set "READONLY_LABEL=no"
+if /I "%VAULT_READONLY%"=="true" set "READONLY_LABEL=yes"
 
 set "URL=http://%HOST%:%PORT%"
 
@@ -131,6 +142,7 @@ if /I "%CMD%"=="start" goto do_start
 REM Foreground (run)
 echo Fluffmind solo
 echo   vault: %VAULT_PATH%
+echo   readonly: %READONLY_LABEL%
 echo   url:   %URL%
 echo   ^(Ctrl+C to stop — or use: fluffmind start^)
 
@@ -169,6 +181,7 @@ powershell -NoProfile -Command ^
   "  Remove-Item -LiteralPath '%PID_FILE%' -Force -ErrorAction SilentlyContinue" ^
   "};" ^
   "$env:VAULT_PATH='%VAULT_PATH%'; $env:WORKSPACES_ROOT='%WORKSPACES_ROOT%'; $env:AUTH_DISABLED='true';" ^
+  "if ('%VAULT_READONLY%' -eq 'true') { $env:VAULT_READONLY='true' };" ^
   "$env:DATABASE_URL=$null; $env:NODE_ENV='production'; $env:NITRO_HOST='%HOST%'; $env:NITRO_PORT='%PORT%'; $env:HOST='%HOST%'; $env:PORT='%PORT%';" ^
   "$proc = Start-Process -FilePath '%NODE_BIN%' -ArgumentList @('%SERVER_ENTRY%') -WorkingDirectory '%ROOT%' -RedirectStandardOutput '%LOG_FILE%' -RedirectStandardError '%LOG_FILE%' -WindowStyle Hidden -PassThru;" ^
   "Set-Content -LiteralPath '%PID_FILE%' -Value $proc.Id;" ^
@@ -176,6 +189,7 @@ powershell -NoProfile -Command ^
   "try { Get-Process -Id $proc.Id -ErrorAction Stop | Out-Null } catch { Write-Host \"error: server exited immediately — see %LOG_FILE%\"; Remove-Item -LiteralPath '%PID_FILE%' -Force -ErrorAction SilentlyContinue; exit 1 };" ^
   "Write-Host 'Fluffmind solo (background)';" ^
   "Write-Host \"  vault: %VAULT_PATH%\";" ^
+  "Write-Host \"  readonly: %READONLY_LABEL%\";" ^
   "Write-Host \"  url:   %URL%\";" ^
   "Write-Host \"  log:   %LOG_FILE%\";" ^
   "Write-Host '  stop:  fluffmind stop';" ^
