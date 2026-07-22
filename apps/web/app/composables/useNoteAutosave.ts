@@ -6,7 +6,12 @@ import type { Ref } from 'vue'
 
 import { parseNoteSourceFile } from '../utils/note-source'
 import { isBodyEmpty, blocksWithTitle } from '../utils/note-title'
-import { isDocumentEmpty, noteIdFromBlocks, sanitizeFolderFromQuery } from '../utils/note-document'
+import { isDocumentEmpty, noteIdFromBlocks } from '../utils/note-document'
+import {
+  autosaveSnapshot,
+  frontmatterEqual,
+  shouldAutosave,
+} from '../utils/note-autosave'
 import { refreshVaultNotes } from './useVaultTree'
 
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -18,6 +23,46 @@ const AUTOSAVE_MAX_WAIT_MS = 8000
 function extractErrorMessage(err: unknown): string {
   const asRecord = err as { data?: { message?: string, statusMessage?: string }, statusMessage?: string }
   return asRecord?.data?.statusMessage ?? asRecord?.data?.message ?? asRecord?.statusMessage ?? 'Save failed.'
+}
+
+function resolvePayload(options: {
+  noteId: Ref<string>
+  title: Ref<string>
+  blocks: Ref<BlockNode[]>
+  isNew: Ref<boolean>
+  frontmatter?: Ref<Record<string, unknown>>
+  editorMode?: Ref<EditorMode>
+  sourceText?: Ref<string>
+}): { content: string, frontmatter?: Record<string, unknown> } | { error: string } | null {
+  if (options.editorMode?.value === 'source' && options.sourceText) {
+    const parsed = parseNoteSourceFile(options.sourceText.value)
+    if (parsed.error) {
+      return { error: parsed.error }
+    }
+    const content = parsed.content
+    if (!content.trim() && !options.title.value.trim()) {
+      return null
+    }
+    return {
+      content,
+      frontmatter: parsed.frontmatter,
+    }
+  }
+
+  const documentBlocks = blocksWithTitle(options.title.value, options.blocks.value)
+  if (isDocumentEmpty(documentBlocks) || (isBodyEmpty(options.blocks.value) && !options.title.value.trim())) {
+    return null
+  }
+
+  const content = serializeDocument({ blocks: documentBlocks })
+  if (!content.trim() && !options.title.value.trim()) {
+    return null
+  }
+
+  return {
+    content,
+    frontmatter: options.frontmatter?.value,
+  }
 }
 
 export function useNoteAutosave(options: {
@@ -33,39 +78,61 @@ export function useNoteAutosave(options: {
 }) {
   const status = ref<AutosaveStatus>('idle')
   const errorMessage = ref<string | null>(null)
+  const lastSavedSnapshot = ref<string | null>(null)
   let saveInFlight = false
   let saveQueued = false
 
+  function currentSnapshot(): string | null {
+    const payload = resolvePayload(options)
+    if (!payload || 'error' in payload) return null
+    return autosaveSnapshot(payload)
+  }
+
+  /** Mark the current editor state as clean (no pending save). */
+  function markClean() {
+    lastSavedSnapshot.value = currentSnapshot()
+  }
+
+  function isClean(): boolean {
+    const snapshot = currentSnapshot()
+    if (snapshot === null) return true
+    return !shouldAutosave(snapshot, lastSavedSnapshot.value)
+  }
+
   async function persist() {
-    let content = ''
-    const saveBody: { content: string, frontmatter?: Record<string, unknown> } = { content: '' }
-
-    if (options.editorMode?.value === 'source' && options.sourceText) {
-      const parsed = parseNoteSourceFile(options.sourceText.value)
-      if (parsed.error) {
-        status.value = 'error'
-        errorMessage.value = parsed.error
-        return
-      }
-      if (options.frontmatter) {
-        options.frontmatter.value = parsed.frontmatter
-      }
-      content = parsed.content
-    } else {
-      const documentBlocks = blocksWithTitle(options.title.value, options.blocks.value)
-      if (isDocumentEmpty(documentBlocks) || (isBodyEmpty(options.blocks.value) && !options.title.value.trim())) {
-        return
-      }
-      content = serializeDocument({ blocks: documentBlocks })
+    const payload = resolvePayload(options)
+    if (!payload) {
+      return
     }
-
-    if (!content.trim() && !options.title.value.trim()) {
+    if ('error' in payload) {
+      status.value = 'error'
+      errorMessage.value = payload.error
       return
     }
 
-    saveBody.content = content
+    const snapshot = autosaveSnapshot(payload)
+    if (!shouldAutosave(snapshot, lastSavedSnapshot.value)) {
+      return
+    }
+
+    // Sync frontmatter panel from source only when values actually differ.
+    // Replacing the object on every persist re-triggers the deep watcher and loops.
+    if (
+      options.editorMode?.value === 'source'
+      && options.frontmatter
+      && payload.frontmatter
+      && !frontmatterEqual(options.frontmatter.value, payload.frontmatter)
+    ) {
+      options.frontmatter.value = payload.frontmatter
+    }
+
+    const saveBody: { content: string, frontmatter?: Record<string, unknown> } = {
+      content: payload.content,
+    }
     if (options.frontmatter) {
-      saveBody.frontmatter = options.frontmatter.value
+      saveBody.frontmatter = options.editorMode?.value === 'source' && payload.frontmatter
+        ? payload.frontmatter
+        : options.frontmatter.value
     }
 
     if (saveInFlight) {
@@ -95,10 +162,12 @@ export function useNoteAutosave(options: {
         }
         options.isNew.value = false
         options.noteId.value = id
+        lastSavedSnapshot.value = snapshot
         await refreshVaultNotes()
         await options.onCreated(id)
       } else {
         await $fetch(`/api/notes/${options.noteId.value}`, { method: 'PUT', body: saveBody })
+        lastSavedSnapshot.value = snapshot
         await refreshVaultNotes()
       }
 
@@ -121,7 +190,7 @@ export function useNoteAutosave(options: {
       options.title.value,
       options.frontmatter?.value,
       options.sourceText?.value,
-      options.editorMode?.value,
+      // editorMode intentionally omitted: a mode switch alone must not save.
     ] as const,
     () => { void persist() },
     { debounce: AUTOSAVE_DEBOUNCE_MS, maxWait: AUTOSAVE_MAX_WAIT_MS, deep: true },
@@ -135,6 +204,8 @@ export function useNoteAutosave(options: {
     status,
     errorMessage,
     saveNow: persist,
+    markClean,
+    isClean,
   }
 }
 

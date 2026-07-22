@@ -13,7 +13,6 @@ import { FluffmindButton } from '@fluffmind/design-system/src/components'
 import type { NoteSummary, ResolvedLink } from '../../../server/vault/index'
 
 import { useNoteAutosave, type EditorMode } from '../../composables/useNoteAutosave'
-import { useVaultTree } from '../../composables/useVaultTree'
 import { buildNoteSourceFile, parseNoteSourceFile } from '../../utils/note-source'
 import { splitTitleFromBlocks, blocksWithTitle } from '../../utils/note-title'
 
@@ -75,7 +74,7 @@ watch(
   { immediate: true },
 )
 
-const { status, errorMessage } = useNoteAutosave({
+const { status, errorMessage, markClean, isClean } = useNoteAutosave({
   noteId,
   title,
   blocks,
@@ -88,16 +87,28 @@ const { status, errorMessage } = useNoteAutosave({
   },
 })
 
+watch(
+  initialized,
+  (ready) => {
+    if (ready) markClean()
+  },
+  { immediate: true },
+)
+
 function switchToSource() {
+  const wasClean = isClean()
   sourceError.value = null
   sourceText.value = buildNoteSourceFile(
     frontmatter.value,
     serializeDocument({ blocks: blocksWithTitle(title.value, blocks.value) }),
   )
   editorMode.value = 'source'
+  // Re-baseline after a lossless mode switch so round-trip noise does not save.
+  if (wasClean) markClean()
 }
 
 function switchToBlocks() {
+  const wasClean = isClean()
   const parsed = parseNoteSourceFile(sourceText.value)
   if (parsed.error) {
     sourceError.value = parsed.error
@@ -110,6 +121,7 @@ function switchToBlocks() {
   title.value = split.title
   blocks.value = split.bodyBlocks.length > 0 ? split.bodyBlocks : [createEmptyBlock('paragraph')]
   editorMode.value = 'blocks'
+  if (wasClean) markClean()
 }
 
 onBeforeUnmount(() => {
