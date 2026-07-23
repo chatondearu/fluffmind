@@ -36,3 +36,4 @@ logs
 
 # Kanban orchestrator cursor / status snapshots (github-kanban-orchestrator)
 .tmp/
+.worktrees/
