@@ -43,7 +43,7 @@ Index: [[decisions/index|All ADRs]]
 | [[../prd/PRD-031-p7-distributed-workspace-lock|PRD-031 P7a lock]] | [[../plans/PLAN-031-p7-distributed-workspace-lock|PLAN-031]] | shipped |
 | [[../prd/PRD-032-portable-solo-package|PRD-032 portable solo]] | [[../plans/PLAN-032-portable-solo-package|PLAN-032]] | shipped |
 
-**Next:** dogfood portable package / optional P8b folder picker; P7b/c under [#28](https://github.com/chatondearu/fluffmind/issues/28).
+**Next:** dogfood portable package / optional P8b folder picker; remaining stretch under [#28](https://github.com/chatondearu/fluffmind/issues/28) (P7b/c). Kanban → foam last synced 2026-07-23 (`./scripts/import-kanban.sh`).
 
 - PRD template: `prd/template.md`
 - Plan template: `plans/template.md`
