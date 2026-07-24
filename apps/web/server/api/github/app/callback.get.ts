@@ -1,7 +1,7 @@
 import { getGitHubAppCredentials } from '../../../utils/github-credentials'
 import {
+  fetchInstallationAccount,
   requireAnyOwnerMembership,
-  resolveInstallationAccountInfo,
   upsertGithubAppInstallation,
 } from '../../../utils/github-installations'
 
@@ -13,9 +13,10 @@ function firstQueryValue(value: unknown): string {
 
 /**
  * GitHub redirects the owner's browser here after installing/updating the App
- * ("Setup URL"). Records the installation eagerly so self-hosted instances without a
- * public webhook endpoint still get a usable installation — the `installation`
- * webhook (when configured) keeps account details fresh afterwards.
+ * ("Setup URL"). Records the installation eagerly (using authoritative account info
+ * fetched via App-level JWT auth) so self-hosted instances without a public webhook
+ * endpoint still get a usable installation — the `installation` webhook (when
+ * configured) keeps account details fresh afterwards.
  */
 export default defineEventHandler(async (event) => {
   await requireAnyOwnerMembership(event)
@@ -40,19 +41,10 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  let accountLogin = installationId
-  let accountType = 'unknown'
-
-  try {
-    const accountInfo = await resolveInstallationAccountInfo(installationId)
-    if (accountInfo) {
-      accountLogin = accountInfo.accountLogin
-      accountType = accountInfo.accountType
-    }
-  } catch {
-    // No accessible repositories yet (or a transient API error) — the row is still
-    // recorded with a placeholder; the `installation` webhook backfills it later.
-  }
+  // Reject rather than record a placeholder/guessed account: fetchInstallationAccount
+  // throws a 404 H3Error if the installation doesn't exist or isn't accessible to
+  // this App, which propagates as-is to the caller.
+  const { accountLogin, accountType } = await fetchInstallationAccount(installationId)
 
   await upsertGithubAppInstallation({ installationId, accountLogin, accountType })
 

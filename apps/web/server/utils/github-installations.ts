@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { getDb, githubAppInstallation, member, workspaceGithubLink } from '@fluffmind/db'
-import { createInstallationToken } from '@fluffmind/integrations'
+import { createAppJwt, createInstallationToken } from '@fluffmind/integrations'
 import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
 
@@ -126,6 +126,11 @@ export async function removeGithubAppInstallation(installationId: string): Promi
   await db.delete(githubAppInstallation).where(eq(githubAppInstallation.installationId, installationId))
 }
 
+/** GitHub owner/repo names are case-insensitive (`Acme/Repo` and `acme/repo` are the same repository). */
+function isSameRepo(a: { owner: string, repo: string }, b: { owner: string, repo: string }): boolean {
+  return a.owner.toLowerCase() === b.owner.toLowerCase() && a.repo.toLowerCase() === b.repo.toLowerCase()
+}
+
 /** Repo removed from an installation: clear only the workspace links bound to that repo. Vault files on disk are left untouched. */
 export async function unlinkWorkspacesForRemovedRepositories(
   installationId: string,
@@ -152,7 +157,7 @@ export async function unlinkWorkspacesForRemovedRepositories(
     .where(eq(workspaceGithubLink.installationId, installationId))
 
   const affected = links.filter(link =>
-    removedRepos.some(removed => removed.owner === link.owner && removed.repo === link.repo),
+    removedRepos.some(removed => isSameRepo(removed, link)),
   )
 
   for (const link of affected) {
@@ -208,14 +213,63 @@ export async function listInstallationRepositories(installationId: string): Prom
   }))
 }
 
-/** Best-effort account info derived from the installation's accessible repos (the install callback has no other way to learn it without a webhook). */
-export async function resolveInstallationAccountInfo(
-  installationId: string,
-): Promise<{ accountLogin: string, accountType: string } | null> {
-  const repositories = await listInstallationRepositories(installationId)
-  const [first] = repositories
-  if (!first)
-    return null
+interface GitHubInstallationApiPayload {
+  id: number
+  account: { login?: string, type?: string } | null
+}
 
-  return { accountLogin: first.ownerLogin, accountType: first.ownerType }
+/**
+ * Authoritative account info for an installation, fetched via `GET
+ * /app/installations/{installation_id}` using App-level JWT auth (`type: 'app'`) —
+ * the only credential GitHub accepts for this endpoint. Throws a 4xx `H3Error` if the
+ * installation doesn't exist or isn't accessible to this App, so callers (e.g. the
+ * install callback) never persist a placeholder/guessed account.
+ */
+export async function fetchInstallationAccount(
+  installationId: string,
+): Promise<{ accountLogin: string, accountType: string }> {
+  const credentials = getGitHubAppCredentials()
+  if (!credentials) {
+    throw new Error('GitHub App credentials are not configured.')
+  }
+
+  const { token } = await createAppJwt(credentials)
+  const response = await fetch(`https://api.github.com/app/installations/${installationId}`, {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${token}`,
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'fluffmind-web',
+    },
+  })
+
+  if (response.status === 404) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Installation not found',
+      message: `GitHub installation ${installationId} was not found or is not accessible to this App.`,
+    })
+  }
+
+  if (!response.ok) {
+    const details = await response.json()
+      .then((body: { message?: string }) => (body.message ? `: ${body.message}` : ''))
+      .catch(() => '')
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'GitHub API error',
+      message: `GitHub installation lookup failed (${response.status})${details}`,
+    })
+  }
+
+  const body = await response.json() as GitHubInstallationApiPayload
+  if (!body.account?.login || !body.account?.type) {
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Installation missing account',
+      message: `GitHub installation ${installationId} response did not include account details.`,
+    })
+  }
+
+  return { accountLogin: body.account.login, accountType: body.account.type }
 }

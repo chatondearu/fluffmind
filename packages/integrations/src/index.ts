@@ -23,7 +23,7 @@ export type {
   WorkspaceMember,
 } from './github/sync'
 
-export { createInstallationToken } from './github/app-auth'
+export { createAppJwt, createInstallationToken } from './github/app-auth'
 export type { GitHubAppCredentials, InstallationTokenOptions } from './github/app-auth'
 
 export { buildGitHubHttpsRemoteUrl, withGitHubAccessToken } from './github/remote-url'

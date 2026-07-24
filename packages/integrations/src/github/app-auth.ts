@@ -20,7 +20,12 @@ interface InstallationAuth {
   }): Promise<{ token: string, expiresAt: string }>
 }
 
+interface AppJwtAuth {
+  (options: { type: 'app' }): Promise<{ token: string, expiresAt: string }>
+}
+
 type AppAuthFactory = (options: StrategyOptions) => InstallationAuth
+type AppJwtAuthFactory = (options: StrategyOptions) => AppJwtAuth
 
 export async function createInstallationToken(
   creds: GitHubAppCredentials,
@@ -38,6 +43,27 @@ export async function createInstallationToken(
     ...(options.repositoryIds && { repositoryIds: options.repositoryIds }),
     ...(options.repositories && { repositoryNames: options.repositories }),
   })
+
+  return {
+    token: authentication.token,
+    expiresAt: authentication.expiresAt,
+  }
+}
+
+/**
+ * Mints a short-lived JWT signed with the App's private key (`type: 'app'` auth), the
+ * only credential accepted by App-level endpoints such as
+ * `GET /app/installations/{installation_id}` (installation tokens can't call these).
+ */
+export async function createAppJwt(
+  creds: GitHubAppCredentials,
+  authFactory: AppJwtAuthFactory = createAppAuth as unknown as AppJwtAuthFactory,
+): Promise<{ token: string, expiresAt: string }> {
+  const appAuthOptions: StrategyOptions = {
+    ...creds,
+  }
+  const auth = authFactory(appAuthOptions)
+  const authentication = await auth({ type: 'app' })
 
   return {
     token: authentication.token,
