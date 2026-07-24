@@ -31,3 +31,22 @@ export interface GithubPushPayload {
 export function isPushToBranch(payload: GithubPushPayload, branch: string): boolean {
   return payload.ref === `refs/heads/${branch}`
 }
+
+export interface GithubInstallationPayload {
+  action?: string
+  installation?: {
+    id?: number
+    account?: {
+      login?: string
+      type?: string
+    }
+  }
+}
+
+export interface GithubInstallationRepositoriesPayload {
+  action?: string
+  installation?: {
+    id?: number
+  }
+  repositories_removed?: Array<{ full_name?: string }>
+}
