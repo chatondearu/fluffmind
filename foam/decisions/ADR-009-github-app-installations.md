@@ -1,6 +1,6 @@
 # ADR-009 — GitHub App installations for repo access (self-hosted)
 
-- **Status**: proposed
+- **Status**: accepted
 - **Date**: 2026-07-24
 - **Tags**: #architecture #auth #github
 

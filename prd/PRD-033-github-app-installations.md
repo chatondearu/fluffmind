@@ -1,12 +1,13 @@
 # PRD-033 — GitHub App installations (self-hosted)
 
-- **Status**: approved (product)
+- **Status**: shipped
+- **Shipped**: 2026-07-24 — branch `feat/github-app-installations`
 - **Date**: 2026-07-24
 - **Tags**: #product #auth #github #self-host
 - **Depends on**: ADR-006 (Better Auth + hybrid GitHub sync), P2 workspaces
 - **Design spec**: `docs/superpowers/specs/2026-07-24-github-app-installations-design.md`
 - **Plan**: [[../plans/PLAN-033-github-app-installations|PLAN-033]] · `docs/superpowers/plans/2026-07-24-github-app-installations.md`
-- **ADR**: [[../foam/decisions/ADR-009-github-app-installations|ADR-009]] (proposed)
+- **ADR**: [[../foam/decisions/ADR-009-github-app-installations|ADR-009]] (accepted)
 
 ## Problem
 
@@ -22,13 +23,13 @@ access needs a separate, installation-based credential path.
 
 ## Goals
 
-- [ ] Each Fluffmind **instance** can configure its **own** GitHub App (self-host)
-- [ ] One GitHub App **installation** (org or user) can back **N workspaces**
-- [ ] Each workspace binds **at most one** repository from that installation
-- [ ] Installation access tokens drive **collaborator sync** and **git clone/push**
-- [ ] Keep **PAT fallback** when App is unset or owner prefers PAT
-- [ ] Preserve hybrid role sync (`localOverride`, manual invites) from ADR-006
-- [ ] Document operator setup (create App, permissions, env, webhook)
+- [x] Each Fluffmind **instance** can configure its **own** GitHub App (self-host)
+- [x] One GitHub App **installation** (org or user) can back **N workspaces**
+- [x] Each workspace binds **at most one** repository from that installation
+- [x] Installation access tokens drive **collaborator sync** and **git clone/push**
+- [x] Keep **PAT fallback** when App is unset or owner prefers PAT
+- [x] Preserve hybrid role sync (`localOverride`, manual invites) from ADR-006
+- [x] Document operator setup (create App, permissions, env, webhook)
 
 ## Non-goals
 
@@ -52,21 +53,21 @@ access needs a separate, installation-based credential path.
 
 ### Functional
 
-- [ ] Env: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, webhook secret (and install client credentials as required by the chosen install flow)
-- [ ] Persist GitHub installations (`installation_id`, account login/type)
-- [ ] Settings: App status; install/authorize; list installation repos; bind repo to workspace
-- [ ] Extend `workspace_github_link` with `authMode` (`app` | `pat`) and optional `installationId`; `syncToken` nullable in app mode
-- [ ] Credential resolution order per workspace: App installation token → PAT → no GitHub remote auth
-- [ ] Installation tokens minted on demand (short-lived); not stored as long-lived secrets
-- [ ] Webhooks: handle `installation` / `installation_repositories` (+ keep `push`)
-- [ ] Collaborator sync uses the same hybrid rules as today
-- [ ] Git remote HTTPS uses installation token (or PAT) for `ensureWorkingCopy` / `commitAndPush`
+- [x] Env: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`, webhook secret (`GITHUB_APP_WEBHOOK_SECRET` or `GITHUB_WEBHOOK_SECRET`)
+- [x] Persist GitHub installations (`installation_id`, account login/type)
+- [x] Settings: App status; install/authorize; list installation repos; bind repo to workspace
+- [x] Extend `workspace_github_link` with `authMode` (`app` | `pat`) and optional `installationId`; `syncToken` nullable in app mode
+- [x] Credential resolution order per workspace: App installation token → PAT → no GitHub remote auth
+- [x] Installation tokens minted on demand (short-lived); not stored as long-lived secrets
+- [x] Webhooks: handle `installation` / `installation_repositories` (+ keep `push`)
+- [x] Collaborator sync uses the same hybrid rules as today
+- [x] Git remote HTTPS uses installation token (or PAT) for `ensureWorkingCopy` / `commitAndPush`
 
 ### Non-functional
 
-- [ ] Permissions documented and minimal: Contents R/W, Metadata R, Members/collaborators R
-- [ ] Compose / `.env.example` / Coolify env parity for new variables
-- [ ] Failures surface clear ASCII `statusMessage` + detailed `message` (existing Nitro convention)
+- [x] Permissions documented and minimal: Contents R/W, Metadata R, Members/collaborators R
+- [x] Compose / `.env.example` / Coolify env parity for new variables
+- [x] Failures surface clear ASCII `statusMessage` + detailed `message` (existing Nitro convention)
 
 ## Related project memory
 
@@ -76,7 +77,7 @@ access needs a separate, installation-based credential path.
 
 ## Open questions
 
-1. Exact GitHub App permission for collaborator listing (`Members` vs repository collaborators API with installation token) — validate against `packages/integrations/src/github/collaborators.ts` during implementation.
+1. ~~Exact GitHub App permission for collaborator listing~~ — validated: Members/collaborators R documented in operator setup.
 2. GitHub issue / milestone assignment when this leaves draft.
 
 ## Resolved during design

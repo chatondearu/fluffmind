@@ -56,6 +56,14 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
 - `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` — required when auth is enabled.
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — required for GitHub OAuth login when
   auth is enabled.
+- `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` — optional; when both set, enables GitHub
+  App install flow and installation-token git/sync for workspaces in `authMode=app`.
+  PEM key supports `\n` escapes in `.env`.
+- `GITHUB_APP_SLUG` — optional; required for `GET /api/github/app/install-url` (install
+  button in settings).
+- `GITHUB_APP_WEBHOOK_SECRET` — optional; preferred webhook HMAC secret for
+  `POST /api/webhooks/github` (installation + push events). Falls back to
+  `GITHUB_WEBHOOK_SECRET`.
 - `POST /api/workspaces/adopt` lets an owner (or `workspace:manage`) copy legacy `VAULT_PATH` contents into the active workspace vault when it is still empty (or only has `.git`).
 - `GIT_REMOTE_URL` (optional) — if unset, writes still commit locally (`git init`'d
   automatically), just never pushed. If set, `writeToWorkspace` pushes and rebases
