@@ -31,8 +31,20 @@ interface GitHubSyncState {
   linked: boolean
   owner: string | null
   repo: string | null
+  authMode: 'app' | 'pat' | null
+  appConfigured: boolean
   lastSyncedAt: string | null
   localOverrides: Record<string, boolean>
+}
+
+interface GitHubAppInstallation {
+  installationId: string
+  accountLogin: string
+  accountType: string
+}
+
+interface GitHubInstallationRepository {
+  fullName: string
 }
 
 const roleOptions: Array<{ value: WorkspaceRole, label: string }> = [
@@ -56,16 +68,38 @@ const workspaceRole = ref<string>('read')
 const githubRepository = ref('')
 const githubToken = ref('')
 const githubLinked = ref(false)
+const githubAuthMode = ref<GitHubSyncState['authMode']>(null)
+const githubAppConfigured = ref(false)
+const githubAppInstallUrl = ref<string | null>(null)
+const githubInstallations = ref<GitHubAppInstallation[]>([])
+const githubInstallationId = ref('')
+const githubInstallationRepositories = ref<GitHubInstallationRepository[]>([])
+const githubAppRepository = ref('')
 const githubLastSyncedAt = ref<string | null>(null)
 const githubLinkError = ref<string | null>(null)
 const githubLinkSuccess = ref<string | null>(null)
 const githubSyncError = ref<string | null>(null)
 const githubSyncSuccess = ref<string | null>(null)
 const linkingGitHub = ref(false)
+const loadingGitHubInstallations = ref(false)
+const loadingGitHubRepositories = ref(false)
 const syncingGitHub = ref(false)
 const localOverrides = ref<Record<string, boolean>>({})
 
 const canManageGitHub = computed(() => workspaceRole.value === 'owner')
+const githubModeLabel = computed(() => {
+  if (githubAuthMode.value === 'app') return 'App'
+  if (githubAuthMode.value === 'pat') return 'PAT'
+  return 'Non lié'
+})
+const githubInstallationOptions = computed(() => githubInstallations.value.map(installation => ({
+  value: installation.installationId,
+  label: `${installation.accountLogin} (${installation.accountType === 'Organization' ? 'organisation' : 'compte personnel'})`,
+})))
+const githubRepositoryOptions = computed(() => githubInstallationRepositories.value.map(repository => ({
+  value: repository.fullName,
+  label: repository.fullName,
+})))
 
 function formatDate(value: string | null): string {
   if (!value) return 'Inconnue'
@@ -135,10 +169,14 @@ function applyGitHubState(state: Partial<GitHubSyncState> | null): void {
     return
 
   githubLinked.value = Boolean(state.linked)
+  githubAuthMode.value = state.authMode ?? null
+  githubAppConfigured.value = Boolean(state.appConfigured)
   githubLastSyncedAt.value = typeof state.lastSyncedAt === 'string' ? state.lastSyncedAt : null
 
-  if (typeof state.owner === 'string' && typeof state.repo === 'string')
+  if (typeof state.owner === 'string' && typeof state.repo === 'string') {
     githubRepository.value = `${state.owner}/${state.repo}`
+    githubAppRepository.value = `${state.owner}/${state.repo}`
+  }
 
   if (state.localOverrides && typeof state.localOverrides === 'object') {
     localOverrides.value = {
@@ -152,14 +190,100 @@ function applyGitHubState(state: Partial<GitHubSyncState> | null): void {
 async function loadGitHubState(): Promise<void> {
   githubLinkError.value = null
   try {
-    const response = await $fetch<GitHubSyncState>('/api/workspaces/github/sync', {
-      method: 'POST',
-      body: { run: false },
-    })
-    applyGitHubState(response)
+    const [syncState, appStatus] = await Promise.all([
+      $fetch<GitHubSyncState>('/api/workspaces/github/sync', {
+        method: 'POST',
+        body: { run: false },
+      }),
+      $fetch<{ configured: boolean }>('/api/github/app/status'),
+    ])
+    applyGitHubState(syncState)
+    githubAppConfigured.value = appStatus.configured
+
+    if (githubAppConfigured.value && canManageGitHub.value)
+      await loadGitHubInstallations()
   } catch (error) {
     const asRecordError = error as { data?: { message?: string }, message?: string }
     githubLinkError.value = asRecordError.data?.message || asRecordError.message || 'Impossible de charger l’état GitHub.'
+  }
+}
+
+async function loadGitHubInstallations(): Promise<void> {
+  if (!githubAppConfigured.value || !canManageGitHub.value)
+    return
+
+  loadingGitHubInstallations.value = true
+  try {
+    const [response, installUrl] = await Promise.all([
+      $fetch<{ installations: GitHubAppInstallation[] }>('/api/github/installations'),
+      $fetch<{ url: string }>('/api/github/app/install-url'),
+    ])
+    githubInstallations.value = Array.isArray(response.installations) ? response.installations : []
+    githubAppInstallUrl.value = installUrl.url
+  } catch (error) {
+    const asRecordError = error as { data?: { message?: string }, message?: string }
+    githubLinkError.value = asRecordError.data?.message || asRecordError.message || 'Impossible de charger les installations GitHub App.'
+  } finally {
+    loadingGitHubInstallations.value = false
+  }
+}
+
+async function selectGitHubInstallation(installationId: string): Promise<void> {
+  githubInstallationId.value = installationId
+  githubInstallationRepositories.value = []
+  githubAppRepository.value = ''
+
+  if (!installationId)
+    return
+
+  loadingGitHubRepositories.value = true
+  githubLinkError.value = null
+  try {
+    const response = await $fetch<{ repositories: GitHubInstallationRepository[] }>(`/api/github/installations/${installationId}/repos`)
+    githubInstallationRepositories.value = Array.isArray(response.repositories) ? response.repositories : []
+  } catch (error) {
+    const asRecordError = error as { data?: { message?: string }, message?: string }
+    githubLinkError.value = asRecordError.data?.message || asRecordError.message || 'Impossible de charger les dépôts de cette installation.'
+  } finally {
+    loadingGitHubRepositories.value = false
+  }
+}
+
+async function linkGitHubAppRepository(): Promise<void> {
+  if (!canManageGitHub.value) {
+    githubLinkError.value = 'Seul un propriétaire peut lier un dépôt GitHub.'
+    githubLinkSuccess.value = null
+    return
+  }
+
+  const repository = githubAppRepository.value.trim()
+  const installationId = githubInstallationId.value
+
+  if (!installationId || !repository) {
+    githubLinkError.value = 'Choisissez une installation GitHub App et un dépôt.'
+    githubLinkSuccess.value = null
+    return
+  }
+
+  githubLinkError.value = null
+  githubLinkSuccess.value = null
+  linkingGitHub.value = true
+  try {
+    const response = await $fetch<GitHubSyncState>('/api/workspaces/github/link', {
+      method: 'POST',
+      body: {
+        mode: 'app',
+        repository,
+        installationId,
+      },
+    })
+    applyGitHubState(response)
+    githubLinkSuccess.value = 'Dépôt GitHub lié via GitHub App.'
+  } catch (error) {
+    const asRecordError = error as { data?: { message?: string }, message?: string }
+    githubLinkError.value = asRecordError.data?.message || asRecordError.message || 'Liaison GitHub App impossible.'
+  } finally {
+    linkingGitHub.value = false
   }
 }
 
@@ -186,13 +310,14 @@ async function linkGitHubRepository() {
     const response = await $fetch<GitHubSyncState>('/api/workspaces/github/link', {
       method: 'POST',
       body: {
+        mode: 'pat',
         repository,
         syncToken,
       },
     })
     applyGitHubState(response)
     githubToken.value = ''
-    githubLinkSuccess.value = 'Dépôt GitHub lié avec succès.'
+    githubLinkSuccess.value = 'Dépôt GitHub lié avec le PAT.'
   } catch (error) {
     const asRecordError = error as { data?: { message?: string }, message?: string }
     githubLinkError.value = asRecordError.data?.message || asRecordError.message || 'Liaison GitHub impossible.'
@@ -389,36 +514,115 @@ await loadWorkspaceData()
     </FluffmindCard>
 
     <FluffmindCard padding="lg" class="mb-6">
-      <h2 class="mb-4 md3-title-md">
-        Synchronisation GitHub
-      </h2>
-      <div class="grid gap-4 md:grid-cols-2">
-        <label class="block">
-          <span class="mb-2 block md3-label-lg">Dépôt</span>
-          <FluffmindTextField
-            v-model="githubRepository"
-            type="text"
-            placeholder="owner/repo"
-          />
-        </label>
-        <label class="block">
-          <span class="mb-2 block md3-label-lg">Token GitHub (PAT)</span>
-          <FluffmindTextField
-            v-model="githubToken"
-            type="password"
-            placeholder="ghp_..."
-          />
-        </label>
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 class="md3-title-md">
+          Synchronisation GitHub
+        </h2>
+        <FluffmindChip variant="outlined">
+          Mode : {{ githubModeLabel }}
+        </FluffmindChip>
       </div>
+
+      <section v-if="githubAppConfigured" class="mb-6 rounded-xl bg-surface-container-low p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="md3-title-sm">
+              Lier via GitHub App
+            </h3>
+            <p class="mt-1 md3-body-md text-on-surface-variant">
+              Installez l’application, puis choisissez une installation et un dépôt.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a
+              v-if="githubAppInstallUrl"
+              :href="githubAppInstallUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <FluffmindButton variant="outlined" size="sm" :disabled="!canManageGitHub">
+                Installer l’application
+              </FluffmindButton>
+            </a>
+            <FluffmindButton
+              variant="outlined"
+              size="sm"
+              :disabled="loadingGitHubInstallations || !canManageGitHub"
+              @click="loadGitHubInstallations"
+            >
+              {{ loadingGitHubInstallations ? 'Chargement…' : 'Actualiser les installations' }}
+            </FluffmindButton>
+          </div>
+        </div>
+
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <label class="block">
+            <span class="mb-2 block md3-label-lg">Installation GitHub App</span>
+            <FluffmindSelect
+              :model-value="githubInstallationId"
+              :options="githubInstallationOptions"
+              placeholder="Choisir une installation"
+              :disabled="loadingGitHubInstallations || !canManageGitHub"
+              @update:model-value="selectGitHubInstallation"
+            />
+          </label>
+          <label class="block">
+            <span class="mb-2 block md3-label-lg">Dépôt</span>
+            <FluffmindSelect
+              v-model="githubAppRepository"
+              :options="githubRepositoryOptions"
+              placeholder="Choisir un dépôt"
+              :disabled="!githubInstallationId || loadingGitHubRepositories || !canManageGitHub"
+            />
+          </label>
+        </div>
+        <p v-if="githubInstallationId && !loadingGitHubRepositories && githubInstallationRepositories.length === 0" class="mt-4 md3-body-md text-on-surface-variant">
+          Aucun dépôt disponible pour cette installation.
+        </p>
+        <FluffmindButton
+          class="mt-4"
+          :disabled="linkingGitHub || !githubInstallationId || !githubAppRepository || !canManageGitHub"
+          @click="linkGitHubAppRepository"
+        >
+          {{ linkingGitHub ? 'Liaison…' : 'Lier via GitHub App' }}
+        </FluffmindButton>
+      </section>
+
+      <section class="border-t border-outline-variant pt-6">
+        <h3 class="md3-title-sm">
+          Fallback PAT
+        </h3>
+        <p class="mt-1 md3-body-md text-on-surface-variant">
+          Utilisez un token d’accès personnel si GitHub App n’est pas configurée ou si vous préférez ce mode.
+        </p>
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <label class="block">
+            <span class="mb-2 block md3-label-lg">Dépôt</span>
+            <FluffmindTextField
+              v-model="githubRepository"
+              type="text"
+              placeholder="owner/repo"
+            />
+          </label>
+          <label class="block">
+            <span class="mb-2 block md3-label-lg">Token GitHub (PAT)</span>
+            <FluffmindTextField
+              v-model="githubToken"
+              type="password"
+              placeholder="ghp_..."
+            />
+          </label>
+        </div>
+        <FluffmindButton class="mt-4" :disabled="linkingGitHub || !canManageGitHub" @click="linkGitHubRepository">
+          {{ linkingGitHub ? 'Liaison…' : 'Lier avec le PAT' }}
+        </FluffmindButton>
+      </section>
       <p class="mt-4 md3-body-md text-on-surface-variant">
         Dernière synchro: {{ githubLastSyncedAt ? formatDate(githubLastSyncedAt) : 'Jamais' }}
       </p>
       <div class="mt-4 flex flex-wrap gap-2">
-        <FluffmindButton :disabled="linkingGitHub || !canManageGitHub" @click="linkGitHubRepository">
-          {{ linkingGitHub ? 'Liaison…' : 'Lier le dépôt' }}
-        </FluffmindButton>
         <FluffmindButton variant="outlined" :disabled="syncingGitHub || !githubLinked || !canManageGitHub" @click="syncNowFromGitHub">
-          {{ syncingGitHub ? 'Synchro…' : 'Sync now' }}
+          {{ syncingGitHub ? 'Synchro…' : 'Synchroniser maintenant' }}
         </FluffmindButton>
       </div>
       <p v-if="!canManageGitHub" class="mt-4 md3-body-md text-on-surface-variant">
@@ -468,7 +672,7 @@ await loadWorkspaceData()
             :disabled="!canManageGitHub"
             @update:model-value="setLocalOverride(workspaceMember.id, $event)"
           >
-            Override local
+            Priorité locale
           </FluffmindCheckbox>
         </li>
       </ul>
