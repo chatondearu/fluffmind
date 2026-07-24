@@ -6,6 +6,9 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxt/eslint', '@unocss/nuxt'],
   css: [
+    // presetWind3 does not ship a preflight — without this, UA button chrome
+    // (light gray fill + outset border) leaks through, especially in dark mode.
+    '@unocss/reset/tailwind.css',
     '@fluffmind/design-system/src/tokens/md3.css',
     '~/assets/css/app.css',
   ],

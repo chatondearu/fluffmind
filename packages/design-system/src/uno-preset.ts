@@ -30,7 +30,9 @@ export const fluffmindPreset = definePreset(() => ({
     'md3-field': 'w-full rounded-xl border border-outline bg-surface-container-low px-4 py-2.5 md3-body-md text-on-surface outline-none transition placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/15',
     'md3-card': 'rounded-2xl border border-outline-variant bg-surface-container-low shadow-md3-1',
     'md3-card-outlined': 'rounded-2xl border border-outline-variant bg-surface',
-    'md3-nav-item': 'flex min-w-0 items-center gap-2 rounded-full px-3 py-2 md3-body-md text-on-surface transition-colors hover:bg-on-surface/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20',
+    // text-left overrides the UA button default (text-align: center) so folder/
+    // file labels stay left-aligned when ListItem renders as <button>.
+    'md3-nav-item': 'flex min-w-0 items-center gap-2 rounded-full px-3 py-2 text-left md3-body-md text-on-surface transition-colors hover:bg-on-surface/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20',
     'md3-nav-item-active': 'bg-secondary-container text-on-secondary-container font-medium hover:bg-secondary-container',
     'md3-menu': 'overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low shadow-md3-2',
     'md3-state-layer': 'relative overflow-hidden before:absolute before:inset-0 before:bg-on-surface before:opacity-0 before:transition-opacity hover:before:opacity-8',
