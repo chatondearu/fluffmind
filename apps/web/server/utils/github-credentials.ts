@@ -2,7 +2,7 @@ import { getDb, workspaceGithubLink } from '@fluffmind/db'
 import { createInstallationToken } from '@fluffmind/integrations'
 import { eq } from 'drizzle-orm'
 
-import { decryptSyncToken } from './github-sync'
+import { decryptSyncToken } from './github-token-crypto'
 
 export type GitHubAuthMode = 'app' | 'pat'
 

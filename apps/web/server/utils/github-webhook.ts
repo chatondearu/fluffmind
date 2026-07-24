@@ -1,5 +1,9 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
+export function getWebhookSecret(): string | undefined {
+  return process.env.GITHUB_APP_WEBHOOK_SECRET?.trim() || process.env.GITHUB_WEBHOOK_SECRET?.trim()
+}
+
 /** Verify GitHub webhook `X-Hub-Signature-256` header against the raw request body. */
 export function verifyGithubWebhookSignature(
   rawBody: Buffer | string,

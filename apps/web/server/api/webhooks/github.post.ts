@@ -6,6 +6,7 @@ import {
   upsertGithubAppInstallation,
 } from '../../utils/github-installations'
 import {
+  getWebhookSecret,
   isPushToBranch,
   verifyGithubWebhookSignature,
   type GithubInstallationPayload,
@@ -14,10 +15,6 @@ import {
 } from '../../utils/github-webhook'
 import { pullWorkspaceChanges } from '../../vault/pull'
 import { workspaceConfigFromEnv } from '../../vault/workspace'
-
-function getWebhookSecret(): string | undefined {
-  return process.env.GITHUB_APP_WEBHOOK_SECRET?.trim() || process.env.GITHUB_WEBHOOK_SECRET?.trim()
-}
 
 function parsePayload<T>(rawBody: string): T {
   try {

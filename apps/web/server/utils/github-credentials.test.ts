@@ -22,7 +22,7 @@ vi.mock('@fluffmind/integrations', () => ({
   createInstallationToken: mocks.createInstallationToken,
 }))
 
-vi.mock('./github-sync', () => ({
+vi.mock('./github-token-crypto', () => ({
   decryptSyncToken: mocks.decryptSyncToken,
 }))
 
