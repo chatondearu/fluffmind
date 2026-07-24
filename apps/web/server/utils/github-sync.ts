@@ -15,7 +15,7 @@ import {
 } from '@fluffmind/integrations'
 import { and, eq, sql } from 'drizzle-orm'
 
-import { resolveWorkspaceGitHubCredentials } from './github-credentials'
+import { isGitHubAppConfigured, resolveWorkspaceGitHubCredentials } from './github-credentials'
 
 const TOKEN_PREFIX = 'enc:v1:'
 
@@ -28,6 +28,8 @@ export interface GitHubSyncState {
   linked: boolean
   owner: string | null
   repo: string | null
+  authMode: 'app' | 'pat' | null
+  appConfigured: boolean
   lastSyncedAt: string | null
   localOverrides: Record<string, boolean>
 }
@@ -259,6 +261,7 @@ export async function getWorkspaceGitHubSyncState(organizationId: string): Promi
     .select({
       owner: workspaceGithubLink.owner,
       repo: workspaceGithubLink.repo,
+      authMode: workspaceGithubLink.authMode,
       lastSyncedAt: workspaceGithubLink.lastSyncedAt,
     })
     .from(workspaceGithubLink)
@@ -269,6 +272,8 @@ export async function getWorkspaceGitHubSyncState(organizationId: string): Promi
     linked: Boolean(link),
     owner: link?.owner ?? null,
     repo: link?.repo ?? null,
+    authMode: link?.authMode ?? null,
+    appConfigured: isGitHubAppConfigured(),
     lastSyncedAt: link?.lastSyncedAt ? link.lastSyncedAt.toISOString() : null,
     localOverrides: await getLocalOverrides(organizationId),
   }

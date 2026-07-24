@@ -14,7 +14,7 @@ export interface ResolvedGitHubCredentials {
   installationId?: string
 }
 
-function getGitHubAppCredentials(): { appId: string, privateKey: string } | null {
+export function getGitHubAppCredentials(): { appId: string, privateKey: string } | null {
   const appId = process.env.GITHUB_APP_ID?.trim()
   const privateKey = process.env.GITHUB_APP_PRIVATE_KEY?.trim().replace(/\\n/g, '\n')
 
