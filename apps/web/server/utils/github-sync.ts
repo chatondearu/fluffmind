@@ -15,6 +15,8 @@ import {
 } from '@fluffmind/integrations'
 import { and, eq, sql } from 'drizzle-orm'
 
+import { resolveWorkspaceGitHubCredentials } from './github-credentials'
+
 const TOKEN_PREFIX = 'enc:v1:'
 
 export interface LocalOverrideInput {
@@ -277,29 +279,18 @@ export async function syncWorkspaceMembersForOrganization(
   overrides: LocalOverrideInput[] = [],
 ): Promise<SyncWorkspaceMembersForOrganizationResult> {
   const db = getDb()
-  const [link] = await db
-    .select({
-      owner: workspaceGithubLink.owner,
-      repo: workspaceGithubLink.repo,
-      syncToken: workspaceGithubLink.syncToken,
-    })
-    .from(workspaceGithubLink)
-    .where(eq(workspaceGithubLink.organizationId, organizationId))
-    .limit(1)
-
-  if (!link)
+  const credentials = await resolveWorkspaceGitHubCredentials(organizationId)
+  if (!credentials)
     throw new Error('Workspace is not linked to a GitHub repository.')
-  if (!link.owner || !link.repo)
-    throw new Error('Workspace GitHub link is incomplete.')
 
   await applyLocalOverrides(organizationId, overrides)
 
   const result = await syncWorkspaceMembersFromGitHub(
     organizationId,
     {
-      token: decryptSyncToken(link.syncToken),
-      owner: link.owner,
-      repo: link.repo,
+      token: credentials.token,
+      owner: credentials.owner,
+      repo: credentials.repo,
     },
     buildSyncDeps(),
   )
