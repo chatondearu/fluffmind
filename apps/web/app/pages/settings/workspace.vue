@@ -333,6 +333,12 @@ function setLocalOverride(memberId: string, value: boolean): void {
   }
 }
 
+function openGitHubAppInstallUrl(): void {
+  if (!canManageGitHub.value || !githubAppInstallUrl.value)
+    return
+  window.open(githubAppInstallUrl.value, '_blank', 'noopener,noreferrer')
+}
+
 
 async function syncNowFromGitHub() {
   if (!canManageGitHub.value) {
@@ -534,16 +540,14 @@ await loadWorkspaceData()
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
-            <a
-              v-if="githubAppInstallUrl"
-              :href="githubAppInstallUrl"
-              target="_blank"
-              rel="noopener noreferrer"
+            <FluffmindButton
+              variant="outlined"
+              size="sm"
+              :disabled="!canManageGitHub || !githubAppInstallUrl"
+              @click="openGitHubAppInstallUrl"
             >
-              <FluffmindButton variant="outlined" size="sm" :disabled="!canManageGitHub">
-                Installer l’application
-              </FluffmindButton>
-            </a>
+              Installer l’application
+            </FluffmindButton>
             <FluffmindButton
               variant="outlined"
               size="sm"
