@@ -24,6 +24,7 @@
     "@vueuse/core": "^14.3.0",
     "better-auth": "^1.6.23",
     "chokidar": "^5.0.0",
+    "d3-force": "^3.0.0",
     "drizzle-orm": "^0.44.2",
     "gray-matter": "^4.0.3",
     "mdast-util-to-string": "^4.0.0",
@@ -44,6 +45,7 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.16.0",
+    "@types/d3-force": "^3.0.10",
     "@types/mdast": "^4.0.4",
     "@types/proper-lockfile": "^4.1.4",
     "@unocss/nuxt": "^66.7.4",
