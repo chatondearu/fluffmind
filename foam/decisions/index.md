@@ -12,6 +12,7 @@
 | [[ADR-006-better-auth-workspaces|ADR-006]] | Better Auth + hybrid GitHub sync | accepted |
 | [[ADR-007-distributed-workspace-lock|ADR-007]] | Distributed workspace lock (PG advisory + flock) | accepted |
 | [[ADR-008-inline-rich-contenteditable|ADR-008]] | Contenteditable inline marks (markdown-as-you-type) | accepted |
+| [[ADR-009-github-app-installations|ADR-009]] | GitHub App installations for repo access (self-host) | proposed |
 
 Template: [[ADR-template|ADR-template]]
 
