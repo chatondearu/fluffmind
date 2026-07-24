@@ -20,6 +20,9 @@ function onSelectNode(id: string) {
         <p class="mt-1 md3-body-md text-on-surface-variant">
           Visualise les liens entre tes notes.
         </p>
+        <p class="mt-1 md3-label-md text-on-surface-variant">
+          Clic = focus · Double-clic = ouvrir
+        </p>
       </div>
       <NuxtLink to="/">
         <FluffmindButton variant="tonal" size="sm">
