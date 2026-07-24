@@ -1,10 +1,11 @@
 # PRD-033 — GitHub App installations (self-hosted)
 
-- **Status**: draft
+- **Status**: approved (product)
 - **Date**: 2026-07-24
 - **Tags**: #product #auth #github #self-host
 - **Depends on**: ADR-006 (Better Auth + hybrid GitHub sync), P2 workspaces
 - **Design spec**: `docs/superpowers/specs/2026-07-24-github-app-installations-design.md`
+- **Plan**: [[../plans/PLAN-033-github-app-installations|PLAN-033]] · `docs/superpowers/plans/2026-07-24-github-app-installations.md`
 - **ADR**: [[../foam/decisions/ADR-009-github-app-installations|ADR-009]] (proposed)
 
 ## Problem
@@ -90,4 +91,5 @@ access needs a separate, installation-based credential path.
 
 ## Implementation pointer
 
-Design approved → `plans/PLAN-033-github-app-installations.md` (from `plans/template.md`) after writing-plans.
+Detailed plan: `docs/superpowers/plans/2026-07-24-github-app-installations.md`  
+Pointer: [[../plans/PLAN-033-github-app-installations|PLAN-033]]
