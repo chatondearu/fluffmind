@@ -4,7 +4,7 @@ import { commitAndPush, ensureWorkingCopy } from '@fluffmind/integrations'
 import { FOLDER_MARKER } from './folders'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { invalidateVaultIndex } from './service'
-import { resolveWorkspaceConfig } from './workspace'
+import { resolveWorkspaceConfig, resolveWorkspaceGitRemoteUrl } from './workspace'
 import { withWorkspaceWriteLock } from './write'
 
 export class VaultConflictError extends Error {
@@ -16,11 +16,13 @@ export class VaultConflictError extends Error {
 
 async function commitMutation(workspaceId: string, message: string) {
   const config = await resolveWorkspaceConfig(workspaceId)
-  const git = await ensureWorkingCopy(config)
+  const remoteUrl = await resolveWorkspaceGitRemoteUrl(workspaceId)
+  const git = await ensureWorkingCopy({ ...config, networkRemoteUrl: remoteUrl })
   const result = await commitAndPush(git, {
     branch: config.branch,
     message,
     remoteConfigured: Boolean(config.remoteUrl),
+    networkRemoteUrl: remoteUrl,
   })
   invalidateVaultIndex(workspaceId)
   return result

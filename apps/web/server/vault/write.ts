@@ -5,7 +5,7 @@ import { withWorkspaceLock } from './lock'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { parseNote, serializeNoteFile } from './parser'
 import { invalidateVaultIndex } from './service'
-import { resolveWorkspaceConfig } from './workspace'
+import { resolveWorkspaceConfig, resolveWorkspaceGitRemoteUrl } from './workspace'
 
 export { GitConflictError, InvalidNoteIdError }
 export { WorkspaceLockTimeoutError, withWorkspaceLock as withWorkspaceWriteLock } from './lock'
@@ -77,12 +77,14 @@ export async function writeToWorkspace(
     const frontmatter = await resolveFrontmatterForWrite(filePath, isCreate, options?.frontmatter)
     const raw = serializeNoteFile(content, frontmatter)
 
-    const git = await ensureWorkingCopy(config)
+    const remoteUrl = await resolveWorkspaceGitRemoteUrl(workspaceId)
+    const git = await ensureWorkingCopy({ ...config, networkRemoteUrl: remoteUrl })
     await writeFile(filePath, raw, 'utf-8')
     const result = await commitAndPush(git, {
       branch: config.branch,
       message: isCreate ? `Create ${id}` : `Update ${id}`,
       remoteConfigured: Boolean(config.remoteUrl),
+      networkRemoteUrl: remoteUrl,
     })
     invalidateVaultIndex(workspaceId)
     return result

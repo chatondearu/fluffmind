@@ -7,8 +7,10 @@ import type { SimpleGit } from 'simple-git'
 export interface WorkingCopyConfig {
   /** Absolute path on disk where the server keeps its working copy for this workspace. */
   path: string
-  /** Git remote URL. Omit for local-only mode (commits happen, nothing is pushed). */
+  /** Clean Git remote URL. Omit for local-only mode (commits happen, nothing is pushed). */
   remoteUrl?: string
+  /** Runtime-only Git remote URL used for authenticated network operations. */
+  networkRemoteUrl?: string
   branch: string
 }
 
@@ -43,13 +45,14 @@ async function ensureCommitIdentity(git: SimpleGit): Promise<void> {
  * - already a repo: fetch/checkout the target branch if a remote is configured.
  */
 export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<SimpleGit> {
-  const { path, remoteUrl, branch } = config
+  const { path, remoteUrl, networkRemoteUrl, branch } = config
   let git: SimpleGit
 
   if (await isEmptyDir(path)) {
     if (remoteUrl) {
-      await simpleGit().clone(remoteUrl, path, ['--branch', branch, '--single-branch'])
+      await simpleGit().clone(networkRemoteUrl || remoteUrl, path, ['--branch', branch, '--single-branch'])
       git = simpleGit(path)
+      await git.remote(['set-url', 'origin', remoteUrl])
     } else {
       await mkdir(path, { recursive: true })
       git = simpleGit(path)
@@ -61,7 +64,7 @@ export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<Simp
   } else {
     git = simpleGit(path)
     if (remoteUrl) {
-      await git.fetch('origin', branch)
+      await fetchRemote(git, branch, networkRemoteUrl)
       const localBranches = await git.branchLocal()
       if (localBranches.all.includes(branch)) {
         await git.checkout(branch)
@@ -73,6 +76,33 @@ export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<Simp
 
   await ensureCommitIdentity(git)
   return git
+}
+
+async function fetchRemote(git: SimpleGit, branch: string, networkRemoteUrl?: string): Promise<void> {
+  if (!networkRemoteUrl) {
+    await git.fetch('origin', branch)
+    return
+  }
+
+  await git.raw(['-c', `remote.origin.url=${networkRemoteUrl}`, 'fetch', 'origin', branch])
+}
+
+async function pushRemote(git: SimpleGit, branch: string, networkRemoteUrl?: string): Promise<void> {
+  if (!networkRemoteUrl) {
+    await git.push('origin', branch)
+    return
+  }
+
+  await git.raw(['-c', `remote.origin.url=${networkRemoteUrl}`, 'push', 'origin', branch])
+}
+
+async function pullRemote(git: SimpleGit, branch: string, networkRemoteUrl?: string): Promise<void> {
+  if (!networkRemoteUrl) {
+    await git.pull('origin', branch)
+    return
+  }
+
+  await git.raw(['-c', `remote.origin.url=${networkRemoteUrl}`, 'pull', 'origin', branch])
 }
 
 /** Thrown when a rebase-on-push-rejected hits a real conflict. The local commit is
@@ -91,6 +121,8 @@ export interface CommitPushOptions {
   /** Whether this working copy has a remote configured at all — skips push entirely
    * for local-only self-hosting (no GitHub). */
   remoteConfigured: boolean
+  /** Runtime-only Git remote URL used for authenticated push and rebase fetches. */
+  networkRemoteUrl?: string
 }
 
 export interface CommitPushResult {
@@ -158,20 +190,20 @@ export interface PullFromRemoteResult {
  */
 export async function pullFromRemote(
   git: SimpleGit,
-  options: { branch: string, remoteConfigured: boolean },
+  options: { branch: string, remoteConfigured: boolean, networkRemoteUrl?: string },
 ): Promise<PullFromRemoteResult> {
-  const { branch, remoteConfigured } = options
+  const { branch, remoteConfigured, networkRemoteUrl } = options
   if (!remoteConfigured) {
     return { updated: false, behindBefore: 0 }
   }
 
-  await git.fetch('origin', branch)
+  await fetchRemote(git, branch, networkRemoteUrl)
   const before = await getSyncStatus(git, { branch, remoteConfigured })
   if (before.behind === 0) {
     return { updated: false, behindBefore: 0 }
   }
 
-  await git.pull('origin', branch)
+  await pullRemote(git, branch, networkRemoteUrl)
   return { updated: true, behindBefore: before.behind }
 }
 
@@ -182,7 +214,7 @@ export async function pullFromRemote(
  * the commit made here is never lost, only left unpushed.
  */
 export async function commitAndPush(git: SimpleGit, options: CommitPushOptions): Promise<CommitPushResult> {
-  const { branch, message, remoteConfigured } = options
+  const { branch, message, remoteConfigured, networkRemoteUrl } = options
 
   await git.add(['-A'])
   const status = await git.status()
@@ -192,10 +224,10 @@ export async function commitAndPush(git: SimpleGit, options: CommitPushOptions):
   if (!remoteConfigured) return { committed, pushed: false }
 
   try {
-    await git.push('origin', branch)
+    await pushRemote(git, branch, networkRemoteUrl)
     return { committed, pushed: true }
   } catch {
-    await git.fetch('origin', branch)
+    await fetchRemote(git, branch, networkRemoteUrl)
     try {
       await git.rebase([`origin/${branch}`])
     } catch {
@@ -204,7 +236,7 @@ export async function commitAndPush(git: SimpleGit, options: CommitPushOptions):
         `Rebase conflict syncing branch "${branch}" — local commit is intact but not pushed.`
       )
     }
-    await git.push('origin', branch)
+    await pushRemote(git, branch, networkRemoteUrl)
     return { committed, pushed: true }
   }
 }

@@ -1,9 +1,11 @@
 import { mkdir } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import { getDb, member, workspaceConfig } from '@fluffmind/db'
+import { withGitHubAccessToken } from '@fluffmind/integrations'
 import { and, eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { isAuthEnabled, requireSession } from '../utils/auth'
+import { resolveWorkspaceGitHubCredentials } from '../utils/github-credentials'
 
 const DEFAULT_WORKSPACES_ROOT = '/data/workspaces'
 export const ACTIVE_WORKSPACE_COOKIE = 'fluffmind-workspace-id'
@@ -72,6 +74,24 @@ export async function resolveWorkspaceConfig(workspaceId: string): Promise<Works
     remoteUrl: config.gitRemoteUrl || undefined,
     branch: config.gitBranch || 'main'
   }
+}
+
+/**
+ * Resolves the Git remote URL to use for a network operation. GitHub credentials are
+ * minted or decrypted on demand and never saved in `workspace_config`.
+ */
+export async function resolveWorkspaceGitRemoteUrl(workspaceId: string): Promise<string | undefined> {
+  const config = await resolveWorkspaceConfig(workspaceId)
+  if (!config.remoteUrl || !isAuthEnabled()) {
+    return config.remoteUrl
+  }
+
+  const credentials = await resolveWorkspaceGitHubCredentials(workspaceId)
+  if (!credentials) {
+    return config.remoteUrl
+  }
+
+  return withGitHubAccessToken(config.remoteUrl, credentials.token)
 }
 
 export async function resolveActiveWorkspaceId(event: H3Event): Promise<string> {

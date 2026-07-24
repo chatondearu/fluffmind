@@ -1,5 +1,5 @@
-import { getDb, member, workspaceGithubLink } from '@fluffmind/db'
-import { fetchCollaborators } from '@fluffmind/integrations'
+import { getDb, member, workspaceConfig, workspaceGithubLink } from '@fluffmind/db'
+import { buildGitHubHttpsRemoteUrl, fetchCollaborators } from '@fluffmind/integrations'
 import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
 import { requireSession } from '../../../utils/auth'
@@ -85,6 +85,11 @@ export default defineEventHandler(async (event) => {
         syncToken: encryptSyncToken(syncToken),
       },
     })
+
+  await db
+    .update(workspaceConfig)
+    .set({ gitRemoteUrl: buildGitHubHttpsRemoteUrl(parsedRepository.owner, parsedRepository.repo) })
+    .where(eq(workspaceConfig.organizationId, workspaceId))
 
   return getWorkspaceGitHubSyncState(workspaceId)
 })
