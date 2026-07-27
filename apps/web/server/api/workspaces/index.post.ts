@@ -89,15 +89,16 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const createGithubRepo = body.createGithubRepo
-    ? parseCreateGithubRepoBody(body.createGithubRepo)
-    : null
-  if (body.createGithubRepo && !createGithubRepo) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Invalid payload',
-      message: '"installationId" is required.'
-    })
+  let createGithubRepo: CreateGithubRepoBody | null = null
+  if (body.createGithubRepo !== undefined && body.createGithubRepo !== false) {
+    createGithubRepo = parseCreateGithubRepoBody(body.createGithubRepo)
+    if (!createGithubRepo) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Invalid payload',
+        message: '"installationId" is required.'
+      })
+    }
   }
   if (createGithubRepo)
     await assertCanCreateGithubRepo(createGithubRepo)
