@@ -101,12 +101,8 @@ optionally, deploy.
 GitHub OAuth App callback URL: `{BETTER_AUTH_URL}/api/auth/callback/github`.  
 First signup on an empty instance becomes admin and can create the first workspace.
 
-**GitHub App (optional, multi-repo org linking):** set `GITHUB_APP_ID`,
-`GITHUB_APP_PRIVATE_KEY` (PEM; use `\n` for newlines in Coolify), `GITHUB_APP_SLUG`,
-and preferably `GITHUB_APP_WEBHOOK_SECRET` (falls back to `GITHUB_WEBHOOK_SECRET`).
-App permissions: Contents R/W, Metadata R, Members/collaborators R. Install flow +
-workspace repo bind live under Settings; PAT linking remains a fallback. See
-ADR-009 / PRD-033.
+**GitHub App (optional):** for multi-workspace / multi-repo autonomy without pasting
+PATs, follow [GitHub App setup (self-hosted)](#github-app-setup-self-hosted) below.
 
 **Webhooks:** point GitHub at `POST {BETTER_AUTH_URL}/api/webhooks/github` (push +
 installation events when using a GitHub App).
@@ -115,6 +111,85 @@ installation events when using a GitHub App).
 under `packages/db/drizzle/` (e.g. `0001_*` for GitHub App link columns).
 
 Health check: `GET /api/health` (used by Docker healthcheck).
+
+### GitHub App setup (self-hosted)
+
+Fluffmind uses **two** GitHub integrations on purpose:
+
+| Integration | Env | Role |
+| ----------- | --- | ---- |
+| **OAuth App** | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | User **login** only |
+| **GitHub App** | `GITHUB_APP_*` | **Repo access** for workspaces (clone/push + collaborator sync) |
+
+With a GitHub App configured, an org admin installs it once, then each Fluffmind
+**workspace** binds **one repository** under Settings → workspace (mode `app`). No
+per-workspace PAT. One installation can back many workspaces (one repo each).
+
+> **Today:** Fluffmind **links** an existing repository (create the empty repo on
+> GitHub first, or pick an existing vault repo). Auto-creating a new GitHub repo when
+> you create a Fluffmind workspace is **not** shipped yet (follow-up).
+
+#### 1. Create the GitHub App
+
+1. GitHub → **Settings → Developer settings → GitHub Apps → New GitHub App**
+   (user or org that will own the App credentials for this Fluffmind instance).
+2. **GitHub App name** / slug — remember the slug (`GITHUB_APP_SLUG`).
+3. **Homepage URL:** your public Fluffmind URL (`BETTER_AUTH_URL`).
+4. **Webhook:**
+   - Active: yes
+   - Webhook URL: `https://<your-fluffmind-host>/api/webhooks/github`
+   - Webhook secret: generate one → `GITHUB_APP_WEBHOOK_SECRET` (preferred) or
+     `GITHUB_WEBHOOK_SECRET`
+5. **Permissions** (Repository):
+
+   | Permission | Access | Why |
+   | ---------- | ------ | --- |
+   | Contents | Read & write | clone / commit / push vault |
+   | Metadata | Read | required |
+   | Members (or collaborate via repo collaborators API) | Read | hybrid role sync |
+
+   Subscribe to events: **Push**, **Installation**, **Installation repositories**.
+
+6. Create the App → note **App ID** (`GITHUB_APP_ID`).
+7. **Generate a private key** → download the `.pem` → store as
+   `GITHUB_APP_PRIVATE_KEY` (in Coolify / `.env`, put the PEM on one line with `\n`
+   for newlines).
+8. Under **Install App**, you will install on the org/user after Fluffmind env is set
+   (or use Fluffmind Settings → « Installer l’application » once `GITHUB_APP_SLUG` is
+   set).
+
+#### 2. Coolify / env
+
+Set on the Fluffmind instance (in addition to Better Auth + OAuth login):
+
+```sh
+GITHUB_APP_ID=123456
+GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GITHUB_APP_SLUG=your-app-slug
+GITHUB_APP_WEBHOOK_SECRET=your-webhook-secret
+```
+
+Redeploy. `GET /api/github/app/status` should report configured when ID + private key
+are present.
+
+#### 3. Install on the org and bind repos
+
+1. Sign in as a workspace **owner**.
+2. **Settings → workspace** → if the App is configured, use **Installer l’application**
+   (or open `https://github.com/apps/<slug>/installations/new`).
+3. On GitHub, choose the org/user and which repositories the App may access
+   (all, or a selection).
+4. Back in Fluffmind: **Actualiser les installations** → pick installation → pick
+   **one repo per workspace** → link (mode App).
+5. For each additional workspace: create the vault workspace in Fluffmind, ensure the
+   target GitHub repo exists and is included in the App’s repo access, then bind it
+   the same way.
+
+After linking, collaborator sync and git push/pull use short-lived **installation
+tokens** (no PAT stored for that workspace). PAT « Fallback » remains available if the
+App is unset.
+
+See also: ADR-009, PRD-033, `apps/web/AGENTS.md` (env details).
 
 ---
 

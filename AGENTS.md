@@ -69,6 +69,7 @@ P2 env vars are now part of the standard environment shape:
   PAT linking remains fallback when unset. App permissions: Contents R/W, Metadata R,
   Members/collaborators R. Webhook secret falls back to `GITHUB_WEBHOOK_SECRET`.
   Operator Coolify checklist: root `README.md` § Deploying (Coolify).
+  Step-by-step GitHub App creation: root `README.md` § GitHub App setup (self-hosted).
 
 ## Cross-cutting gotchas
 
