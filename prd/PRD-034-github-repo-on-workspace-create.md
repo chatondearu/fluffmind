@@ -1,6 +1,6 @@
 # PRD-034 — Create GitHub repo when creating a workspace
 
-- **Status**: draft
+- **Status**: in progress
 - **Date**: 2026-07-27
 - **Tags**: #product #auth #github #workspaces
 - **Depends on**: [[PRD-033-github-app-installations|PRD-033]], [[../foam/decisions/ADR-009-github-app-installations|ADR-009]]

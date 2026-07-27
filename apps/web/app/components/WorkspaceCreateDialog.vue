@@ -26,6 +26,7 @@ const name = ref('')
 const createGithub = ref(false)
 const installationId = ref('')
 const repoName = ref('')
+const autoRepoName = ref('')
 const repoPrivate = ref(true)
 const githubAvailable = ref(false)
 const installations = ref<GitHubAppInstallation[]>([])
@@ -52,6 +53,7 @@ function resetForm(): void {
   createGithub.value = false
   installationId.value = ''
   repoName.value = ''
+  autoRepoName.value = ''
   repoPrivate.value = true
   githubAvailable.value = false
   installations.value = []
@@ -117,9 +119,16 @@ async function submit(): Promise<void> {
   }
 }
 
+function defaultRepoNameFromWorkspaceName(workspaceName: string): string {
+  const slug = slugify(workspaceName)
+  return `fluff-${slug || 'workspace'}`
+}
+
 watch(name, (value) => {
-  const slug = slugify(value)
-  repoName.value = `fluff-${slug || 'workspace'}`
+  const nextAuto = defaultRepoNameFromWorkspaceName(value)
+  if (!repoName.value || repoName.value === autoRepoName.value)
+    repoName.value = nextAuto
+  autoRepoName.value = nextAuto
 })
 
 watch(() => props.open, (isOpen) => {
