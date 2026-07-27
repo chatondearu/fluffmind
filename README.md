@@ -86,13 +86,37 @@ hot-reload dev server inside the container.
 ### Deploying (Coolify)
 
 `docker-compose.coolify.yml` is meant to be used as a Coolify "Docker Compose" resource.
+`DATABASE_URL` is wired automatically to the Compose Postgres service — you normally
+only set the variables below in Coolify’s Environment UI.
 
-**Solo mode (fastest):** leave `AUTH_DISABLED=true` (default), set `GIT_REMOTE_URL` optionally, deploy.
+**Solo mode (fastest):** leave `AUTH_DISABLED=true` (default), set `GIT_REMOTE_URL`
+optionally, deploy.
 
-**Multi-account mode:** set `AUTH_DISABLED=false`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (public URL),
-configure GitHub OAuth (`GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`). First signup creates a workspace automatically.
+**Multi-account mode (Better Auth):**
 
-**Webhooks (external Git edits):** set `GITHUB_WEBHOOK_SECRET`, add a GitHub webhook on `POST /api/webhooks/github` (push events).
+| Variable | Required | Notes |
+| -------- | -------- | ----- |
+| `AUTH_DISABLED` | yes | `false` |
+| `BETTER_AUTH_SECRET` | yes | ≥ 32 random bytes (`openssl rand -base64 32`) |
+| `BETTER_AUTH_URL` | yes | Public URL, e.g. `https://fluffmind.example.com` (no trailing slash) |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | for GitHub login | GitHub **OAuth App** (identity) |
+| `GITHUB_SYNC_TOKEN_SECRET` | recommended | Encrypts workspace PAT links at rest |
+
+GitHub OAuth App callback URL: `{BETTER_AUTH_URL}/api/auth/callback/github`.  
+First signup on an empty instance becomes admin and can create the first workspace.
+
+**GitHub App (optional, multi-repo org linking):** set `GITHUB_APP_ID`,
+`GITHUB_APP_PRIVATE_KEY` (PEM; use `\n` for newlines in Coolify), `GITHUB_APP_SLUG`,
+and preferably `GITHUB_APP_WEBHOOK_SECRET` (falls back to `GITHUB_WEBHOOK_SECRET`).
+App permissions: Contents R/W, Metadata R, Members/collaborators R. Install flow +
+workspace repo bind live under Settings; PAT linking remains a fallback. See
+ADR-009 / PRD-033.
+
+**Webhooks:** point GitHub at `POST {BETTER_AUTH_URL}/api/webhooks/github` (push +
+installation events when using a GitHub App).
+
+**Schema:** after deploy, run Drizzle migrations against Postgres when new SQL lands
+under `packages/db/drizzle/` (e.g. `0001_*` for GitHub App link columns).
 
 Health check: `GET /api/health` (used by Docker healthcheck).
 

@@ -55,7 +55,9 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   workspaces when auth is enabled.
 - `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` — required when auth is enabled.
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — required for GitHub OAuth login when
-  auth is enabled.
+  auth is enabled. Callback: `{BETTER_AUTH_URL}/api/auth/callback/github`.
+- `GITHUB_SYNC_TOKEN_SECRET` — recommended when auth is on; encrypts workspace PAT
+  tokens at rest (`github-token-crypto.ts`).
 - `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` — optional; when both set, enables GitHub
   App install flow and installation-token git/sync for workspaces in `authMode=app`.
   PEM key supports `\n` escapes in `.env`.

@@ -62,10 +62,13 @@ P2 env vars are now part of the standard environment shape:
 - `WORKSPACES_ROOT` (optional, default `/data/workspaces`) — per-workspace vault root.
 - `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` (required when auth is enabled).
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` (required for GitHub OAuth login).
+- `GITHUB_SYNC_TOKEN_SECRET` (recommended when auth is on) — encrypts workspace PAT
+  links at rest (falls back to `NUXT_SESSION_PASSWORD`, then a weak dev default).
 - `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` / `GITHUB_APP_SLUG` / `GITHUB_APP_WEBHOOK_SECRET`
   (optional) — per-instance GitHub App for workspace repo linking via installation tokens;
   PAT linking remains fallback when unset. App permissions: Contents R/W, Metadata R,
   Members/collaborators R. Webhook secret falls back to `GITHUB_WEBHOOK_SECRET`.
+  Operator Coolify checklist: root `README.md` § Deploying (Coolify).
 
 ## Cross-cutting gotchas
 
@@ -102,8 +105,8 @@ P2 env vars are now part of the standard environment shape:
 - **Compose parity matters for P2 rollout.** Keep `.env.example`,
   `docker-compose.yml`, and `docker-compose.coolify.yml` aligned whenever auth or
   workspace-related env vars change (`AUTH_DISABLED`, `WORKSPACES_ROOT`,
-  `BETTER_AUTH_*`, `GITHUB_CLIENT_*`, `GITHUB_APP_*`, `GITHUB_WEBHOOK_SECRET`,
-  `VAULT_READONLY`).
+  `BETTER_AUTH_*`, `GITHUB_CLIENT_*`, `GITHUB_SYNC_TOKEN_SECRET`, `GITHUB_APP_*`,
+  `GITHUB_WEBHOOK_SECRET`, `VAULT_READONLY`).
 
 ## Project memory
 

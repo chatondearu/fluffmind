@@ -96,6 +96,9 @@ than a hand-rolled workspace schema.
   automatically. Owners may also invite members manually (`source: manual`) and pin
   roles (`localOverride`) so sync does not overwrite them. If not linked, an
   owner/admin manages permissions manually.
+- **GitHub credentials:** OAuth App (`GITHUB_CLIENT_*`) is for **login** only. Repo
+  access uses a per-instance **GitHub App** (installation tokens) when configured,
+  with **PAT** linking as fallback (`authMode=app|pat`). See ADR-009 / PRD-033.
 
 ## Editor (P3 — the project's #2 technical risk)
 
