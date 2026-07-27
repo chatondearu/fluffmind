@@ -37,6 +37,7 @@ const organizations = ref<Array<{ id: string, name: string }>>([])
 const selectedWorkspaceId = ref('')
 const workspaceLoading = ref(false)
 const workspaceError = ref<string | null>(null)
+const workspaceCreateOpen = ref(false)
 
 const hideWorkspaceControls = computed(() => route.path === '/login' || route.path === '/signup')
 const hideSidebar = computed(() =>
@@ -71,6 +72,11 @@ const showWorkspaceSwitcher = computed(() =>
   && !hideWorkspaceControls.value
   && !!authSession.value?.session
   && organizations.value.length > 1,
+)
+const showWorkspaceCreate = computed(() =>
+  authEnabled
+  && !hideWorkspaceControls.value
+  && !!authSession.value?.session,
 )
 const showWorkspaceSettingsLink = computed(() =>
   authEnabled
@@ -197,6 +203,20 @@ async function setActiveWorkspace(workspaceId: string) {
   }
 }
 
+async function handleWorkspaceCreated({
+  organizationId,
+  githubWarning,
+}: {
+  organizationId: string
+  githubWarning?: string
+}): Promise<void> {
+  await loadOrganizations()
+  await setActiveWorkspace(organizationId)
+
+  if (githubWarning)
+    workspaceError.value = `Workspace créé, mais le dépôt GitHub n’a pas pu être créé : ${githubWarning}`
+}
+
 watch(
   () => [authEnabled, isPending, authSession.value?.session?.id] as const,
   async ([enabled, pending, sessionId]) => {
@@ -253,6 +273,15 @@ watch(
                 </FluffmindButton>
               </NuxtLink>
 
+              <FluffmindButton
+                v-if="showWorkspaceCreate"
+                variant="text"
+                size="sm"
+                @click="workspaceCreateOpen = true"
+              >
+                Nouveau
+              </FluffmindButton>
+
               <div v-if="showWorkspaceSwitcher" class="flex items-center gap-2 px-2">
                 <label class="md3-label-md" for="workspace-switcher">Workspace</label>
                 <FluffmindSelect
@@ -300,5 +329,9 @@ watch(
         </div>
       </div>
     </div>
+    <WorkspaceCreateDialog
+      v-model:open="workspaceCreateOpen"
+      @created="handleWorkspaceCreated"
+    />
   </div>
 </template>
