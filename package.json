@@ -16,7 +16,9 @@
     "package:portable": "node scripts/package-portable.mjs",
     "portable:start": "node scripts/run-portable.mjs start",
     "portable:stop": "node scripts/run-portable.mjs stop",
-    "portable:status": "node scripts/run-portable.mjs status"
+    "portable:status": "node scripts/run-portable.mjs status",
+    "docs:dev": "pnpm --filter @fluffmind/docs dev",
+    "docs:build": "pnpm --filter @fluffmind/docs build"
   },
   "devDependencies": {
     "eslint": "^10.6.0",
