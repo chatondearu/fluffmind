@@ -1,35 +1,31 @@
 # Fluffmind
 
-The fluffy, open-source second brain.
+**The fluffy, open-source second brain.**
 
-Fluffmind is a self-hostable, git-backed personal knowledge management (PKM) app — an open source alternative to Obsidian. Markdown files + wikilinks stay the single source of truth (stored in a Git repo, no lock-in), with a modern editing experience on top:
+Self-hostable, git-backed personal knowledge management — an open-source alternative to Obsidian. Your notes stay plain markdown + wikilinks in a Git repo (no lock-in). Fluffmind adds a modern web UI, server-side sync, and an MCP bridge for AI agents.
 
-- **Custom block editor** (Notion-style drag & drop), built from scratch — no third-party editor framework.
-- **Git/GitHub sync**, orchestrated server-side (not per-client), so multi-device just works.
-- **Multi-account workspaces** (Drizzle + Postgres + Better Auth), with permissions either synced from GitHub repo collaborators or managed manually.
-- **MCP server** exposing the vault to AI agents — local (stdio) or remote (HTTP), depending on how the app is deployed.
-- **100% web.** Runs the same way locally or on a public server, no native app.
+[Project board](https://github.com/users/chatondearu/projects/3) · [Milestones](https://github.com/chatondearu/fluffmind/milestones) · [Releases](https://github.com/chatondearu/fluffmind/releases)
 
-## Status
+---
 
-**MVP + post-MVP UX shipped**, plus **P7a** distributed lock and **P8a** portable solo packaging (PRD-032).
-P7b/c (multi-disk, static publish) remain deferred under epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
+## Why Fluffmind
 
-See the [Project board](https://github.com/users/chatondearu/projects/3) and
-[Milestones](https://github.com/chatondearu/fluffmind/milestones) for history.
+- **Your files, forever** — markdown + frontmatter in Git are the only source of truth. Compatible with Foam/Obsidian vaults; walk away anytime.
+- **Block editor that feels modern** — Notion-style drag & drop, built from scratch (no third-party editor framework).
+- **Sync that just works** — Git/GitHub is orchestrated server-side, so multi-device doesn’t mean multi-writer chaos.
+- **Workspaces when you need them** — multi-account auth (Better Auth + Postgres), with permissions from GitHub collaborators or managed manually.
+- **AI-ready** — MCP server (stdio or HTTP) so agents can search, read, write, and traverse your vault.
+- **100% web** — same app locally or on a public server. Portable solo package: unzip and run, no Docker/Postgres.
 
-Architecture decisions and rationale: `DESIGN.md`. Conventions and gotchas for anyone
-(human or agent) working in this repo: `AGENTS.md`.
+**Stack:** Nuxt 3 · pnpm + Turborepo · Reka UI · UnoCSS · Material Design 3 · Drizzle · Postgres · Better Auth · MCP
 
-## Planned stack
+---
 
-Nuxt 3 · pnpm workspaces + Turborepo · Reka UI · UnoCSS · Material Design 3 · Drizzle ORM · Postgres · Better Auth · Model Context Protocol (MCP)
-
-## Running it
+## Quick start
 
 ### Portable solo (no Docker, no Postgres)
 
-Download a release asset for your OS from [Releases](https://github.com/chatondearu/fluffmind/releases)
+Download a release for your OS from [Releases](https://github.com/chatondearu/fluffmind/releases)
 (`fluffmind-darwin-arm64.tar.gz`, `linux-x64`, `win-x64`, …), unzip, then:
 
 ```sh
@@ -63,7 +59,7 @@ pnpm portable:start -- --vault /path/to/notes --port 3456 --readonly
 
 Artifacts land in `dist/portable/`.
 
-### Directly (fastest inner loop)
+### Dev (fastest inner loop)
 
 ```sh
 pnpm install
@@ -73,7 +69,7 @@ VAULT_PATH=/absolute/path/to/a/markdown/vault pnpm --filter @fluffmind/web dev
 VAULT_PATH=/absolute/path/to/a/markdown/vault VAULT_READONLY=true pnpm --filter @fluffmind/web dev
 ```
 
-### With Docker
+### Docker
 
 ```sh
 cp .env.example .env   # set VAULT_PATH to a real markdown vault
@@ -120,22 +116,7 @@ under `packages/db/drizzle/` (e.g. `0001_*` for GitHub App link columns).
 
 Health check: `GET /api/health` (used by Docker healthcheck).
 
-## Releasing
-
-GitHub Releases are produced by [`.github/workflows/release-portable.yml`](.github/workflows/release-portable.yml).
-
-1. Push a version tag: `git tag v0.1.0 && git push origin v0.1.0`
-2. The workflow builds portable archives on four runners (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win-x64`) and attaches them to the release, plus `SHA256SUMS`.
-3. Or run the workflow manually (**Actions → Release portable → Run workflow**) without creating a GitHub Release (artifacts only). Tag pushes both build **and** publish a Release.
-
-Each asset is an unzip-and-run solo package (embedded Node 22, no Postgres). See [Portable solo](#portable-solo-no-docker-no-postgres) above for end-user instructions.
-
-Local dry-run (current machine only):
-
-```sh
-pnpm package:portable -- --target current
-# → dist/portable/fluffmind-<os>-<arch>.tar.gz|.zip
-```
+---
 
 ## MCP (AI agents)
 
@@ -179,3 +160,35 @@ Example Cursor config (`.cursor/mcp.json`):
 When the Nuxt app is running, agents can connect to **`/api/mcp`** (Streamable HTTP).
 If auth is enabled (`DATABASE_URL` set and `AUTH_DISABLED` not true), the client must
 send the same session cookies as the web UI (or authenticate first).
+
+---
+
+## Releasing
+
+GitHub Releases are produced by [`.github/workflows/release-portable.yml`](.github/workflows/release-portable.yml).
+
+1. Push a version tag: `git tag v0.1.0 && git push origin v0.1.0`
+2. The workflow builds portable archives on four runners (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win-x64`) and attaches them to the release, plus `SHA256SUMS`.
+3. Or run the workflow manually (**Actions → Release portable → Run workflow**) without creating a GitHub Release (artifacts only). Tag pushes both build **and** publish a Release.
+
+Each asset is an unzip-and-run solo package (embedded Node 22, no Postgres). See [Portable solo](#portable-solo-no-docker-no-postgres) above for end-user instructions.
+
+Local dry-run (current machine only):
+
+```sh
+pnpm package:portable -- --target current
+# → dist/portable/fluffmind-<os>-<arch>.tar.gz|.zip
+```
+
+---
+
+## Status & docs
+
+MVP + post-MVP UX are shipped, including distributed workspace lock (P7a) and portable solo packaging (P8a). Multi-disk scale-out and static publish remain deferred under epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
+
+| Doc | Purpose |
+| --- | ------- |
+| [`DESIGN.md`](./DESIGN.md) | Why the architecture looks like this |
+| [`AGENTS.md`](./AGENTS.md) | Conventions and gotchas for humans & agents |
+| [Project board](https://github.com/users/chatondearu/projects/3) | Current work |
+| [Milestones](https://github.com/chatondearu/fluffmind/milestones) | P0 → P7 history |
