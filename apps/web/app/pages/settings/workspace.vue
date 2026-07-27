@@ -54,6 +54,7 @@ const roleOptions: Array<{ value: WorkspaceRole, label: string }> = [
 ]
 
 const organizationName = ref('Workspace')
+const organizationSlug = ref('')
 const members = ref<WorkspaceMember[]>([])
 const invitations = ref<WorkspaceInvitation[]>([])
 const loading = ref(true)
@@ -78,9 +79,12 @@ const githubAppRepository = ref('')
 const githubLastSyncedAt = ref<string | null>(null)
 const githubLinkError = ref<string | null>(null)
 const githubLinkSuccess = ref<string | null>(null)
+const createRepoName = ref('')
+const createRepoPrivate = ref(true)
 const githubSyncError = ref<string | null>(null)
 const githubSyncSuccess = ref<string | null>(null)
 const linkingGitHub = ref(false)
+const creatingGithubRepo = ref(false)
 const loadingGitHubInstallations = ref(false)
 const loadingGitHubRepositories = ref(false)
 const syncingGitHub = ref(false)
@@ -92,6 +96,12 @@ const githubModeLabel = computed(() => {
   if (githubAuthMode.value === 'pat') return 'PAT'
   return 'Non lié'
 })
+const showCreateGithubRepo = computed(() =>
+  githubAppConfigured.value
+  && canManageGitHub.value
+  && !githubAuthMode.value
+  && githubInstallations.value.length > 0,
+)
 const githubInstallationOptions = computed(() => githubInstallations.value.map(installation => ({
   value: installation.installationId,
   label: `${installation.accountLogin} (${installation.accountType === 'Organization' ? 'organisation' : 'compte personnel'})`,
@@ -100,6 +110,11 @@ const githubRepositoryOptions = computed(() => githubInstallationRepositories.va
   value: repository.fullName,
   label: repository.fullName,
 })))
+
+watch(showCreateGithubRepo, (show) => {
+  if (show && !createRepoName.value)
+    createRepoName.value = `fluff-${organizationSlug.value || 'workspace'}`
+})
 
 function formatDate(value: string | null): string {
   if (!value) return 'Inconnue'
@@ -326,6 +341,39 @@ async function linkGitHubRepository() {
   }
 }
 
+async function createGithubRepositoryForWorkspace(): Promise<void> {
+  creatingGithubRepo.value = true
+  githubLinkError.value = null
+  githubLinkSuccess.value = null
+
+  try {
+    const response = await $fetch<{
+      github?: { ok: true, owner: string, repo: string, htmlUrl: string } | { ok: false, message: string }
+      authMode?: string | null
+    }>('/api/workspaces/github/create-and-link', {
+      method: 'POST',
+      body: {
+        installationId: githubInstallationId.value,
+        name: createRepoName.value.trim() || undefined,
+        private: createRepoPrivate.value,
+      },
+    })
+
+    if (response.github && !response.github.ok) {
+      githubLinkError.value = response.github.message
+      return
+    }
+
+    await loadGitHubState()
+    githubLinkSuccess.value = 'Dépôt GitHub créé et lié via GitHub App.'
+  } catch (error) {
+    const asRecordError = error as { data?: { message?: string }, message?: string }
+    githubLinkError.value = asRecordError.data?.message || asRecordError.message || 'Création du dépôt impossible.'
+  } finally {
+    creatingGithubRepo.value = false
+  }
+}
+
 function setLocalOverride(memberId: string, value: boolean): void {
   localOverrides.value = {
     ...localOverrides.value,
@@ -403,6 +451,7 @@ async function loadWorkspaceData(isManualReload = false) {
 
     const fullOrganization = asRecord(extractData(fullOrganizationResponse))
     organizationName.value = asString(fullOrganization.name, 'Workspace')
+    organizationSlug.value = asString(fullOrganization.slug)
     workspaceRole.value = asString(activeWorkspace.member?.role, 'read')
 
     const fullMembers = fullOrganization.members
@@ -590,6 +639,50 @@ await loadWorkspaceData()
         >
           {{ linkingGitHub ? 'Liaison…' : 'Lier via GitHub App' }}
         </FluffmindButton>
+
+        <section v-if="showCreateGithubRepo" class="mt-6 border-t border-outline-variant pt-6">
+          <h3 class="md3-title-sm">
+            Créer un dépôt GitHub
+          </h3>
+          <p class="mt-1 md3-body-md text-on-surface-variant">
+            Crée un dépôt via l’App et le lie à ce workspace (privé par défaut).
+          </p>
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <label class="block">
+              <span class="mb-2 block md3-label-lg">Installation GitHub App</span>
+              <FluffmindSelect
+                :model-value="githubInstallationId"
+                :options="githubInstallationOptions"
+                placeholder="Choisir une installation"
+                :disabled="loadingGitHubInstallations || !canManageGitHub"
+                @update:model-value="selectGitHubInstallation"
+              />
+            </label>
+            <label class="block">
+              <span class="mb-2 block md3-label-lg">Nom du dépôt</span>
+              <FluffmindTextField
+                v-model="createRepoName"
+                type="text"
+                placeholder="fluff-workspace"
+              />
+            </label>
+            <div class="flex items-end">
+              <FluffmindCheckbox
+                :model-value="createRepoPrivate"
+                @update:model-value="createRepoPrivate = $event"
+              >
+                Dépôt privé
+              </FluffmindCheckbox>
+            </div>
+          </div>
+          <FluffmindButton
+            class="mt-4"
+            :disabled="creatingGithubRepo || !githubInstallationId || !canManageGitHub"
+            @click="createGithubRepositoryForWorkspace"
+          >
+            {{ creatingGithubRepo ? 'Création…' : 'Créer un dépôt' }}
+          </FluffmindButton>
+        </section>
       </section>
 
       <section class="border-t border-outline-variant pt-6">
