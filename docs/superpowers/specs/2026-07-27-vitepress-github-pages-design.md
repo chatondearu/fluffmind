@@ -71,8 +71,11 @@ One-time operator step: repo **Settings → Pages → Source = GitHub Actions**.
 | Home | Tagline, what Fluffmind is, CTAs (get started / GitHub) |
 | Getting started | Portable solo, local `pnpm` dev, Docker |
 | Self-hosting | Coolify compose, core env vars, health check |
-| GitHub sync & auth | OAuth App, optional GitHub App, webhooks (from README) |
+| GitHub sync & auth | OAuth App (login) vs GitHub App (repo access), webhooks overview, PAT fallback |
+| GitHub App setup | Full self-hosted guide from README § *GitHub App setup*: create App, permissions, env (`GITHUB_APP_*`), install on org, bind one repo per workspace; call out that **auto-creating a GitHub repo on workspace create is not shipped yet** (link existing repo today) |
 | MCP for AI agents | stdio + HTTP, tool table, Cursor example |
+
+Sidebar: nest **GitHub App setup** under Guide next to **GitHub sync & auth** (or as a child of the latter). Source of truth for the long procedural steps: root `README.md` § GitHub App setup (self-hosted) — keep the docs page in sync when that section changes.
 
 ### Contribute
 
