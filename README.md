@@ -4,7 +4,7 @@
 
 Self-hostable, git-backed personal knowledge management — an open-source alternative to Obsidian. Your notes stay plain markdown + wikilinks in a Git repo (no lock-in). Fluffmind adds a modern web UI, server-side sync, and an MCP bridge for AI agents.
 
-[Project board](https://github.com/users/chatondearu/projects/3) · [Milestones](https://github.com/chatondearu/fluffmind/milestones) · [Releases](https://github.com/chatondearu/fluffmind/releases)
+[Docs](https://chatondearu.github.io/fluffmind/) · [Project board](https://github.com/users/chatondearu/projects/3) · [Milestones](https://github.com/chatondearu/fluffmind/milestones) · [Releases](https://github.com/chatondearu/fluffmind/releases)
 
 ---
 
@@ -128,6 +128,8 @@ per-workspace PAT. One installation can back many workspaces (one repo each).
 > **Today:** Fluffmind **links** an existing repository (create the empty repo on
 > GitHub first, or pick an existing vault repo). Auto-creating a new GitHub repo when
 > you create a Fluffmind workspace is **not** shipped yet (follow-up).
+
+See also: [Docs → GitHub App setup](https://chatondearu.github.io/fluffmind/guide/github-app-setup)
 
 #### 1. Create the GitHub App
 
