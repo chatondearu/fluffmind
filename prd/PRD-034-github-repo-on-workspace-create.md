@@ -5,7 +5,7 @@
 - **Tags**: #product #auth #github #workspaces
 - **Depends on**: [[PRD-033-github-app-installations|PRD-033]], [[../foam/decisions/ADR-009-github-app-installations|ADR-009]]
 - **Design spec**: `docs/superpowers/specs/2026-07-27-github-repo-on-workspace-create-design.md`
-- **Plan**: _(after design approval → writing-plans)_
+- **Plan**: [[../plans/PLAN-034-github-repo-on-workspace-create|PLAN-034]] · `docs/superpowers/plans/2026-07-27-github-repo-on-workspace-create.md`
 - **ADR**: extends ADR-009 (no new ADR; credential model unchanged)
 
 ## Problem
@@ -92,4 +92,5 @@ manual `acme/…` repo before Fluffmind can bind and push.
 
 ## Implementation pointer
 
-Detailed plan: _(pending writing-plans after spec review)_
+Detailed plan: `docs/superpowers/plans/2026-07-27-github-repo-on-workspace-create.md`  
+Pointer: [[../plans/PLAN-034-github-repo-on-workspace-create|PLAN-034]]
