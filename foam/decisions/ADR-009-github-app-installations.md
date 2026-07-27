@@ -41,8 +41,15 @@ GitHub OAuth App credentials already handle **user login**. They are the wrong t
 - **Constraint**: Do not persist long-lived installation tokens; mint on demand.
 - **Constraint**: Server remains the only Git writer (ADR-002).
 
+## Follow-ups
+
+- [[../../prd/PRD-034-github-repo-on-workspace-create|PRD-034]] — create a GitHub repository
+  at workspace creation (requires Repository **Administration** Read & write on the App).
+
 ## References
 
 - [[ADR-006-better-auth-workspaces|ADR-006]]
 - [[../../prd/PRD-033-github-app-installations|PRD-033]]
+- [[../../prd/PRD-034-github-repo-on-workspace-create|PRD-034]]
 - `docs/superpowers/specs/2026-07-24-github-app-installations-design.md`
+- `docs/superpowers/specs/2026-07-27-github-repo-on-workspace-create-design.md`
