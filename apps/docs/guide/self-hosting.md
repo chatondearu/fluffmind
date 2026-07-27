@@ -34,7 +34,7 @@ workspace.
 
 For multi-workspace and multi-repository autonomy without pasting personal access
 tokens, configure a GitHub App. Follow the dedicated
-<a href="./github-app-setup">GitHub App setup</a> guide.
+[GitHub App setup](./github-app-setup) guide.
 
 ## Webhooks, schema, and health checks
 
