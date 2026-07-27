@@ -1,5 +1,12 @@
 import { mkdir } from 'node:fs/promises'
 import { getAuth, getDb, workspaceConfig } from '@fluffmind/db'
+import { buildGitHubHttpsRemoteUrl } from '@fluffmind/integrations'
+import type { CreateGithubRepoBody } from '../../utils/github-create-repo'
+import {
+  assertCanCreateGithubRepo,
+  createAndLinkGithubRepo,
+  parseCreateGithubRepoBody,
+} from '../../utils/github-create-repo'
 import { readJsonBody } from '../../utils/read-json-body'
 import { ACTIVE_WORKSPACE_COOKIE, getWorkspaceVaultPath } from '../../vault/workspace'
 import { isAuthEnabled, requireSession } from '../../utils/auth'
@@ -10,6 +17,7 @@ interface CreateWorkspaceBody {
   logo?: string | null
   gitRemoteUrl?: string | null
   gitBranch?: string
+  createGithubRepo?: CreateGithubRepoBody | false
 }
 
 interface CreatedOrganization {
@@ -81,6 +89,19 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const createGithubRepo = body.createGithubRepo
+    ? parseCreateGithubRepoBody(body.createGithubRepo)
+    : null
+  if (body.createGithubRepo && !createGithubRepo) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid payload',
+      message: '"installationId" is required.'
+    })
+  }
+  if (createGithubRepo)
+    await assertCanCreateGithubRepo(createGithubRepo)
+
   const created = await getAuth().api.createOrganization({
     headers: event.headers,
     body: {
@@ -104,6 +125,17 @@ export default defineEventHandler(async (event) => {
     gitRemoteUrl
   })
 
+  const github = createGithubRepo
+    ? await createAndLinkGithubRepo({
+        workspaceId: organization.id,
+        workspaceSlug: organization.slug,
+        input: createGithubRepo,
+      })
+    : undefined
+  const linkedGitRemoteUrl = github?.ok
+    ? buildGitHubHttpsRemoteUrl(github.owner, github.repo)
+    : gitRemoteUrl
+
   setCookie(event, ACTIVE_WORKSPACE_COOKIE, organization.id, {
     path: '/',
     sameSite: 'lax',
@@ -116,7 +148,8 @@ export default defineEventHandler(async (event) => {
       organizationId: organization.id,
       vaultPath,
       gitBranch,
-      gitRemoteUrl
-    }
+      gitRemoteUrl: linkedGitRemoteUrl
+    },
+    ...(github ? { github } : {})
   }
 })
