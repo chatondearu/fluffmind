@@ -27,3 +27,10 @@ export { createAppJwt, createInstallationToken } from './github/app-auth'
 export type { GitHubAppCredentials, InstallationTokenOptions } from './github/app-auth'
 
 export { buildGitHubHttpsRemoteUrl, withGitHubAccessToken } from './github/remote-url'
+
+export { createGithubRepository, GithubApiError } from './github/create-repo'
+export type {
+  CreateGithubRepositoryInput,
+  CreatedGithubRepository,
+  GithubAccountType,
+} from './github/create-repo'
