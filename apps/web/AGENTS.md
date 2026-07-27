@@ -60,7 +60,9 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   tokens at rest (`github-token-crypto.ts`).
 - `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` — optional; when both set, enables GitHub
   App install flow and installation-token git/sync for workspaces in `authMode=app`.
-  PEM key supports `\n` escapes in `.env`.
+  App permissions: Contents R/W, Metadata R, Administration R/W (create repos on
+  workspace create), Members/collaborators R. Re-approve the install after adding
+  Administration. PEM key supports `\n` escapes in `.env`.
 - `GITHUB_APP_SLUG` — optional; required for `GET /api/github/app/install-url` (install
   button in settings).
 - `GITHUB_APP_WEBHOOK_SECRET` — optional; preferred webhook HMAC secret for

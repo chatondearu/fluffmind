@@ -67,7 +67,9 @@ P2 env vars are now part of the standard environment shape:
 - `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` / `GITHUB_APP_SLUG` / `GITHUB_APP_WEBHOOK_SECRET`
   (optional) — per-instance GitHub App for workspace repo linking via installation tokens;
   PAT linking remains fallback when unset. App permissions: Contents R/W, Metadata R,
-  Members/collaborators R. Webhook secret falls back to `GITHUB_WEBHOOK_SECRET`.
+  Administration R/W (create repos on workspace create), Members/collaborators R.
+  Webhook secret falls back to `GITHUB_WEBHOOK_SECRET`. After adding Administration,
+  operators must re-approve the App install on GitHub.
   Operator Coolify checklist: root `README.md` § Deploying (Coolify).
   Step-by-step GitHub App creation: root `README.md` § GitHub App setup (self-hosted).
 

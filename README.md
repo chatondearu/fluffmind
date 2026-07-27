@@ -125,9 +125,13 @@ With a GitHub App configured, an org admin installs it once, then each Fluffmind
 **workspace** binds **one repository** under Settings → workspace (mode `app`). No
 per-workspace PAT. One installation can back many workspaces (one repo each).
 
-> **Today:** Fluffmind **links** an existing repository (create the empty repo on
-> GitHub first, or pick an existing vault repo). Auto-creating a new GitHub repo when
-> you create a Fluffmind workspace is **not** shipped yet (follow-up).
+When creating a workspace, owners can optionally tick **Créer un dépôt GitHub** to
+create and link a new repository (default name `fluff-<slug>`, private) in one step.
+You can still link an existing repo instead. If GitHub creation fails, the workspace
+is still created — retry from **Settings → workspace** via **Créer un dépôt**.
+
+> **Operators:** after adding the **Administration** permission below, **re-approve**
+> the App installation on GitHub so the new scope takes effect.
 
 #### 1. Create the GitHub App
 
@@ -146,6 +150,7 @@ per-workspace PAT. One installation can back many workspaces (one repo each).
    | ---------- | ------ | --- |
    | Contents | Read & write | clone / commit / push vault |
    | Metadata | Read | required |
+   | Administration | Read & write | create repositories for new workspaces |
    | Members (or collaborate via repo collaborators API) | Read | hybrid role sync |
 
    Subscribe to events: **Push**, **Installation**, **Installation repositories**.
@@ -177,13 +182,16 @@ are present.
 1. Sign in as a workspace **owner**.
 2. **Settings → workspace** → if the App is configured, use **Installer l’application**
    (or open `https://github.com/apps/<slug>/installations/new`).
-3. On GitHub, choose the org/user and which repositories the App may access
-   (all, or a selection).
+3. On GitHub, choose the org/user and which repositories the App may access.
+   Prefer **All repositories** so new repos created from Fluffmind are covered
+   automatically. With **Only select repositories**, you must re-add each new repo
+   to the installation (or re-approve access) after creation.
 4. Back in Fluffmind: **Actualiser les installations** → pick installation → pick
-   **one repo per workspace** → link (mode App).
-5. For each additional workspace: create the vault workspace in Fluffmind, ensure the
-   target GitHub repo exists and is included in the App’s repo access, then bind it
-   the same way.
+   **one repo per workspace** → link (mode App), or use **Créer un dépôt GitHub** when
+   creating a workspace.
+5. For each additional workspace: create it in Fluffmind with the optional GitHub
+   checkbox, use **Créer un dépôt** in Settings if linking failed, or bind an
+   existing repo the same way as step 4.
 
 After linking, collaborator sync and git push/pull use short-lived **installation
 tokens** (no PAT stored for that workspace). PAT « Fallback » remains available if the
