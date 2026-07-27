@@ -43,6 +43,6 @@ cp .env.example .env
 ./scripts/stack-local.sh
 ```
 
-Or `docker compose up --build` → http&#58;//localhost&#58;3000
+Or `docker compose up --build` → `http://localhost:3000`
 
 Next: [Self-hosting](./self-hosting) · [MCP](./mcp)
