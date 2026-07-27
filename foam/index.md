@@ -43,9 +43,9 @@ Index: [[decisions/index|All ADRs]]
 | [[../prd/PRD-031-p7-distributed-workspace-lock|PRD-031 P7a lock]] | [[../plans/PLAN-031-p7-distributed-workspace-lock|PLAN-031]] | shipped |
 | [[../prd/PRD-032-portable-solo-package|PRD-032 portable solo]] | [[../plans/PLAN-032-portable-solo-package|PLAN-032]] | shipped |
 | [[../prd/PRD-033-github-app-installations|PRD-033 GitHub App]] | [[../plans/PLAN-033-github-app-installations|PLAN-033]] | shipped |
-| [[../prd/PRD-034-github-repo-on-workspace-create|PRD-034 create GitHub repo]] | [[../plans/PLAN-034-github-repo-on-workspace-create|PLAN-034]] | draft |
+| [[../prd/PRD-034-github-repo-on-workspace-create|PRD-034 create GitHub repo]] | [[../plans/PLAN-034-github-repo-on-workspace-create|PLAN-034]] | in progress |
 
-**Next:** PRD-034 (create GitHub repo on workspace create); dogfood portable package / optional P8b folder picker; remaining stretch under [#28](https://github.com/chatondearu/fluffmind/issues/28) (P7b/c). Kanban → foam last synced 2026-07-23 (`./scripts/import-kanban.sh`).
+**Next:** PRD-034 / [[../plans/PLAN-034-github-repo-on-workspace-create|PLAN-034]] (create GitHub repo on workspace create — in progress); dogfood portable package / optional P8b folder picker; remaining stretch under [#28](https://github.com/chatondearu/fluffmind/issues/28) (P7b/c). Kanban → foam last synced 2026-07-23 (`./scripts/import-kanban.sh`).
 
 - PRD template: `prd/template.md`
 - Plan template: `plans/template.md`
