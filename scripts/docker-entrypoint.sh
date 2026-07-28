@@ -22,8 +22,9 @@ if [ "${AUTH_DISABLED:-true}" != "true" ] && [ -n "${DATABASE_URL:-}" ]; then
   attempt=1
   max_attempts=30
   while true; do
-    # Run from Nitro server dir so ESM can resolve drizzle-orm/pg (NODE_PATH is ignored for ESM).
-    if su-exec fluffmind:nodejs node /app/.output/server/run-migrations.mjs; then
+    # Dedicated /app/migrate install (full drizzle-orm incl. migrator). Nitro's
+    # traced node_modules omit migrator; NODE_PATH is ignored for ESM anyway.
+    if su-exec fluffmind:nodejs node /app/migrate/run-migrations.mjs; then
       break
     fi
     if [ "$attempt" -ge "$max_attempts" ]; then
