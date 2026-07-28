@@ -52,10 +52,16 @@ ENV NODE_ENV=production
 RUN apk add --no-cache git su-exec
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 fluffmind
 COPY --from=builder --chown=fluffmind:nodejs /app/apps/web/.output ./.output
-# Migrations must live next to Nitro's node_modules: Node ESM ignores NODE_PATH, so
-# `run-migrations.mjs` has to resolve `drizzle-orm` / `pg` from this directory.
-COPY --from=builder --chown=fluffmind:nodejs /app/packages/db/drizzle ./.output/server/drizzle
-COPY --chown=fluffmind:nodejs scripts/run-migrations.mjs ./.output/server/run-migrations.mjs
+# Nitro only traces the drizzle-orm files the server imports — not
+# `drizzle-orm/node-postgres/migrator`. Node ESM also ignores NODE_PATH, so a
+# tiny dedicated install is required for the entrypoint migrator.
+WORKDIR /app/migrate
+COPY scripts/migrate/package.json ./package.json
+RUN npm install --omit=dev \
+  && chown -R fluffmind:nodejs /app/migrate
+COPY --chown=fluffmind:nodejs scripts/run-migrations.mjs ./run-migrations.mjs
+COPY --from=builder --chown=fluffmind:nodejs /app/packages/db/drizzle ./drizzle
+WORKDIR /app
 COPY scripts/docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
