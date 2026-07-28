@@ -14,13 +14,26 @@ fix_volume() {
 fix_volume "${VAULT_PATH:-}"
 fix_volume "${WORKSPACES_ROOT:-}"
 
+# When auth is on, migrate before the Node server starts. Postgres may still be
+# booting even with Compose depends_on (container start ≠ accepting connections),
+# so retry briefly instead of exiting once and looping forever under restart policies.
 if [ "${AUTH_DISABLED:-true}" != "true" ] && [ -n "${DATABASE_URL:-}" ]; then
   echo "[entrypoint] running database migrations…"
-  NODE_PATH=/app/.output/server/node_modules \
-    su-exec fluffmind:nodejs node /app/run-migrations.mjs || {
-    echo "[entrypoint] database migration failed" >&2
-    exit 1
-  }
+  attempt=1
+  max_attempts=30
+  while true; do
+    if NODE_PATH=/app/.output/server/node_modules \
+      su-exec fluffmind:nodejs node /app/run-migrations.mjs; then
+      break
+    fi
+    if [ "$attempt" -ge "$max_attempts" ]; then
+      echo "[entrypoint] database migration failed after ${max_attempts} attempts" >&2
+      exit 1
+    fi
+    echo "[entrypoint] migration attempt ${attempt}/${max_attempts} failed; retrying in 2s…" >&2
+    attempt=$((attempt + 1))
+    sleep 2
+  done
 fi
 
 exec su-exec fluffmind:nodejs "$@"

@@ -107,10 +107,13 @@ PATs, follow [GitHub App setup (self-hosted)](#github-app-setup-self-hosted) bel
 **Webhooks:** point GitHub at `POST {BETTER_AUTH_URL}/api/webhooks/github` (push +
 installation events when using a GitHub App).
 
-**Schema:** after deploy, run Drizzle migrations against Postgres when new SQL lands
-under `packages/db/drizzle/` (e.g. `0001_*` for GitHub App link columns).
+**Schema:** with `AUTH_DISABLED=false`, the container entrypoint applies Drizzle
+migrations automatically (with retries until Postgres accepts connections). Solo
+mode skips this. New SQL under `packages/db/drizzle/` is applied on the next
+auth-enabled deploy.
 
-Health check: `GET /api/health` (used by Docker healthcheck).
+Health check: `GET /api/health` (used by Docker healthcheck). With auth on, the
+web service waits for Postgres to be healthy before starting.
 
 ### GitHub App setup (self-hosted)
 
