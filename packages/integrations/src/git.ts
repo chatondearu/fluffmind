@@ -53,10 +53,8 @@ function gitHttpsAuthArgs(accessToken?: string): string[] {
     return []
 
   const basic = Buffer.from(`x-access-token:${accessToken}`, 'utf8').toString('base64')
-  return [
-    '-c', 'credential.helper=',
-    '-c', `http.extraHeader=Authorization: Basic ${basic}`,
-  ]
+  // Do not set credential.helper via -c: simple-git blocks it unless allowUnsafeCredentialHelper.
+  return ['-c', `http.extraHeader=Authorization: Basic ${basic}`]
 }
 
 export function isGitAuthErrorMessage(message: string): boolean {
