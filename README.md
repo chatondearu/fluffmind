@@ -144,12 +144,23 @@ See also: [Docs → GitHub App setup](https://chatondearu.github.io/fluffmind/gu
    (user or org that will own the App credentials for this Fluffmind instance).
 2. **GitHub App name** / slug — remember the slug (`GITHUB_APP_SLUG`).
 3. **Homepage URL:** your public Fluffmind URL (`BETTER_AUTH_URL`).
-4. **Webhook:**
+4. **Callback URL** (user authorization / OAuth — required for GitHub login):
+
+   ```text
+   {BETTER_AUTH_URL}/api/auth/callback/github
+   ```
+
+   Example: `https://fluffmind.example.com/api/auth/callback/github`.
+
+   After creating the App, copy its **Client ID** and generate a **Client secret** →
+   `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`. (Alternatively use a separate GitHub
+   **OAuth App** with the same callback URL.)
+5. **Webhook:**
    - Active: yes
    - Webhook URL: `https://<your-fluffmind-host>/api/webhooks/github`
    - Webhook secret: generate one → `GITHUB_APP_WEBHOOK_SECRET` (preferred) or
      `GITHUB_WEBHOOK_SECRET`
-5. **Permissions** (Repository):
+6. **Permissions** (Repository):
 
    | Permission | Access | Why |
    | ---------- | ------ | --- |
@@ -160,19 +171,24 @@ See also: [Docs → GitHub App setup](https://chatondearu.github.io/fluffmind/gu
 
    Subscribe to events: **Push**, **Installation**, **Installation repositories**.
 
-6. Create the App → note **App ID** (`GITHUB_APP_ID`).
-7. **Generate a private key** → download the `.pem` → store as
+7. Create the App → note **App ID** (`GITHUB_APP_ID`).
+8. **Generate a private key** → download the `.pem` → store as
    `GITHUB_APP_PRIVATE_KEY` (in Coolify / `.env`, put the PEM on one line with `\n`
    for newlines).
-8. Under **Install App**, you will install on the org/user after Fluffmind env is set
+9. Under **Install App**, you will install on the org/user after Fluffmind env is set
    (or use Fluffmind Settings → « Installer l’application » once `GITHUB_APP_SLUG` is
    set).
 
 #### 2. Coolify / env
 
-Set on the Fluffmind instance (in addition to Better Auth + OAuth login):
+Set on the Fluffmind instance (in addition to Better Auth):
 
 ```sh
+# Login — Client ID/secret from the GitHub App (or a separate OAuth App)
+GITHUB_CLIENT_ID=Iv1.xxxxxxxx
+GITHUB_CLIENT_SECRET=xxxxxxxx
+# Callback on GitHub must be: {BETTER_AUTH_URL}/api/auth/callback/github
+
 GITHUB_APP_ID=123456
 GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 GITHUB_APP_SLUG=your-app-slug
@@ -180,7 +196,7 @@ GITHUB_APP_WEBHOOK_SECRET=your-webhook-secret
 ```
 
 Redeploy. `GET /api/github/app/status` should report configured when ID + private key
-are present.
+are present. GitHub login appears on `/login` when the client ID/secret are set.
 
 #### 3. Install on the org and bind repos
 

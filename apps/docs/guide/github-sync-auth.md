@@ -9,20 +9,23 @@ Fluffmind uses two GitHub integrations for separate jobs:
 
 ## OAuth App for login
 
-To let users sign in with GitHub, create a GitHub **OAuth App** and configure its
-client ID and client secret:
+To let users sign in with GitHub, create a GitHub **OAuth App** *or* use the
+**Client ID / Client secret** of your GitHub App (see [GitHub App setup](./github-app-setup)),
+and configure:
 
 ```sh
 GITHUB_CLIENT_ID=your-client-id
 GITHUB_CLIENT_SECRET=your-client-secret
 ```
 
-Set its authorization callback URL to:
+Set the authorization **Callback URL** (OAuth App, or the GitHub App “Callback URL”
+field) to:
 
 ```text
 {BETTER_AUTH_URL}/api/auth/callback/github
 ```
 
+Example: `https://fluffmind.example.com/api/auth/callback/github`.
 ## GitHub App for repository access
 
 A GitHub App is optional. It lets an organization administrator install access once,

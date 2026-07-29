@@ -4,7 +4,7 @@ Fluffmind uses two GitHub integrations on purpose:
 
 | Integration | Environment variables | Role |
 | ----------- | --------------------- | ---- |
-| **OAuth App** | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | User **login** only |
+| **OAuth credentials** (GitHub App Client ID/secret, or a separate OAuth App) | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | User **login** only — callback `{BETTER_AUTH_URL}/api/auth/callback/github` |
 | **GitHub App** | `GITHUB_APP_*` | **Repository access** for workspaces (clone, push, and collaborator sync) |
 
 With a GitHub App configured, an organization administrator installs it once, then
@@ -23,35 +23,59 @@ back many workspaces, with one repository per workspace.
    Fluffmind instance.
 2. Set the **GitHub App name** and slug. Keep the slug for `GITHUB_APP_SLUG`.
 3. Set the **Homepage URL** to your public Fluffmind URL (`BETTER_AUTH_URL`).
-4. Configure the webhook:
+4. Set the **Callback URL** (user authorization / OAuth callback) to:
+
+   ```text
+   {BETTER_AUTH_URL}/api/auth/callback/github
+   ```
+
+   Example: `https://fluffmind.example.com/api/auth/callback/github`.
+
+   This URL is required for **GitHub login** in Fluffmind (Better Auth). After creating
+   the App, copy its **Client ID** and generate a **Client secret**, then set them as
+   `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` on the instance.
+
+   You may instead create a separate GitHub **OAuth App** for login only; use the same
+   callback URL on that OAuth App. Do not leave the callback empty if users should be
+   able to sign in with GitHub.
+
+   Optional: enable **Request user authorization (OAuth) during installation** if you
+   want GitHub to prompt for user identity when the App is installed.
+5. Configure the webhook:
    - Active: yes
    - Webhook URL: `https://<your-fluffmind-host>/api/webhooks/github`
    - Webhook secret: generate one, then set `GITHUB_APP_WEBHOOK_SECRET` (preferred) or
      `GITHUB_WEBHOOK_SECRET`.
-5. Grant these repository permissions:
+6. Grant these repository permissions:
 
    | Permission | Access | Why |
    | ---------- | ------ | --- |
    | Contents | Read & write | Clone, commit, and push the vault |
    | Metadata | Read | Required by GitHub |
+   | Administration | Read & write | Create repositories on workspace create (optional) |
    | Members (or collaborate through the repository collaborators API) | Read | Hybrid role sync |
 
    Subscribe to the **Push**, **Installation**, and **Installation repositories**
    events.
-6. Create the App and record its **App ID** for `GITHUB_APP_ID`.
-7. Generate a private key, download the `.pem` file, and store it as
+7. Create the App and record its **App ID** for `GITHUB_APP_ID`.
+8. Generate a private key, download the `.pem` file, and store it as
    `GITHUB_APP_PRIVATE_KEY`. In Coolify or `.env`, put the PEM on one line with `\n`
    for newlines.
-8. Under **Install App**, install it on the organization or user after setting the
+9. Under **Install App**, install it on the organization or user after setting the
    Fluffmind environment. You can also use Fluffmind Settings →
    **Installer l’application** once `GITHUB_APP_SLUG` is set.
 
 ## 2. Configure Coolify or the environment
 
-Set these variables on the Fluffmind instance, in addition to Better Auth and OAuth
-login variables:
+Set these variables on the Fluffmind instance, in addition to Better Auth:
 
 ```sh
+# Login (Client ID / secret from the GitHub App, or from a separate OAuth App)
+GITHUB_CLIENT_ID=Iv1.xxxxxxxx
+GITHUB_CLIENT_SECRET=xxxxxxxx
+# Callback URL configured on GitHub must be: {BETTER_AUTH_URL}/api/auth/callback/github
+
+# Repository access (GitHub App)
 GITHUB_APP_ID=123456
 GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 GITHUB_APP_SLUG=your-app-slug
@@ -59,7 +83,8 @@ GITHUB_APP_WEBHOOK_SECRET=your-webhook-secret
 ```
 
 Redeploy the instance. `GET /api/github/app/status` reports `configured` when the App
-ID and private key are present.
+ID and private key are present. GitHub login appears on `/login` when
+`GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are set.
 
 ## 3. Install on the organization and bind repositories
 
