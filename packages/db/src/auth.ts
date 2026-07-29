@@ -5,6 +5,7 @@ import { organization } from 'better-auth/plugins'
 import { and, count, eq } from 'drizzle-orm'
 
 import { getDb } from './client'
+import { resolveGithubAuthEmail } from './github-auth-email'
 import { ac, roles } from './permissions'
 import * as schema from './schema/index'
 import { canCreateUser, isPublicSignupEnabled } from './signup-policy'
@@ -35,6 +36,12 @@ function createAuth() {
           github: {
             clientId: process.env.GITHUB_CLIENT_ID,
             clientSecret: process.env.GITHUB_CLIENT_SECRET,
+            mapProfileToUser(profile) {
+              return {
+                email: resolveGithubAuthEmail(profile),
+                name: profile.name || profile.login || undefined,
+              }
+            },
           },
         }
       : {},

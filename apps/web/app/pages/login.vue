@@ -27,6 +27,16 @@ const infoMessage = computed(() => {
   return null
 })
 
+const oauthErrorMessage = computed(() => {
+  const error = route.query.error
+  if (typeof error !== 'string')
+    return null
+  if (error === 'email_not_found') {
+    return 'GitHub n’a pas fourni d’email. Vérifie que l’App GitHub a la permission « Email addresses: Read-only », ou réessaie — un email noreply GitHub sera utilisé si besoin.'
+  }
+  return `Connexion GitHub impossible (${error}).`
+})
+
 function extractErrorMessage(error: unknown): string {
   const asRecord = error as { message?: string, statusText?: string }
   return asRecord?.message ?? asRecord?.statusText ?? 'Login failed.'
@@ -84,6 +94,9 @@ async function loginWithGitHub() {
 
       <p v-if="infoMessage" class="mt-2 mb-4 md3-body-md text-tertiary">
         {{ infoMessage }}
+      </p>
+      <p v-if="oauthErrorMessage" class="mt-2 mb-4 md3-body-md text-error">
+        {{ oauthErrorMessage }}
       </p>
 
       <form class="flex flex-col gap-4" @submit.prevent="loginWithEmail">

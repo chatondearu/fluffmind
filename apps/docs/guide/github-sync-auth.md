@@ -26,7 +26,11 @@ field) to:
 ```
 
 Example: `https://fluffmind.example.com/api/auth/callback/github`.
-## GitHub App for repository access
+
+If you use a **GitHub App** for login credentials, also grant **Account permissions →
+Email addresses → Read-only**. When GitHub still omits an email (private address /
+missing permission), Fluffmind synthesizes `{id}+{login}@users.noreply.github.com`
+so sign-in can complete.## GitHub App for repository access
 
 A GitHub App is optional. It lets an organization administrator install access once,
 then lets workspace owners bind repositories without storing a personal access token

@@ -35,6 +35,12 @@ back many workspaces, with one repository per workspace.
    the App, copy its **Client ID** and generate a **Client secret**, then set them as
    `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` on the instance.
 
+   Under **Account permissions**, set **Email addresses** to **Read-only**. Without this
+   permission, GitHub often returns no email and login used to fail with
+   `error=email_not_found`. Fluffmind now falls back to a GitHub noreply address
+   (`{id}+{login}@users.noreply.github.com`) when no email is available, but the
+   permission is still recommended so real emails can be stored when the user allows it.
+
    You may instead create a separate GitHub **OAuth App** for login only; use the same
    callback URL on that OAuth App. Do not leave the callback empty if users should be
    able to sign in with GitHub.
