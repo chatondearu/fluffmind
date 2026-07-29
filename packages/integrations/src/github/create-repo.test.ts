@@ -24,7 +24,6 @@ describe('createGithubRepository', () => {
         accountType: 'Organization',
         name: 'fluff-docs',
         private: true,
-        autoInit: true,
         fetchImpl: fetchImpl as unknown as typeof fetch,
       }),
     ).resolves.toEqual({
@@ -45,7 +44,8 @@ describe('createGithubRepository', () => {
         body: JSON.stringify({
           name: 'fluff-docs',
           private: true,
-          auto_init: true,
+          // Empty remote: avoids README vs local welcome.md rebase conflicts.
+          auto_init: false,
         }),
       }),
     )

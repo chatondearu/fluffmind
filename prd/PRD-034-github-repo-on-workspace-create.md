@@ -54,7 +54,7 @@ manual `acme/…` repo before Fluffmind can bind and push.
 - [ ] `POST /api/workspaces` accepts optional `createGithubRepo: { installationId, name?, private? } | false`
 - [ ] Default repo name server-side: `fluff-<slug>` when `name` omitted
 - [ ] Default visibility: private (`private: true`)
-- [ ] On success: create repo (`auto_init: true`), upsert `workspace_github_link` (`authMode=app`), set `gitRemoteUrl`
+- [ ] On success: create repo (`auto_init: false`, empty remote), upsert `workspace_github_link` (`authMode=app`), set `gitRemoteUrl`
 - [ ] On GitHub failure after workspace create: HTTP success for workspace + `github: { ok: false, message }`
 - [ ] `POST /api/workspaces/github/create-and-link` for retry on an existing unlinked (or unlink-first) workspace
 - [ ] UI create form: checkbox + installation select + name + private toggle when App ready
@@ -82,7 +82,7 @@ manual `acme/…` repo before Fluffmind can bind and push.
 | Failure | Keep workspace; error + Settings retry |
 | Approach | Extend `POST /api/workspaces` (not client double-call / async job) |
 | Permission | Repository **Administration: Read and write** (required for `POST /orgs/{org}/repos`) |
-| Empty repo | `auto_init: true` (minimal README) so clone works immediately |
+| Empty repo | `auto_init: false` — avoid README vs local vault rebase conflicts; first Fluffmind push creates `main` |
 
 ## Success metrics
 

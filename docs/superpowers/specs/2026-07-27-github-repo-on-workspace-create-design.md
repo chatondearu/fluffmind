@@ -37,7 +37,7 @@ one flow.
 | Failure | Keep workspace; `github.ok: false`; retry from Settings |
 | Approach | Extend `POST /api/workspaces` |
 | Retry API | `POST /api/workspaces/github/create-and-link` |
-| Empty repo | `auto_init: true` |
+| Empty repo | `auto_init: false` (first Fluffmind push creates the branch; avoids README conflicts) |
 | Auth model | Unchanged ADR-009 (`authMode=app` + installation token) |
 
 ## Architecture

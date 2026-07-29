@@ -109,7 +109,7 @@ export async function createAndLinkGithubRepo(options: {
       accountType,
       name: options.input.name?.trim() || defaultGithubRepoName(options.workspaceSlug),
       private: options.input.private ?? true,
-      autoInit: true,
+      autoInit: false,
     })
   }
   catch (error) {

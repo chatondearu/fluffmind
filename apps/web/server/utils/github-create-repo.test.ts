@@ -162,7 +162,7 @@ describe('createAndLinkGithubRepo', () => {
       expect.objectContaining({
         name: 'fluff-docs',
         private: true,
-        autoInit: true,
+        autoInit: false,
         accountType: 'Organization',
         accountLogin: 'acme',
       }),

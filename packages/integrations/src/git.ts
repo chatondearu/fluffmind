@@ -35,8 +35,31 @@ async function ensureCommitIdentity(git: SimpleGit): Promise<void> {
 }
 
 /**
+ * True when the remote exists but has no refs yet (e.g. GitHub repo created without
+ * `auto_init`). `git clone --branch` fails on those; we init locally and push later.
+ */
+async function remoteHasRefs(remoteUrl: string): Promise<boolean> {
+  try {
+    const refs = await simpleGit().listRemote([remoteUrl])
+    return refs.trim().length > 0
+  }
+  catch {
+    return false
+  }
+}
+
+async function ensureOriginRemote(git: SimpleGit, remoteUrl: string): Promise<void> {
+  const remotes = await git.getRemotes(true)
+  if (remotes.some(remote => remote.name === 'origin'))
+    await git.remote(['set-url', 'origin', remoteUrl])
+  else
+    await git.addRemote('origin', remoteUrl)
+}
+
+/**
  * Prepares the server-side working copy for a workspace:
- * - empty/missing path + remote configured: clone.
+ * - empty/missing path + remote with commits: clone.
+ * - empty/missing path + empty remote (no branches): `git init` + `remote add origin`.
  * - empty/missing path, no remote: `git init` a fresh local repo.
  * - existing files but not yet a repo, no remote: `git init` in place, adopting the
  *   existing files (local-only self-hosting on top of a pre-existing plain folder).
@@ -50,9 +73,18 @@ export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<Simp
 
   if (await isEmptyDir(path)) {
     if (remoteUrl) {
-      await simpleGit().clone(networkRemoteUrl || remoteUrl, path, ['--branch', branch, '--single-branch'])
-      git = simpleGit(path)
-      await git.remote(['set-url', 'origin', remoteUrl])
+      const fetchUrl = networkRemoteUrl || remoteUrl
+      if (await remoteHasRefs(fetchUrl)) {
+        await simpleGit().clone(fetchUrl, path, ['--branch', branch, '--single-branch'])
+        git = simpleGit(path)
+        await git.remote(['set-url', 'origin', remoteUrl])
+      }
+      else {
+        await mkdir(path, { recursive: true })
+        git = simpleGit(path)
+        await git.init(['--initial-branch', branch])
+        await git.addRemote('origin', remoteUrl)
+      }
     } else {
       await mkdir(path, { recursive: true })
       git = simpleGit(path)
@@ -64,12 +96,16 @@ export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<Simp
   } else {
     git = simpleGit(path)
     if (remoteUrl) {
-      await fetchRemote(git, branch, networkRemoteUrl)
-      const localBranches = await git.branchLocal()
-      if (localBranches.all.includes(branch)) {
-        await git.checkout(branch)
-      } else {
-        await git.checkoutBranch(branch, `origin/${branch}`)
+      await ensureOriginRemote(git, remoteUrl)
+      const fetchUrl = networkRemoteUrl || remoteUrl
+      if (await remoteHasRefs(fetchUrl)) {
+        await fetchRemote(git, branch, networkRemoteUrl)
+        const localBranches = await git.branchLocal()
+        if (localBranches.all.includes(branch)) {
+          await git.checkout(branch)
+        } else {
+          await git.checkoutBranch(branch, `origin/${branch}`)
+        }
       }
     }
   }

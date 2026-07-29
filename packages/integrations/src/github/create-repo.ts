@@ -6,6 +6,7 @@ export interface CreateGithubRepositoryInput {
   accountType: GithubAccountType
   name: string
   private?: boolean
+  /** When true, GitHub seeds a README commit. Default false to avoid diverging from local vault history. */
   autoInit?: boolean
   fetchImpl?: typeof fetch
 }
@@ -57,7 +58,9 @@ export async function createGithubRepository(
     body: JSON.stringify({
       name: input.name,
       private: input.private ?? true,
-      auto_init: input.autoInit ?? true,
+      // Default false: an auto-init README on GitHub conflicts with local vault
+      // history (e.g. welcome.md) on the first push/rebase.
+      auto_init: input.autoInit ?? false,
     }),
   })
 
