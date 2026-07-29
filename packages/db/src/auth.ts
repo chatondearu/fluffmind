@@ -1,11 +1,13 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
+import { APIError } from 'better-auth/api'
 import { betterAuth } from 'better-auth'
 import { organization } from 'better-auth/plugins'
-import { count, eq } from 'drizzle-orm'
+import { and, count, eq } from 'drizzle-orm'
 
 import { getDb } from './client'
 import { ac, roles } from './permissions'
 import * as schema from './schema/index'
+import { canCreateUser, isPublicSignupEnabled } from './signup-policy'
 
 function getInvitationBaseUrl(): string {
   const configured = process.env.BETTER_AUTH_URL || process.env.APP_BASE_URL || 'http://localhost:3000'
@@ -90,6 +92,38 @@ function createAuth() {
     databaseHooks: {
       user: {
         create: {
+          async before(user) {
+            const db = getDb()
+            const [{ total } = { total: 0 }] = await db
+              .select({ total: count() })
+              .from(schema.user)
+
+            const email = typeof user.email === 'string' ? user.email.trim().toLowerCase() : ''
+            let hasPendingInvitation = false
+            if (email) {
+              const [invite] = await db
+                .select({ id: schema.invitation.id })
+                .from(schema.invitation)
+                .where(and(
+                  eq(schema.invitation.email, email),
+                  eq(schema.invitation.status, 'pending'),
+                ))
+                .limit(1)
+              hasPendingInvitation = Boolean(invite)
+            }
+
+            const allowed = canCreateUser({
+              publicSignupEnabled: isPublicSignupEnabled(),
+              existingUserCount: Number(total),
+              hasPendingInvitation,
+            })
+
+            if (!allowed) {
+              throw new APIError('FORBIDDEN', {
+                message: 'Public signup is disabled. Use an invitation link.',
+              })
+            }
+          },
           async after(user) {
             const [{ total } = { total: 0 }] = await getDb()
               .select({ total: count() })

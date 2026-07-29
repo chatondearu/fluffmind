@@ -8,5 +8,6 @@
 export { ac, roles } from './permissions'
 export { getAuth } from './auth'
 export { db, getDb, getPool } from './client'
+export { canCreateUser, isPublicSignupEnabled } from './signup-policy'
 export * from './schema/auth'
 export * from './schema/workspace'
