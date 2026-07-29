@@ -18,6 +18,15 @@ interface InvitationRecipient {
   githubLogin: string | null
 }
 
+interface GithubInviteCandidate {
+  login: string
+  label: string
+}
+
+interface GithubInviteCandidateResponse {
+  candidates?: Array<{ login?: string }>
+}
+
 export function buildWorkspaceInvitationPayload(
   input: WorkspaceInvitationPayloadInput,
 ): WorkspaceInvitationPayload | null {
@@ -36,6 +45,22 @@ export function buildWorkspaceInvitationPayload(
 
 export function formatInvitationRecipient(invitation: InvitationRecipient): string {
   return invitation.githubLogin ? `@${invitation.githubLogin}` : invitation.email
+}
+
+export async function loadGithubInviteCandidates(
+  fetchCandidates: () => Promise<GithubInviteCandidateResponse>,
+): Promise<GithubInviteCandidate[]> {
+  try {
+    const response = await fetchCandidates()
+    return Array.isArray(response.candidates)
+      ? response.candidates.flatMap((candidate) => {
+          const login = typeof candidate.login === 'string' ? candidate.login.trim() : ''
+          return login ? [{ login, label: `@${login}` }] : []
+        })
+      : []
+  } catch {
+    return []
+  }
 }
 
 export function extractInvitationIdFromInviteMemberResponse(response: unknown): string | null {

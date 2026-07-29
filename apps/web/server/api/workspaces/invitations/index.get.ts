@@ -3,7 +3,7 @@ import {
   githubInvitation,
   invitation as betterAuthInvitation,
 } from '@fluffmind/db'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, gt } from 'drizzle-orm'
 
 import { requireWorkspaceManage } from '../../../utils/workspace-membership'
 
@@ -30,5 +30,6 @@ export default defineEventHandler(async (event) => {
     .where(and(
       eq(betterAuthInvitation.organizationId, workspaceId),
       eq(betterAuthInvitation.status, 'pending'),
+      gt(betterAuthInvitation.expiresAt, new Date()),
     ))
 })

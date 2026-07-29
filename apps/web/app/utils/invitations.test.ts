@@ -6,6 +6,7 @@ import {
   buildWorkspaceInvitationPayload,
   extractInvitationIdFromInviteMemberResponse,
   formatInvitationRecipient,
+  loadGithubInviteCandidates,
 } from './invitations'
 
 describe('invitations', () => {
@@ -56,6 +57,12 @@ describe('invitations', () => {
   it('formats a pending invitation recipient from its GitHub login or email', () => {
     expect(formatInvitationRecipient({ githubLogin: 'octocat', email: 'octocat@example.com' })).toBe('@octocat')
     expect(formatInvitationRecipient({ githubLogin: null, email: 'member@example.com' })).toBe('member@example.com')
+  })
+
+  it('returns an empty list when GitHub candidates are unavailable', async () => {
+    await expect(loadGithubInviteCandidates(async () => {
+      throw new Error('GitHub API unavailable')
+    })).resolves.toEqual([])
   })
 
   it('falls back to the workspace endpoint when Better Auth rejects the invitation', async () => {

@@ -44,28 +44,17 @@ export function githubInvitationMatchesSignupEmail(
   }) === normalizedEmail
 }
 
-function extractGithubLoginFromNoreplyEmail(email: string): string | null {
-  const match = email.trim().toLowerCase().match(/^(?:[^+@]+\+)?([^+@]+)@users\.noreply\.github\.com$/)
-  return match?.[1] || null
-}
-
 export function hasPendingGithubInvitationForSignup(input: {
   email: string
-  githubLogin?: string | null
   invitations: readonly PendingGithubInvitationForSignup[]
   now?: Date
 }): boolean {
   const now = input.now ?? new Date()
-  const githubLogin = input.githubLogin?.trim().toLowerCase()
-    || extractGithubLoginFromNoreplyEmail(input.email)
 
   return input.invitations.some(invitation => (
     invitation.status === 'pending'
     && invitation.expiresAt > now
-    && (
-      githubInvitationMatchesSignupEmail(input.email, invitation)
-      || Boolean(githubLogin && invitation.githubLogin.trim().toLowerCase() === githubLogin)
-    )
+    && githubInvitationMatchesSignupEmail(input.email, invitation)
   ))
 }
 
@@ -132,17 +121,8 @@ function createAuth() {
                     ))
                     .limit(1)
                 : []
-              const pendingInvitation = githubInvitation
-                && hasPendingGithubInvitationForSignup({
-                  email: resolveGithubAuthEmail(profile),
-                  githubLogin: login,
-                  invitations: [githubInvitation],
-                })
-                ? githubInvitation
-                : undefined
-
               return {
-                email: resolveGithubSignupEmail(profile, pendingInvitation),
+                email: resolveGithubSignupEmail(profile, githubInvitation),
                 name: profile.name || profile.login || undefined,
               }
             },
@@ -234,7 +214,6 @@ function createAuth() {
             }
 
             if (email && !hasPendingInvitation) {
-              const githubLogin = extractGithubLoginFromNoreplyEmail(email)
               const [githubInvite] = await db
                 .select({
                   githubLogin: schema.githubInvitation.githubLogin,
@@ -253,14 +232,12 @@ function createAuth() {
                       isNotNull(schema.githubInvitation.githubUserId),
                       sql`lower(${schema.githubInvitation.githubUserId} || '+' || ${schema.githubInvitation.githubLogin} || '@users.noreply.github.com') = ${email}`,
                     ),
-                    sql`lower(${schema.githubInvitation.githubLogin}) = ${githubLogin ?? ''}`,
                   ),
                 ))
                 .limit(1)
 
               hasPendingInvitation = hasPendingGithubInvitationForSignup({
                 email,
-                githubLogin,
                 invitations: githubInvite ? [githubInvite] : [],
               })
             }

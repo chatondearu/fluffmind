@@ -88,6 +88,7 @@ export interface CreateWorkspaceInvitationDeps {
     }
   }) => Promise<InvitationMemberResult>
   insertGithubInvitation: (input: InsertGithubInvitationInput) => Promise<void>
+  cancelInvitation: (invitationId: string) => Promise<void>
 }
 
 export function normalizeWorkspaceInvitationInput(
@@ -293,6 +294,15 @@ const defaultDeps: CreateWorkspaceInvitationDeps = {
   async insertGithubInvitation(input) {
     await getDb().insert(githubInvitation).values(input)
   },
+  async cancelInvitation(invitationId) {
+    await getDb()
+      .update(betterAuthInvitation)
+      .set({ status: 'canceled' })
+      .where(and(
+        eq(betterAuthInvitation.id, invitationId),
+        eq(betterAuthInvitation.status, 'pending'),
+      ))
+  },
 }
 
 export async function createWorkspaceInvitationWithDeps(
@@ -356,17 +366,22 @@ export async function createWorkspaceInvitationWithDeps(
   })
 
   if (normalized.githubLogin && resolvedUser) {
-    await deps.insertGithubInvitation({
-      id: randomUUID(),
-      organizationId: input.organizationId,
-      githubLogin: normalized.githubLogin,
-      githubUserId: resolvedUser.id,
-      resolvedEmail: resolvedUser.email,
-      betterAuthInvitationId: created.id,
-      role: input.role,
-      inviterId: input.inviterId,
-      expiresAt: created.expiresAt,
-    })
+    try {
+      await deps.insertGithubInvitation({
+        id: randomUUID(),
+        organizationId: input.organizationId,
+        githubLogin: normalized.githubLogin,
+        githubUserId: resolvedUser.id,
+        resolvedEmail: resolvedUser.email,
+        betterAuthInvitationId: created.id,
+        role: input.role,
+        inviterId: input.inviterId,
+        expiresAt: created.expiresAt,
+      })
+    } catch (error) {
+      await deps.cancelInvitation(created.id)
+      throw error
+    }
   }
 
   return {

@@ -37,25 +37,23 @@ describe('githubInvitationMatchesSignupEmail', () => {
     )).toBe(false)
   })
 
-  it('matches a pending invitation by GitHub login when the OAuth email differs', () => {
+  it('rejects a noreply signup with the wrong GitHub user id', () => {
     expect(hasPendingGithubInvitationForSignup({
-      email: 'private@example.com',
-      githubLogin: 'inviteduser',
+      email: '999+inviteduser@users.noreply.github.com',
       invitations: [{
         githubLogin: 'InvitedUser',
         githubUserId: '42',
-        resolvedEmail: 'invited@users.noreply.github.com',
+        resolvedEmail: null,
         status: 'pending',
         expiresAt: new Date('2026-08-01T00:00:00Z'),
       }],
       now: new Date('2026-07-29T00:00:00Z'),
-    })).toBe(true)
+    })).toBe(false)
   })
 
-  it('does not match an expired GitHub invitation by login', () => {
+  it('does not match an expired GitHub invitation by email', () => {
     expect(hasPendingGithubInvitationForSignup({
-      email: 'private@example.com',
-      githubLogin: 'inviteduser',
+      email: '42+inviteduser@users.noreply.github.com',
       invitations: [{
         githubLogin: 'InvitedUser',
         githubUserId: '42',

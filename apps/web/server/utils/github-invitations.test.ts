@@ -38,6 +38,7 @@ function createDeps(overrides: Record<string, unknown> = {}) {
       expiresAt: new Date('2026-08-01T12:00:00Z'),
     }),
     insertGithubInvitation: vi.fn().mockResolvedValue(undefined),
+    cancelInvitation: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }
 }
@@ -173,6 +174,24 @@ describe('createWorkspaceInvitationWithDeps', () => {
 
     expect(deps.inviteMember).not.toHaveBeenCalled()
     expect(deps.insertGithubInvitation).not.toHaveBeenCalled()
+  })
+
+  it('cancels the Better Auth invitation when GitHub metadata insertion fails', async () => {
+    stubCreateError()
+    const insertError = new Error('metadata insert failed')
+    const deps = createDeps({
+      insertGithubInvitation: vi.fn().mockRejectedValue(insertError),
+    })
+
+    await expect(createWorkspaceInvitationWithDeps({
+      organizationId: 'org_1',
+      inviterId: 'user_1',
+      role: 'read',
+      githubLogin: 'octocat',
+      headers: new Headers(),
+    }, deps)).rejects.toBe(insertError)
+
+    expect(deps.cancelInvitation).toHaveBeenCalledWith('inv_1')
   })
 
   it('rejects an existing workspace member', async () => {

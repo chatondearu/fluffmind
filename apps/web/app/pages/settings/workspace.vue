@@ -13,6 +13,7 @@ import {
   buildWorkspaceInvitationPayload,
   extractInvitationIdFromInviteMemberResponse,
   formatInvitationRecipient,
+  loadGithubInviteCandidates,
 } from '../../utils/invitations'
 
 type WorkspaceRole = 'read' | 'write' | 'owner'
@@ -548,17 +549,14 @@ async function loadWorkspaceData(isManualReload = false) {
     syncLocalOverrideModel()
 
     if (canManageGitHub.value) {
-      const [pendingInvitations, candidateResponse] = await Promise.all([
+      const [pendingInvitations, candidates] = await Promise.all([
         $fetch<unknown[]>('/api/workspaces/invitations'),
-        $fetch<{ candidates?: Array<{ login?: string }> }>('/api/workspaces/github/invite-candidates'),
+        loadGithubInviteCandidates(() =>
+          $fetch<{ candidates?: Array<{ login?: string }> }>('/api/workspaces/github/invite-candidates'),
+        ),
       ])
       invitations.value = normalizeInvitations(pendingInvitations)
-      githubInviteCandidates.value = Array.isArray(candidateResponse.candidates)
-        ? candidateResponse.candidates.flatMap((candidate) => {
-            const login = asString(candidate.login).trim()
-            return login ? [{ login, label: `@${login}` }] : []
-          })
-        : []
+      githubInviteCandidates.value = candidates
     }
     else {
       invitations.value = []
@@ -680,6 +678,9 @@ await loadWorkspaceData()
             placeholder="Choisir un membre GitHub"
             :disabled="githubInviteCandidateOptions.length === 0"
           />
+          <span v-if="githubInviteCandidateOptions.length === 0" class="mt-2 block md3-body-sm text-on-surface-variant">
+            Liste GitHub indisponible ou vide. Saisissez un pseudo ci-dessous.
+          </span>
         </label>
         <label class="block">
           <span class="mb-2 block md3-label-lg">Pseudo GitHub</span>
