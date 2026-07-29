@@ -112,7 +112,7 @@ describe('createAndLinkGithubRepo', () => {
     })
   })
 
-  it('upserts link and remote on success', async () => {
+  it('inserts link and remote on success', async () => {
     mocks.isGitHubAppConfigured.mockReturnValue(true)
     mocks.getGitHubAppCredentials.mockReturnValue({ appId: '1', privateKey: 'k' })
     mocks.findGithubAppInstallation.mockResolvedValue({
@@ -129,8 +129,7 @@ describe('createAndLinkGithubRepo', () => {
     })
     mocks.buildGitHubHttpsRemoteUrl.mockReturnValue('https://github.com/acme/fluff-docs.git')
 
-    const onConflictDoUpdate = vi.fn().mockResolvedValue(undefined)
-    const insertValues = vi.fn().mockReturnValue({ onConflictDoUpdate })
+    const insertValues = vi.fn().mockResolvedValue(undefined)
     const insert = vi.fn().mockReturnValue({ values: insertValues })
     const updateWhere = vi.fn().mockResolvedValue(undefined)
     const updateSet = vi.fn().mockReturnValue({ where: updateWhere })
@@ -177,5 +176,45 @@ describe('createAndLinkGithubRepo', () => {
         syncToken: null,
       }),
     )
+  })
+
+  it('throws 409 when a sync link already exists', async () => {
+    mocks.isGitHubAppConfigured.mockReturnValue(true)
+    mocks.getGitHubAppCredentials.mockReturnValue({ appId: '1', privateKey: 'k' })
+    mocks.findGithubAppInstallation.mockResolvedValue({
+      installationId: '99',
+      accountLogin: 'acme',
+      accountType: 'Organization',
+    })
+    mocks.getDb.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([{ organizationId: 'org_1' }]),
+          }),
+        }),
+      }),
+    })
+
+    vi.stubGlobal('createError', (options: { statusCode: number, statusMessage: string, message: string }) => {
+      const error = new Error(options.message) as Error & { statusCode: number, statusMessage: string }
+      error.statusCode = options.statusCode
+      error.statusMessage = options.statusMessage
+      return error
+    })
+
+    await expect(
+      createAndLinkGithubRepo({
+        workspaceId: 'org_1',
+        workspaceSlug: 'docs',
+        input: { installationId: '99' },
+        refuseIfLinked: true,
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: 'Sync already active',
+    })
+
+    expect(mocks.createGithubRepository).not.toHaveBeenCalled()
   })
 })

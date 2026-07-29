@@ -30,7 +30,9 @@ Example: `https://fluffmind.example.com/api/auth/callback/github`.
 If you use a **GitHub App** for login credentials, also grant **Account permissions →
 Email addresses → Read-only**. When GitHub still omits an email (private address /
 missing permission), Fluffmind synthesizes `{id}+{login}@users.noreply.github.com`
-so sign-in can complete.## GitHub App for repository access
+so sign-in can complete.
+
+## GitHub App for repository access
 
 A GitHub App is optional. It lets an organization administrator install access once,
 then lets workspace owners bind repositories without storing a personal access token
@@ -53,5 +55,18 @@ If no GitHub App is configured, workspace owners can still link a repository wit
 personal access token (PAT). Configure `GITHUB_SYNC_TOKEN_SECRET` to encrypt PAT links
 at rest.
 
-> **Today:** Fluffmind **links** an existing repository. Auto-creating a new GitHub
-> repository when you create a Fluffmind workspace is **not** shipped yet.
+## Exclusive sync modes
+
+Each workspace has **one** active sync mode at a time:
+
+| Mode | Meaning |
+| ---- | ------- |
+| **GitHub App** | Linked via an installed GitHub App |
+| **PAT** | Linked with a personal access token |
+| **Local only** | No `workspace_github_link` and no `gitRemoteUrl` |
+
+To switch modes, **unlink** the current sync first (`DELETE /api/workspaces/github/link`),
+then choose App or PAT again. Linking while another mode is active returns **409**.
+
+Workspace creation may still create-and-link a GitHub repo in one step (new workspace =
+local until that succeeds).

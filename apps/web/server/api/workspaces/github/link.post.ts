@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm'
 import { requireSession } from '../../../utils/auth'
 import { getGitHubAppCredentials, isGitHubAppConfigured } from '../../../utils/github-credentials'
 import { encryptSyncToken } from '../../../utils/github-token-crypto'
-import { getWorkspaceGitHubSyncState, parseRepoIdentifier } from '../../../utils/github-sync'
+import { getWorkspaceGitHubSyncState, assertWorkspaceGithubLinkAbsent, parseRepoIdentifier } from '../../../utils/github-sync'
 import { readJsonBody } from '../../../utils/read-json-body'
 import { resolveActiveWorkspaceId } from '../../../vault/workspace'
 
@@ -95,6 +95,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  await assertWorkspaceGithubLinkAbsent(workspaceId)
+
   try {
     const token = mode === 'app'
       ? (await createInstallationToken(appCredentials!, installationId)).token
@@ -120,16 +122,6 @@ export default defineEventHandler(async (event) => {
       installationId: mode === 'app' ? installationId : null,
       syncToken: mode === 'pat' ? encryptSyncToken(syncToken) : null,
       lastSyncedAt: null,
-    })
-    .onConflictDoUpdate({
-      target: workspaceGithubLink.organizationId,
-      set: {
-        owner: parsedRepository.owner,
-        repo: parsedRepository.repo,
-        authMode: mode,
-        installationId: mode === 'app' ? installationId : null,
-        syncToken: mode === 'pat' ? encryptSyncToken(syncToken) : null,
-      },
     })
 
   await db

@@ -5,6 +5,7 @@ import {
   member,
   memberSyncMeta,
   user,
+  workspaceConfig,
   workspaceGithubLink,
 } from '@fluffmind/db'
 import {
@@ -24,6 +25,8 @@ export interface LocalOverrideInput {
 
 export interface GitHubSyncState {
   linked: boolean
+  /** Exclusive sync mode for the workspace. */
+  syncMode: 'app' | 'pat' | 'local'
   owner: string | null
   repo: string | null
   authMode: 'app' | 'pat' | null
@@ -221,8 +224,11 @@ export async function getWorkspaceGitHubSyncState(organizationId: string): Promi
     .where(eq(workspaceGithubLink.organizationId, organizationId))
     .limit(1)
 
+  const syncMode = link?.authMode === 'app' || link?.authMode === 'pat' ? link.authMode : 'local'
+
   return {
-    linked: Boolean(link),
+    linked: syncMode !== 'local',
+    syncMode,
     owner: link?.owner ?? null,
     repo: link?.repo ?? null,
     authMode: link?.authMode ?? null,
@@ -230,6 +236,37 @@ export async function getWorkspaceGitHubSyncState(organizationId: string): Promi
     lastSyncedAt: link?.lastSyncedAt ? link.lastSyncedAt.toISOString() : null,
     localOverrides: await getLocalOverrides(organizationId),
   }
+}
+
+/** Throws HTTP 409 when the workspace already has an active GitHub sync link. */
+export async function assertWorkspaceGithubLinkAbsent(organizationId: string): Promise<void> {
+  const db = getDb()
+  const [existingLink] = await db
+    .select({ organizationId: workspaceGithubLink.organizationId })
+    .from(workspaceGithubLink)
+    .where(eq(workspaceGithubLink.organizationId, organizationId))
+    .limit(1)
+
+  if (!existingLink)
+    return
+
+  throw createError({
+    statusCode: 409,
+    statusMessage: 'Sync already active',
+    message: 'A sync mode is already active for this workspace. Unlink it before choosing another.',
+  })
+}
+
+/** Removes GitHub link and clears git remote → syncMode local. */
+export async function unlinkWorkspaceGithubSync(organizationId: string): Promise<GitHubSyncState> {
+  const db = getDb()
+  await db.delete(workspaceGithubLink).where(eq(workspaceGithubLink.organizationId, organizationId))
+  await db
+    .update(workspaceConfig)
+    .set({ gitRemoteUrl: null })
+    .where(eq(workspaceConfig.organizationId, organizationId))
+
+  return getWorkspaceGitHubSyncState(organizationId)
 }
 
 export async function syncWorkspaceMembersForOrganization(

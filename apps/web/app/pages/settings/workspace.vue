@@ -28,8 +28,11 @@ interface WorkspaceInvitation {
   expiresAt: string | null
 }
 
+type GitHubSyncMode = 'app' | 'pat' | 'local'
+
 interface GitHubSyncState {
   linked: boolean
+  syncMode: GitHubSyncMode
   owner: string | null
   repo: string | null
   authMode: 'app' | 'pat' | null
@@ -72,7 +75,10 @@ const workspaceRole = ref<string>('read')
 const githubRepository = ref('')
 const githubToken = ref('')
 const githubLinked = ref(false)
+const githubSyncMode = ref<GitHubSyncMode>('local')
 const githubAuthMode = ref<GitHubSyncState['authMode']>(null)
+const githubSetupChoice = ref<'app' | 'pat' | 'local' | null>(null)
+const unlinkingGitHub = ref(false)
 const githubAppConfigured = ref(false)
 const githubAppInstallUrl = ref<string | null>(null)
 const githubInstallations = ref<GitHubAppInstallation[]>([])
@@ -94,17 +100,24 @@ const syncingGitHub = ref(false)
 const localOverrides = ref<Record<string, boolean>>({})
 
 const canManageGitHub = computed(() => workspaceRole.value === 'owner')
+const isLocalSync = computed(() => githubSyncMode.value === 'local')
 const githubModeLabel = computed(() => {
-  if (githubAuthMode.value === 'app') return 'App'
-  if (githubAuthMode.value === 'pat') return 'PAT'
-  return 'Non lié'
+  if (githubSyncMode.value === 'app') return 'GitHub App'
+  if (githubSyncMode.value === 'pat') return 'PAT'
+  return 'Local uniquement'
 })
 const showCreateGithubRepo = computed(() =>
   githubAppConfigured.value
   && canManageGitHub.value
-  && !githubAuthMode.value
+  && isLocalSync.value
+  && githubSetupChoice.value === 'app'
   && githubInstallations.value.length > 0,
 )
+const linkedRepositoryLabel = computed(() => {
+  if (githubAuthMode.value && githubRepository.value)
+    return githubRepository.value
+  return '—'
+})
 const githubInstallationOptions = computed(() => githubInstallations.value.map(installation => ({
   value: installation.installationId,
   label: `${installation.accountLogin} (${installation.accountType === 'Organization' ? 'organisation' : 'compte personnel'})`,
@@ -187,13 +200,22 @@ function applyGitHubState(state: Partial<GitHubSyncState> | null): void {
     return
 
   githubLinked.value = Boolean(state.linked)
+  githubSyncMode.value = state.syncMode
+    ?? (state.authMode === 'app' || state.authMode === 'pat' ? state.authMode : 'local')
   githubAuthMode.value = state.authMode ?? null
   githubAppConfigured.value = Boolean(state.appConfigured)
   githubLastSyncedAt.value = typeof state.lastSyncedAt === 'string' ? state.lastSyncedAt : null
 
+  if (githubSyncMode.value !== 'local')
+    githubSetupChoice.value = null
+
   if (typeof state.owner === 'string' && typeof state.repo === 'string') {
     githubRepository.value = `${state.owner}/${state.repo}`
     githubAppRepository.value = `${state.owner}/${state.repo}`
+  }
+  else if (githubSyncMode.value === 'local') {
+    githubRepository.value = ''
+    githubAppRepository.value = ''
   }
 
   if (state.localOverrides && typeof state.localOverrides === 'object') {
@@ -202,6 +224,44 @@ function applyGitHubState(state: Partial<GitHubSyncState> | null): void {
       ...state.localOverrides,
     }
     syncLocalOverrideModel()
+  }
+}
+
+function selectSyncSetup(choice: 'app' | 'pat' | 'local'): void {
+  if (!canManageGitHub.value || !isLocalSync.value)
+    return
+  githubSetupChoice.value = choice
+  githubLinkError.value = null
+  githubLinkSuccess.value = null
+  if (choice === 'app' && githubAppConfigured.value)
+    void loadGitHubInstallations()
+}
+
+async function unlinkGitHubSync(): Promise<void> {
+  if (!canManageGitHub.value) {
+    githubLinkError.value = 'Seul un propriétaire peut délier la synchronisation.'
+    githubLinkSuccess.value = null
+    return
+  }
+
+  githubLinkError.value = null
+  githubLinkSuccess.value = null
+  unlinkingGitHub.value = true
+  try {
+    const response = await $fetch<GitHubSyncState>('/api/workspaces/github/link', {
+      method: 'DELETE',
+    })
+    applyGitHubState(response)
+    githubSetupChoice.value = null
+    githubToken.value = ''
+    githubLinkSuccess.value = 'Synchronisation déliée. Le workspace est en mode local uniquement.'
+  }
+  catch (error) {
+    const asRecordError = error as { data?: { message?: string }, message?: string }
+    githubLinkError.value = asRecordError.data?.message || asRecordError.message || 'Déliaison impossible.'
+  }
+  finally {
+    unlinkingGitHub.value = false
   }
 }
 
@@ -625,75 +685,117 @@ await loadWorkspaceData()
         </FluffmindChip>
       </div>
 
-      <section v-if="githubAppConfigured" class="mb-6 rounded-xl bg-surface-container-low p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 class="md3-title-sm">
-              Lier via GitHub App
-            </h3>
-            <p class="mt-1 md3-body-md text-on-surface-variant">
-              Installez l’application, puis choisissez une installation et un dépôt.
-            </p>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <FluffmindButton
-              variant="outlined"
-              size="sm"
-              :disabled="!canManageGitHub || !githubAppInstallUrl"
-              @click="openGitHubAppInstallUrl"
-            >
-              Installer l’application
-            </FluffmindButton>
-            <FluffmindButton
-              variant="outlined"
-              size="sm"
-              :disabled="loadingGitHubInstallations || !canManageGitHub"
-              @click="loadGitHubInstallations"
-            >
-              {{ loadingGitHubInstallations ? 'Chargement…' : 'Actualiser les installations' }}
-            </FluffmindButton>
-          </div>
-        </div>
+      <p class="mb-4 md3-body-md text-on-surface-variant">
+        Un seul mode actif par workspace (GitHub App, PAT ou local). Déliez d’abord pour en changer.
+      </p>
 
-        <div class="mt-4 grid gap-4 md:grid-cols-2">
-          <label class="block">
-            <span class="mb-2 block md3-label-lg">Installation GitHub App</span>
-            <FluffmindSelect
-              :model-value="githubInstallationId"
-              :options="githubInstallationOptions"
-              placeholder="Choisir une installation"
-              :disabled="loadingGitHubInstallations || !canManageGitHub"
-              @update:model-value="selectGitHubInstallation"
-            />
-          </label>
-          <label class="block">
-            <span class="mb-2 block md3-label-lg">Dépôt</span>
-            <FluffmindSelect
-              v-model="githubAppRepository"
-              :options="githubRepositoryOptions"
-              placeholder="Choisir un dépôt"
-              :disabled="!githubInstallationId || loadingGitHubRepositories || !canManageGitHub"
-            />
-          </label>
-        </div>
-        <p v-if="githubInstallationId && !loadingGitHubRepositories && githubInstallationRepositories.length === 0" class="mt-4 md3-body-md text-on-surface-variant">
-          Aucun dépôt disponible pour cette installation.
-        </p>
-        <FluffmindButton
-          class="mt-4"
-          :disabled="linkingGitHub || !githubInstallationId || !githubAppRepository || !canManageGitHub"
-          @click="linkGitHubAppRepository"
-        >
-          {{ linkingGitHub ? 'Liaison…' : 'Lier via GitHub App' }}
-        </FluffmindButton>
-
-        <section v-if="showCreateGithubRepo" class="mt-6 border-t border-outline-variant pt-6">
+      <!-- Active linked mode -->
+      <template v-if="!isLocalSync">
+        <section class="rounded-xl bg-surface-container-low p-4">
           <h3 class="md3-title-sm">
-            Créer un dépôt GitHub
+            Mode actif : {{ githubModeLabel }}
+          </h3>
+          <p class="mt-2 md3-body-md">
+            Dépôt : <code class="text-primary">{{ linkedRepositoryLabel }}</code>
+          </p>
+          <p class="mt-2 md3-body-md text-on-surface-variant">
+            Dernière synchro : {{ githubLastSyncedAt ? formatDate(githubLastSyncedAt) : 'Jamais' }}
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <FluffmindButton
+              variant="outlined"
+              :disabled="syncingGitHub || !githubLinked || !canManageGitHub"
+              @click="syncNowFromGitHub"
+            >
+              {{ syncingGitHub ? 'Synchro…' : 'Synchroniser maintenant' }}
+            </FluffmindButton>
+            <FluffmindButton
+              variant="outlined"
+              :disabled="unlinkingGitHub || !canManageGitHub"
+              @click="unlinkGitHubSync"
+            >
+              {{ unlinkingGitHub ? 'Déliaison…' : 'Délier la synchronisation' }}
+            </FluffmindButton>
+          </div>
+        </section>
+      </template>
+
+      <!-- Chooser when local -->
+      <template v-else>
+        <div class="mb-4 flex flex-wrap gap-2">
+          <FluffmindButton
+            v-if="githubAppConfigured"
+            :variant="githubSetupChoice === 'app' ? 'filled' : 'outlined'"
+            size="sm"
+            :disabled="!canManageGitHub"
+            @click="selectSyncSetup('app')"
+          >
+            GitHub App
+          </FluffmindButton>
+          <FluffmindButton
+            :variant="githubSetupChoice === 'pat' ? 'filled' : 'outlined'"
+            size="sm"
+            :disabled="!canManageGitHub"
+            @click="selectSyncSetup('pat')"
+          >
+            PAT
+          </FluffmindButton>
+          <FluffmindButton
+            :variant="githubSetupChoice === 'local' ? 'filled' : 'outlined'"
+            size="sm"
+            :disabled="!canManageGitHub"
+            @click="selectSyncSetup('local')"
+          >
+            Local uniquement
+          </FluffmindButton>
+        </div>
+
+        <p v-if="!githubSetupChoice" class="md3-body-md text-on-surface-variant">
+          Choisissez un mode de synchronisation pour ce workspace.
+        </p>
+
+        <section v-else-if="githubSetupChoice === 'local'" class="rounded-xl bg-surface-container-low p-4">
+          <h3 class="md3-title-sm">
+            Local uniquement
           </h3>
           <p class="mt-1 md3-body-md text-on-surface-variant">
-            Crée un dépôt via l’App et le lie à ce workspace (privé par défaut).
+            Aucun dépôt GitHub distant. Les notes restent sur le stockage du workspace.
           </p>
+        </section>
+
+        <section
+          v-else-if="githubSetupChoice === 'app' && githubAppConfigured"
+          class="rounded-xl bg-surface-container-low p-4"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="md3-title-sm">
+                Lier via GitHub App
+              </h3>
+              <p class="mt-1 md3-body-md text-on-surface-variant">
+                Installez l’application, puis choisissez une installation et un dépôt.
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <FluffmindButton
+                variant="outlined"
+                size="sm"
+                :disabled="!canManageGitHub || !githubAppInstallUrl"
+                @click="openGitHubAppInstallUrl"
+              >
+                Installer l’application
+              </FluffmindButton>
+              <FluffmindButton
+                variant="outlined"
+                size="sm"
+                :disabled="loadingGitHubInstallations || !canManageGitHub"
+                @click="loadGitHubInstallations"
+              >
+                {{ loadingGitHubInstallations ? 'Chargement…' : 'Actualiser les installations' }}
+              </FluffmindButton>
+            </div>
+          </div>
+
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <label class="block">
               <span class="mb-2 block md3-label-lg">Installation GitHub App</span>
@@ -706,69 +808,105 @@ await loadWorkspaceData()
               />
             </label>
             <label class="block">
-              <span class="mb-2 block md3-label-lg">Nom du dépôt</span>
-              <FluffmindTextField
-                v-model="createRepoName"
-                type="text"
-                placeholder="fluff-workspace"
+              <span class="mb-2 block md3-label-lg">Dépôt</span>
+              <FluffmindSelect
+                v-model="githubAppRepository"
+                :options="githubRepositoryOptions"
+                placeholder="Choisir un dépôt"
+                :disabled="!githubInstallationId || loadingGitHubRepositories || !canManageGitHub"
               />
             </label>
-            <div class="flex items-end">
-              <FluffmindCheckbox
-                :model-value="createRepoPrivate"
-                @update:model-value="createRepoPrivate = $event"
-              >
-                Dépôt privé
-              </FluffmindCheckbox>
-            </div>
           </div>
+          <p v-if="githubInstallationId && !loadingGitHubRepositories && githubInstallationRepositories.length === 0" class="mt-4 md3-body-md text-on-surface-variant">
+            Aucun dépôt disponible pour cette installation.
+          </p>
           <FluffmindButton
             class="mt-4"
-            :disabled="creatingGithubRepo || !githubInstallationId || !canManageGitHub"
-            @click="createGithubRepositoryForWorkspace"
+            :disabled="linkingGitHub || !githubInstallationId || !githubAppRepository || !canManageGitHub"
+            @click="linkGitHubAppRepository"
           >
-            {{ creatingGithubRepo ? 'Création…' : 'Créer un dépôt' }}
+            {{ linkingGitHub ? 'Liaison…' : 'Lier via GitHub App' }}
+          </FluffmindButton>
+
+          <section v-if="showCreateGithubRepo" class="mt-6 border-t border-outline-variant pt-6">
+            <h3 class="md3-title-sm">
+              Créer un dépôt GitHub
+            </h3>
+            <p class="mt-1 md3-body-md text-on-surface-variant">
+              Crée un dépôt via l’App et le lie à ce workspace (privé par défaut).
+            </p>
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+              <label class="block">
+                <span class="mb-2 block md3-label-lg">Installation GitHub App</span>
+                <FluffmindSelect
+                  :model-value="githubInstallationId"
+                  :options="githubInstallationOptions"
+                  placeholder="Choisir une installation"
+                  :disabled="loadingGitHubInstallations || !canManageGitHub"
+                  @update:model-value="selectGitHubInstallation"
+                />
+              </label>
+              <label class="block">
+                <span class="mb-2 block md3-label-lg">Nom du dépôt</span>
+                <FluffmindTextField
+                  v-model="createRepoName"
+                  type="text"
+                  placeholder="fluff-workspace"
+                />
+              </label>
+              <div class="flex items-end">
+                <FluffmindCheckbox
+                  :model-value="createRepoPrivate"
+                  @update:model-value="createRepoPrivate = $event"
+                >
+                  Dépôt privé
+                </FluffmindCheckbox>
+              </div>
+            </div>
+            <FluffmindButton
+              class="mt-4"
+              :disabled="creatingGithubRepo || !githubInstallationId || !canManageGitHub"
+              @click="createGithubRepositoryForWorkspace"
+            >
+              {{ creatingGithubRepo ? 'Création…' : 'Créer un dépôt' }}
+            </FluffmindButton>
+          </section>
+        </section>
+
+        <section
+          v-else-if="githubSetupChoice === 'pat'"
+          class="rounded-xl bg-surface-container-low p-4"
+        >
+          <h3 class="md3-title-sm">
+            Lier avec un PAT
+          </h3>
+          <p class="mt-1 md3-body-md text-on-surface-variant">
+            Utilisez un token d’accès personnel pour lier un dépôt existant.
+          </p>
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <label class="block">
+              <span class="mb-2 block md3-label-lg">Dépôt</span>
+              <FluffmindTextField
+                v-model="githubRepository"
+                type="text"
+                placeholder="owner/repo"
+              />
+            </label>
+            <label class="block">
+              <span class="mb-2 block md3-label-lg">Token GitHub (PAT)</span>
+              <FluffmindTextField
+                v-model="githubToken"
+                type="password"
+                placeholder="ghp_..."
+              />
+            </label>
+          </div>
+          <FluffmindButton class="mt-4" :disabled="linkingGitHub || !canManageGitHub" @click="linkGitHubRepository">
+            {{ linkingGitHub ? 'Liaison…' : 'Lier avec le PAT' }}
           </FluffmindButton>
         </section>
-      </section>
+      </template>
 
-      <section class="border-t border-outline-variant pt-6">
-        <h3 class="md3-title-sm">
-          Fallback PAT
-        </h3>
-        <p class="mt-1 md3-body-md text-on-surface-variant">
-          Utilisez un token d’accès personnel si GitHub App n’est pas configurée ou si vous préférez ce mode.
-        </p>
-        <div class="mt-4 grid gap-4 md:grid-cols-2">
-          <label class="block">
-            <span class="mb-2 block md3-label-lg">Dépôt</span>
-            <FluffmindTextField
-              v-model="githubRepository"
-              type="text"
-              placeholder="owner/repo"
-            />
-          </label>
-          <label class="block">
-            <span class="mb-2 block md3-label-lg">Token GitHub (PAT)</span>
-            <FluffmindTextField
-              v-model="githubToken"
-              type="password"
-              placeholder="ghp_..."
-            />
-          </label>
-        </div>
-        <FluffmindButton class="mt-4" :disabled="linkingGitHub || !canManageGitHub" @click="linkGitHubRepository">
-          {{ linkingGitHub ? 'Liaison…' : 'Lier avec le PAT' }}
-        </FluffmindButton>
-      </section>
-      <p class="mt-4 md3-body-md text-on-surface-variant">
-        Dernière synchro: {{ githubLastSyncedAt ? formatDate(githubLastSyncedAt) : 'Jamais' }}
-      </p>
-      <div class="mt-4 flex flex-wrap gap-2">
-        <FluffmindButton variant="outlined" :disabled="syncingGitHub || !githubLinked || !canManageGitHub" @click="syncNowFromGitHub">
-          {{ syncingGitHub ? 'Synchro…' : 'Synchroniser maintenant' }}
-        </FluffmindButton>
-      </div>
       <p v-if="!canManageGitHub" class="mt-4 md3-body-md text-on-surface-variant">
         Seuls les propriétaires peuvent gérer la liaison et la synchronisation GitHub.
       </p>

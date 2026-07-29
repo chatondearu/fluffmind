@@ -80,7 +80,7 @@ export async function createAndLinkGithubRepo(options: {
   const { installation, credentials } = await assertCanCreateGithubRepo(options.input)
   const db = getDb()
 
-  if (options.refuseIfLinked) {
+  if (options.refuseIfLinked !== false) {
     const [existingLink] = await db
       .select({ organizationId: workspaceGithubLink.organizationId })
       .from(workspaceGithubLink)
@@ -90,8 +90,8 @@ export async function createAndLinkGithubRepo(options: {
     if (existingLink) {
       throw createError({
         statusCode: 409,
-        statusMessage: 'Workspace already linked',
-        message: 'The workspace already has a GitHub repository link.',
+        statusMessage: 'Sync already active',
+        message: 'A sync mode is already active for this workspace. Unlink it before choosing another.',
       })
     }
   }
@@ -132,17 +132,6 @@ export async function createAndLinkGithubRepo(options: {
       installationId: installation.installationId,
       syncToken: null,
       lastSyncedAt: null,
-    })
-    .onConflictDoUpdate({
-      target: workspaceGithubLink.organizationId,
-      set: {
-        owner: repository.owner,
-        repo: repository.repo,
-        authMode: 'app',
-        installationId: installation.installationId,
-        syncToken: null,
-        lastSyncedAt: null,
-      },
     })
 
   await db
