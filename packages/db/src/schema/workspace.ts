@@ -1,4 +1,4 @@
-import { boolean, pgEnum, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, index, pgEnum, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
 export const memberSyncSource = pgEnum('member_sync_source', ['github', 'manual'])
 
@@ -39,3 +39,25 @@ export const memberSyncMeta = pgTable('member_sync_meta', {
   source: memberSyncSource('source').notNull(),
   localOverride: boolean('local_override').notNull().default(false),
 })
+
+export const githubInvitation = pgTable(
+  'github_invitation',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id').notNull(),
+    githubLogin: text('github_login').notNull(),
+    githubUserId: text('github_user_id'),
+    resolvedEmail: text('resolved_email'),
+    betterAuthInvitationId: text('better_auth_invitation_id'),
+    role: text('role').notNull(),
+    status: text('status').notNull().default('pending'),
+    inviterId: text('inviter_id').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('github_invitation_organizationId_idx').on(table.organizationId),
+    index('github_invitation_githubLogin_idx').on(table.githubLogin),
+    index('github_invitation_betterAuthInvitationId_idx').on(table.betterAuthInvitationId),
+  ],
+)

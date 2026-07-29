@@ -169,6 +169,9 @@ importers:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.1.0)(happy-dom@20.11.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0)
 
   packages/design-system:
     dependencies:
