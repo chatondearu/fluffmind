@@ -35,6 +35,14 @@ export async function requireSession(event: H3Event) {
     })
   }
 
+  if (session.user.disabledAt) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Forbidden',
+      message: 'Account is disabled.',
+    })
+  }
+
   return session
 }
 

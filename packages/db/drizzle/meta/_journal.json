@@ -15,6 +15,13 @@
       "when": 1784908445021,
       "tag": "0001_third_polaris",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785318267805,
+      "tag": "0002_flowery_starhawk",
+      "breakpoints": true
     }
   ]
 }

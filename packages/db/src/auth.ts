@@ -44,6 +44,11 @@ function createAuth() {
           defaultValue: 'owner',
           input: false,
         },
+        disabledAt: {
+          type: 'date',
+          required: false,
+          input: false,
+        },
       },
     },
     plugins: [
@@ -97,6 +102,23 @@ function createAuth() {
               .update(schema.user)
               .set({ role: 'admin' })
               .where(eq(schema.user.id, user.id))
+          },
+        },
+      },
+      session: {
+        create: {
+          async before(session) {
+            if (!session.userId)
+              return
+
+            const [user] = await getDb()
+              .select({ disabledAt: schema.user.disabledAt })
+              .from(schema.user)
+              .where(eq(schema.user.id, session.userId))
+              .limit(1)
+
+            if (user?.disabledAt)
+              return false
           },
         },
       },
