@@ -1,5 +1,5 @@
-import { fetchCollaborators } from './collaborators.ts'
-import { fetchOrgMembers } from './org-members.ts'
+import { fetchCollaborators } from './collaborators'
+import { fetchOrgMembers } from './org-members'
 
 export interface GitHubInviteCandidate {
   login: string
@@ -31,4 +31,4 @@ export async function listGitHubInviteCandidates(input: {
   return []
 }
 
-export { fetchOrgMembers } from './org-members.ts'
+export { fetchOrgMembers } from './org-members'
