@@ -1,7 +1,8 @@
 import { getDb, user } from '@fluffmind/db'
-import { eq } from 'drizzle-orm'
+import { count, eq } from 'drizzle-orm'
 
-import { requireAdminInstance } from '../../../../utils/admin'
+import { INSTANCE_ADMIN_ROLE, requireAdminInstance } from '../../../../utils/admin'
+import { isInstanceAdminRole, wouldRemoveLastAdmin } from '../../../../utils/admin-guards'
 import { readJsonBody } from '../../../../utils/read-json-body'
 
 type UpdateRoleBody = {
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
 
   const db = getDb()
   const [target] = await db
-    .select({ id: user.id })
+    .select({ id: user.id, role: user.role })
     .from(user)
     .where(eq(user.id, userId))
     .limit(1)
@@ -37,6 +38,24 @@ export default defineEventHandler(async (event) => {
       statusCode: 404,
       statusMessage: 'User not found',
     })
+  }
+
+  if (body.role !== INSTANCE_ADMIN_ROLE && isInstanceAdminRole(target.role)) {
+    const [{ total } = { total: 0 }] = await db
+      .select({ total: count() })
+      .from(user)
+      .where(eq(user.role, INSTANCE_ADMIN_ROLE))
+
+    if (wouldRemoveLastAdmin({
+      targetIsAdmin: true,
+      adminCount: Number(total),
+    })) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Last admin',
+        message: 'Cannot demote the last instance admin.',
+      })
+    }
   }
 
   await db.update(user).set({ role: body.role }).where(eq(user.id, userId))

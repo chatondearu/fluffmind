@@ -2,13 +2,13 @@ import { getDb, user } from '@fluffmind/db'
 import { desc } from 'drizzle-orm'
 
 import { requireAdminInstance } from '../../utils/admin'
+import { parseAdminUsersLimit } from '../../utils/admin-guards'
 
 export default defineEventHandler(async (event) => {
   await requireAdminInstance(event)
 
   const query = getQuery(event)
-  const limitRaw = query.limit
-  const limit = typeof limitRaw === 'string' ? Math.max(1, Number(limitRaw) || 50) : 50
+  const limit = parseAdminUsersLimit(query.limit)
 
   const db = getDb()
   const rows = await db
