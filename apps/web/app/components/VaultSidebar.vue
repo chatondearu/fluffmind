@@ -9,16 +9,37 @@ import { $fetch } from 'ofetch'
 import { slugifyFolderName, type VaultTreeNode } from '../utils/vault-tree'
 import { refreshVaultNotes, useVaultTree } from '../composables/useVaultTree'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   workspaceId?: string
   workspaceName?: string
   mobileOpen?: boolean
-}>()
+  authEnabled?: boolean
+  isAuthenticated?: boolean
+  authPending?: boolean
+  loggingOut?: boolean
+}>(), {
+  workspaceId: 'default',
+  workspaceName: 'Workspace',
+  mobileOpen: false,
+  authEnabled: false,
+  isAuthenticated: false,
+  authPending: false,
+  loggingOut: false,
+})
 
 const emit = defineEmits<{
   navigate: []
   close: []
+  login: []
+  logout: []
 }>()
+
+const showLogin = computed(() =>
+  props.authEnabled && !props.isAuthenticated && !props.authPending,
+)
+const showLogout = computed(() =>
+  props.authEnabled && props.isAuthenticated,
+)
 
 const route = useRoute()
 const workspaceLabel = computed(() => props.workspaceName?.trim() || 'Workspace')
@@ -237,6 +258,27 @@ function extractErrorMessage(err: unknown): string {
           Graph
         </FluffmindButton>
       </NuxtLink>
+
+      <FluffmindButton
+        v-if="showLogin"
+        variant="outlined"
+        size="sm"
+        class="w-full"
+        @click="emit('login'); onNavigate()"
+      >
+        Se connecter
+      </FluffmindButton>
+
+      <FluffmindButton
+        v-if="showLogout"
+        variant="outlined"
+        size="sm"
+        class="w-full"
+        :disabled="loggingOut"
+        @click="emit('logout'); onNavigate()"
+      >
+        {{ loggingOut ? 'Déconnexion…' : 'Se déconnecter' }}
+      </FluffmindButton>
     </div>
 
     <FolderCreateDialog

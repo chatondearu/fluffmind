@@ -40,10 +40,13 @@ const workspaceError = ref<string | null>(null)
 const workspaceCreateOpen = ref(false)
 
 const hideWorkspaceControls = computed(() => route.path === '/login' || route.path === '/signup')
+const isAuthenticated = computed(() => Boolean(authSession.value?.session))
 const hideSidebar = computed(() =>
   route.path === '/login'
   || route.path === '/signup'
-  || route.path.startsWith('/accept-invitation/'),
+  || route.path.startsWith('/accept-invitation/')
+  // Defense in depth: never render the vault chrome while auth is required and missing.
+  || (authEnabled && !isAuthenticated.value && !isPending.value),
 )
 const sidebarWorkspaceId = computed(() =>
   authSession.value?.session?.activeOrganizationId || selectedWorkspaceId.value || 'default',
@@ -83,18 +86,10 @@ const showWorkspaceSettingsLink = computed(() =>
   && !hideWorkspaceControls.value
   && !!authSession.value?.session,
 )
-const showLogout = computed(() =>
-  authEnabled
-  && !hideWorkspaceControls.value
-  && !!authSession.value?.session,
+const showSettingsLink = computed(() =>
+  !hideWorkspaceControls.value
+  && (!authEnabled || isAuthenticated.value),
 )
-const showLogin = computed(() =>
-  authEnabled
-  && !hideWorkspaceControls.value
-  && !authSession.value?.session
-  && !isPending.value,
-)
-const showSettingsLink = computed(() => !hideWorkspaceControls.value)
 const loggingOut = ref(false)
 
 const workspaceOptions = computed(() =>
@@ -243,7 +238,13 @@ watch(
         :workspace-id="sidebarWorkspaceId"
         :workspace-name="sidebarWorkspaceName"
         :mobile-open="mobileSidebarOpen"
+        :auth-enabled="authEnabled"
+        :is-authenticated="isAuthenticated"
+        :auth-pending="isPending"
+        :logging-out="loggingOut"
         @close="closeMobileSidebar"
+        @login="navigateTo('/login')"
+        @logout="logout"
       />
 
       <div
@@ -298,22 +299,6 @@ watch(
                   Workspace
                 </FluffmindButton>
               </NuxtLink>
-
-              <NuxtLink v-if="showLogin" to="/login">
-                <FluffmindButton variant="text" size="sm">
-                  Connexion
-                </FluffmindButton>
-              </NuxtLink>
-
-              <FluffmindButton
-                v-if="showLogout"
-                variant="text"
-                size="sm"
-                :disabled="loggingOut"
-                @click="logout"
-              >
-                {{ loggingOut ? '…' : 'Logout' }}
-              </FluffmindButton>
 
               <FluffmindButton variant="tonal" size="sm" @click="cycleTheme">
                 Theme: {{ preference }}
