@@ -25,7 +25,7 @@ vi.mock('../utils/github-credentials', () => ({
   resolveWorkspaceGitHubCredentials: mocks.resolveWorkspaceGitHubCredentials,
 }))
 
-const { resolveWorkspaceGitRemoteUrl } = await import('./workspace')
+const { resolveWorkspaceGitNetwork, resolveWorkspaceGitRemoteUrl } = await import('./workspace')
 
 function mockWorkspaceConfig(remoteUrl?: string): void {
   const limit = vi.fn().mockResolvedValue([{
@@ -38,6 +38,49 @@ function mockWorkspaceConfig(remoteUrl?: string): void {
   const select = vi.fn().mockReturnValue({ from })
   mocks.getDb.mockReturnValue({ select })
 }
+
+describe('resolveWorkspaceGitNetwork', () => {
+  beforeEach(() => {
+    process.env.WORKSPACES_ROOT = '/tmp/fluffmind-workspace-test'
+    vi.stubGlobal('createError', (options: { statusCode: number, statusMessage: string, message: string }) => {
+      const error = new Error(options.message) as Error & { statusCode: number, statusMessage: string }
+      error.statusCode = options.statusCode
+      error.statusMessage = options.statusMessage
+      return error
+    })
+  })
+
+  afterEach(() => {
+    delete process.env.WORKSPACES_ROOT
+    vi.clearAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('returns clean remote + access token for linked workspaces', async () => {
+    mockWorkspaceConfig('https://github.com/acme/vault.git')
+    mocks.resolveWorkspaceGitHubCredentials.mockResolvedValue({
+      mode: 'app',
+      token: 'ghs_token',
+      owner: 'acme',
+      repo: 'vault',
+    })
+
+    await expect(resolveWorkspaceGitNetwork('org-1')).resolves.toEqual({
+      remoteUrl: 'https://github.com/acme/vault.git',
+      accessToken: 'ghs_token',
+    })
+  })
+
+  it('throws when a GitHub remote has no App/PAT credentials', async () => {
+    mockWorkspaceConfig('https://github.com/acme/vault.git')
+    mocks.resolveWorkspaceGitHubCredentials.mockResolvedValue(null)
+
+    await expect(resolveWorkspaceGitNetwork('org-1')).rejects.toMatchObject({
+      statusCode: 503,
+      statusMessage: 'GitHub credentials unavailable',
+    })
+  })
+})
 
 describe('resolveWorkspaceGitRemoteUrl', () => {
   beforeEach(() => {
@@ -60,15 +103,6 @@ describe('resolveWorkspaceGitRemoteUrl', () => {
 
     await expect(resolveWorkspaceGitRemoteUrl('org-1')).resolves.toBe(
       'https://x-access-token:ghs_token@github.com/acme/vault.git',
-    )
-  })
-
-  it('preserves the configured remote URL when no linked credentials exist', async () => {
-    mockWorkspaceConfig('https://github.com/acme/vault.git')
-    mocks.resolveWorkspaceGitHubCredentials.mockResolvedValue(null)
-
-    await expect(resolveWorkspaceGitRemoteUrl('org-1')).resolves.toBe(
-      'https://github.com/acme/vault.git',
     )
   })
 })

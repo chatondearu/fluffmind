@@ -22,6 +22,10 @@ vi.mock('@fluffmind/db', () => ({
     role: 'role',
     userId: 'userId',
   },
+  workspaceConfig: {
+    organizationId: 'organizationId',
+    gitRemoteUrl: 'gitRemoteUrl',
+  },
   workspaceGithubLink: {
     installationId: 'installationId',
     organizationId: 'organizationId',
@@ -51,7 +55,17 @@ function mockDeleteChain() {
       return Promise.resolve()
     }),
   }))
-  mocks.getDb.mockReturnValue({ delete: del })
+  const select = vi.fn().mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
+    }),
+  })
+  const update = vi.fn().mockReturnValue({
+    set: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(undefined),
+    }),
+  })
+  mocks.getDb.mockReturnValue({ delete: del, select, update })
   return calls
 }
 
@@ -68,9 +82,12 @@ function mockSelectThenDelete(rows: Array<Record<string, unknown>>) {
       return Promise.resolve()
     }),
   }))
+  const updateWhere = vi.fn().mockResolvedValue(undefined)
+  const updateSet = vi.fn().mockReturnValue({ where: updateWhere })
+  const update = vi.fn().mockReturnValue({ set: updateSet })
 
-  mocks.getDb.mockReturnValue({ select, delete: del })
-  return { deleteCalls }
+  mocks.getDb.mockReturnValue({ select, delete: del, update })
+  return { deleteCalls, updateSet }
 }
 
 afterEach(() => {
@@ -105,12 +122,13 @@ describe('unlinkWorkspacesForRemovedRepositories', () => {
       { organizationId: 'org-match', owner: 'acme', repo: 'vault' },
       { organizationId: 'org-no-match', owner: 'acme', repo: 'other-repo' },
     ]
-    const { deleteCalls } = mockSelectThenDelete(rows)
+    const { deleteCalls, updateSet } = mockSelectThenDelete(rows)
 
     await unlinkWorkspacesForRemovedRepositories('123', ['Acme/Vault'])
 
     expect(deleteCalls).toHaveLength(1)
     expect(deleteCalls[0]!.organizationId).toBe('org-match')
+    expect(updateSet).toHaveBeenCalledWith({ gitRemoteUrl: null })
   })
 
   it('does nothing when no repos are removed', async () => {

@@ -9,8 +9,10 @@ export interface WorkingCopyConfig {
   path: string
   /** Clean Git remote URL. Omit for local-only mode (commits happen, nothing is pushed). */
   remoteUrl?: string
-  /** Runtime-only Git remote URL used for authenticated network operations. */
+  /** Runtime-only Git remote URL used for authenticated network operations (may embed a token). */
   networkRemoteUrl?: string
+  /** Explicit HTTPS access token (GitHub App installation token or PAT). Preferred over embedding in URL. */
+  accessToken?: string
   branch: string
 }
 
@@ -21,6 +23,44 @@ async function isEmptyDir(path: string): Promise<boolean> {
 
 function hasGitDir(path: string): boolean {
   return existsSync(join(path, '.git'))
+}
+
+function createGit(basePath?: string): SimpleGit {
+  // Prefer mutating the process env once over simpleGit().env({...process.env}), which
+  // reintroduces PAGER/EDITOR and trips simple-git's block-unsafe-operations plugin.
+  process.env.GIT_TERMINAL_PROMPT = '0'
+  return basePath ? simpleGit(basePath) : simpleGit()
+}
+
+function resolveAccessToken(options: { accessToken?: string, networkRemoteUrl?: string }): string | undefined {
+  if (options.accessToken)
+    return options.accessToken
+  if (!options.networkRemoteUrl)
+    return undefined
+
+  try {
+    const password = new URL(options.networkRemoteUrl).password
+    return password ? decodeURIComponent(password) : undefined
+  }
+  catch {
+    return undefined
+  }
+}
+
+/** GitHub HTTPS auth via http.extraHeader — avoids interactive credential prompts in Docker. */
+function gitHttpsAuthArgs(accessToken?: string): string[] {
+  if (!accessToken)
+    return []
+
+  const basic = Buffer.from(`x-access-token:${accessToken}`, 'utf8').toString('base64')
+  return [
+    '-c', 'credential.helper=',
+    '-c', `http.extraHeader=Authorization: Basic ${basic}`,
+  ]
+}
+
+export function isGitAuthErrorMessage(message: string): boolean {
+  return /could not read Username|Authentication failed|Invalid username or token|terminal prompts disabled|Write access to repository not granted|HTTP Basic: Access denied/i.test(message)
 }
 
 /**
@@ -38,9 +78,13 @@ async function ensureCommitIdentity(git: SimpleGit): Promise<void> {
  * True when the remote exists but has no refs yet (e.g. GitHub repo created without
  * `auto_init`). `git clone --branch` fails on those; we init locally and push later.
  */
-async function remoteHasRefs(remoteUrl: string): Promise<boolean> {
+async function remoteHasRefs(remoteUrl: string, accessToken?: string): Promise<boolean> {
   try {
-    const refs = await simpleGit().listRemote([remoteUrl])
+    const refs = await createGit().raw([
+      ...gitHttpsAuthArgs(accessToken),
+      'ls-remote',
+      remoteUrl,
+    ])
     return refs.trim().length > 0
   }
   catch {
@@ -68,42 +112,54 @@ async function ensureOriginRemote(git: SimpleGit, remoteUrl: string): Promise<vo
  * - already a repo: fetch/checkout the target branch if a remote is configured.
  */
 export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<SimpleGit> {
-  const { path, remoteUrl, networkRemoteUrl, branch } = config
+  const { path, remoteUrl, networkRemoteUrl, accessToken: explicitToken, branch } = config
+  const accessToken = resolveAccessToken({ accessToken: explicitToken, networkRemoteUrl })
   let git: SimpleGit
 
   if (await isEmptyDir(path)) {
     if (remoteUrl) {
-      const fetchUrl = networkRemoteUrl || remoteUrl
-      if (await remoteHasRefs(fetchUrl)) {
-        await simpleGit().clone(fetchUrl, path, ['--branch', branch, '--single-branch'])
-        git = simpleGit(path)
+      const fetchUrl = remoteUrl
+      if (await remoteHasRefs(fetchUrl, accessToken)) {
+        await createGit().raw([
+          ...gitHttpsAuthArgs(accessToken),
+          'clone',
+          '--branch',
+          branch,
+          '--single-branch',
+          fetchUrl,
+          path,
+        ])
+        git = createGit(path)
         await git.remote(['set-url', 'origin', remoteUrl])
       }
       else {
         await mkdir(path, { recursive: true })
-        git = simpleGit(path)
+        git = createGit(path)
         await git.init(['--initial-branch', branch])
         await git.addRemote('origin', remoteUrl)
       }
-    } else {
+    }
+    else {
       await mkdir(path, { recursive: true })
-      git = simpleGit(path)
+      git = createGit(path)
       await git.init(['--initial-branch', branch])
     }
-  } else if (!hasGitDir(path)) {
-    git = simpleGit(path)
+  }
+  else if (!hasGitDir(path)) {
+    git = createGit(path)
     await git.init(['--initial-branch', branch])
-  } else {
-    git = simpleGit(path)
+  }
+  else {
+    git = createGit(path)
     if (remoteUrl) {
       await ensureOriginRemote(git, remoteUrl)
-      const fetchUrl = networkRemoteUrl || remoteUrl
-      if (await remoteHasRefs(fetchUrl)) {
-        await fetchRemote(git, branch, networkRemoteUrl)
+      if (await remoteHasRefs(remoteUrl, accessToken)) {
+        await fetchRemote(git, branch, { accessToken })
         const localBranches = await git.branchLocal()
         if (localBranches.all.includes(branch)) {
           await git.checkout(branch)
-        } else {
+        }
+        else {
           await git.checkoutBranch(branch, `origin/${branch}`)
         }
       }
@@ -114,31 +170,32 @@ export async function ensureWorkingCopy(config: WorkingCopyConfig): Promise<Simp
   return git
 }
 
-async function fetchRemote(git: SimpleGit, branch: string, networkRemoteUrl?: string): Promise<void> {
-  if (!networkRemoteUrl) {
-    await git.fetch('origin', branch)
-    return
-  }
-
-  await git.raw(['-c', `remote.origin.url=${networkRemoteUrl}`, 'fetch', 'origin', branch])
+async function fetchRemote(
+  git: SimpleGit,
+  branch: string,
+  options: { accessToken?: string, networkRemoteUrl?: string } = {},
+): Promise<void> {
+  const accessToken = resolveAccessToken(options)
+  await git.raw([...gitHttpsAuthArgs(accessToken), 'fetch', 'origin', branch])
 }
 
-async function pushRemote(git: SimpleGit, branch: string, networkRemoteUrl?: string): Promise<void> {
-  if (!networkRemoteUrl) {
-    await git.push('origin', branch)
-    return
-  }
-
-  await git.raw(['-c', `remote.origin.url=${networkRemoteUrl}`, 'push', 'origin', branch])
+async function pushRemote(
+  git: SimpleGit,
+  branch: string,
+  options: { accessToken?: string, networkRemoteUrl?: string } = {},
+): Promise<void> {
+  const accessToken = resolveAccessToken(options)
+  // -u sets upstream on first push to an empty GitHub repo (no auto_init).
+  await git.raw([...gitHttpsAuthArgs(accessToken), 'push', '-u', 'origin', branch])
 }
 
-async function pullRemote(git: SimpleGit, branch: string, networkRemoteUrl?: string): Promise<void> {
-  if (!networkRemoteUrl) {
-    await git.pull('origin', branch)
-    return
-  }
-
-  await git.raw(['-c', `remote.origin.url=${networkRemoteUrl}`, 'pull', 'origin', branch])
+async function pullRemote(
+  git: SimpleGit,
+  branch: string,
+  options: { accessToken?: string, networkRemoteUrl?: string } = {},
+): Promise<void> {
+  const accessToken = resolveAccessToken(options)
+  await git.raw([...gitHttpsAuthArgs(accessToken), 'pull', 'origin', branch])
 }
 
 /** Thrown when a rebase-on-push-rejected hits a real conflict. The local commit is
@@ -151,6 +208,14 @@ export class GitConflictError extends Error {
   }
 }
 
+/** Thrown when git cannot authenticate to the remote (missing/invalid token). */
+export class GitAuthError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'GitAuthError'
+  }
+}
+
 export interface CommitPushOptions {
   branch: string
   message: string
@@ -159,6 +224,8 @@ export interface CommitPushOptions {
   remoteConfigured: boolean
   /** Runtime-only Git remote URL used for authenticated push and rebase fetches. */
   networkRemoteUrl?: string
+  /** Explicit HTTPS access token (preferred). */
+  accessToken?: string
 }
 
 export interface CommitPushResult {
@@ -184,7 +251,7 @@ export interface SyncStatus {
  */
 export async function getSyncStatus(
   git: SimpleGit,
-  options: { branch: string, remoteConfigured: boolean }
+  options: { branch: string, remoteConfigured: boolean },
 ): Promise<SyncStatus> {
   const { branch, remoteConfigured } = options
 
@@ -200,7 +267,8 @@ export async function getSyncStatus(
     const [aheadStr, behindStr] = output.trim().split(/\s+/)
     ahead = Number(aheadStr) || 0
     behind = Number(behindStr) || 0
-  } catch {
+  }
+  catch {
     const status = await git.status()
     ahead = status.ahead ?? 0
     behind = status.behind ?? 0
@@ -211,7 +279,7 @@ export async function getSyncStatus(
     branch,
     ahead,
     behind,
-    diverged: ahead > 0
+    diverged: ahead > 0,
   }
 }
 
@@ -226,21 +294,35 @@ export interface PullFromRemoteResult {
  */
 export async function pullFromRemote(
   git: SimpleGit,
-  options: { branch: string, remoteConfigured: boolean, networkRemoteUrl?: string },
+  options: { branch: string, remoteConfigured: boolean, networkRemoteUrl?: string, accessToken?: string },
 ): Promise<PullFromRemoteResult> {
-  const { branch, remoteConfigured, networkRemoteUrl } = options
+  const { branch, remoteConfigured, networkRemoteUrl, accessToken } = options
   if (!remoteConfigured) {
     return { updated: false, behindBefore: 0 }
   }
 
-  await fetchRemote(git, branch, networkRemoteUrl)
+  await fetchRemote(git, branch, { networkRemoteUrl, accessToken })
   const before = await getSyncStatus(git, { branch, remoteConfigured })
   if (before.behind === 0) {
     return { updated: false, behindBefore: 0 }
   }
 
-  await pullRemote(git, branch, networkRemoteUrl)
+  await pullRemote(git, branch, { networkRemoteUrl, accessToken })
   return { updated: true, behindBefore: before.behind }
+}
+
+function asErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function rethrowIfGitAuthError(error: unknown): void {
+  const message = asErrorMessage(error)
+  if (isGitAuthErrorMessage(message))
+    throw new GitAuthError(message)
+}
+
+function isMissingRemoteRefError(error: unknown): boolean {
+  return /couldn'?t find remote ref|fatal: couldn'?t find remote ref|no such ref|unknown revision/i.test(asErrorMessage(error))
 }
 
 /**
@@ -250,7 +332,8 @@ export async function pullFromRemote(
  * the commit made here is never lost, only left unpushed.
  */
 export async function commitAndPush(git: SimpleGit, options: CommitPushOptions): Promise<CommitPushResult> {
-  const { branch, message, remoteConfigured, networkRemoteUrl } = options
+  const { branch, message, remoteConfigured, networkRemoteUrl, accessToken } = options
+  const auth = { networkRemoteUrl, accessToken }
 
   await git.add(['-A'])
   const status = await git.status()
@@ -260,19 +343,41 @@ export async function commitAndPush(git: SimpleGit, options: CommitPushOptions):
   if (!remoteConfigured) return { committed, pushed: false }
 
   try {
-    await pushRemote(git, branch, networkRemoteUrl)
+    await pushRemote(git, branch, auth)
     return { committed, pushed: true }
-  } catch {
-    await fetchRemote(git, branch, networkRemoteUrl)
+  }
+  catch (pushError) {
+    rethrowIfGitAuthError(pushError)
+
+    try {
+      await fetchRemote(git, branch, auth)
+    }
+    catch (fetchError) {
+      rethrowIfGitAuthError(fetchError)
+      // Empty remote (no branches yet): first push should have created it. Surface the
+      // original push error instead of a confusing "missing remote ref" from fetch.
+      if (isMissingRemoteRefError(fetchError))
+        throw pushError
+      throw fetchError
+    }
+
     try {
       await git.rebase([`origin/${branch}`])
-    } catch {
+    }
+    catch {
       await git.rebase(['--abort']).catch(() => {})
       throw new GitConflictError(
-        `Rebase conflict syncing branch "${branch}" — local commit is intact but not pushed.`
+        `Rebase conflict syncing branch "${branch}" — local commit is intact but not pushed.`,
       )
     }
-    await pushRemote(git, branch, networkRemoteUrl)
-    return { committed, pushed: true }
+
+    try {
+      await pushRemote(git, branch, auth)
+      return { committed, pushed: true }
+    }
+    catch (retryError) {
+      rethrowIfGitAuthError(retryError)
+      throw retryError
+    }
   }
 }

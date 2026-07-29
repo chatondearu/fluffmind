@@ -1,3 +1,4 @@
+import { GitAuthError, isGitAuthErrorMessage } from '@fluffmind/integrations'
 import { VaultConflictError } from '../vault/mutations'
 import { VaultReadOnlyError } from '../vault/readonly'
 import { GitConflictError, InvalidNoteIdError, WorkspaceLockTimeoutError } from '../vault/write'
@@ -22,6 +23,13 @@ export function rethrowVaultMutationError(error: unknown): never {
       statusCode: 503,
       statusMessage: 'Workspace busy',
       message: error.message,
+    })
+  }
+  if (error instanceof GitAuthError || (error instanceof Error && isGitAuthErrorMessage(error.message))) {
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Git authentication failed',
+      message: 'Could not authenticate to the GitHub remote. Check App permissions (Contents: Read and write) or re-link sync in workspace settings.',
     })
   }
   if (error instanceof GitConflictError) {

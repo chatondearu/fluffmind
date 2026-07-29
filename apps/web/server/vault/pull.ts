@@ -3,7 +3,7 @@ import type { PullFromRemoteResult } from '@fluffmind/integrations'
 
 import { invalidateVaultIndex } from './service'
 import { bootstrapWorkspace } from './sync'
-import { resolveWorkspaceConfig, resolveWorkspaceGitRemoteUrl } from './workspace'
+import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
 
 /**
  * Pulls latest commits from origin into a workspace vault working copy.
@@ -19,12 +19,12 @@ export async function pullWorkspaceChanges(workspaceId = 'default'): Promise<Pul
   }
 
   await bootstrapWorkspace(workspaceId)
-  const remoteUrl = await resolveWorkspaceGitRemoteUrl(workspaceId)
-  const git = await ensureWorkingCopy({ ...config, networkRemoteUrl: remoteUrl })
+  const network = await resolveWorkspaceGitNetwork(workspaceId)
+  const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
   const result = await pullFromRemote(git, {
     branch: config.branch,
     remoteConfigured: true,
-    networkRemoteUrl: remoteUrl,
+    accessToken: network.accessToken,
   })
 
   if (result.updated) {

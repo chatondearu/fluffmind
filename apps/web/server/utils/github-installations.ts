@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { getDb, githubAppInstallation, member, workspaceGithubLink } from '@fluffmind/db'
+import { getDb, githubAppInstallation, member, workspaceConfig, workspaceGithubLink } from '@fluffmind/db'
 import { createAppJwt, createInstallationToken } from '@fluffmind/integrations'
 import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
@@ -122,8 +122,20 @@ export async function findGithubAppInstallation(installationId: string): Promise
 /** Uninstall: prune the installation row and every workspace link that relied on it. Vault files on disk are left untouched. */
 export async function removeGithubAppInstallation(installationId: string): Promise<void> {
   const db = getDb()
+  const linkedWorkspaces = await db
+    .select({ organizationId: workspaceGithubLink.organizationId })
+    .from(workspaceGithubLink)
+    .where(eq(workspaceGithubLink.installationId, installationId))
+
   await db.delete(workspaceGithubLink).where(eq(workspaceGithubLink.installationId, installationId))
   await db.delete(githubAppInstallation).where(eq(githubAppInstallation.installationId, installationId))
+
+  for (const link of linkedWorkspaces) {
+    await db
+      .update(workspaceConfig)
+      .set({ gitRemoteUrl: null })
+      .where(eq(workspaceConfig.organizationId, link.organizationId))
+  }
 }
 
 /** GitHub owner/repo names are case-insensitive (`Acme/Repo` and `acme/repo` are the same repository). */
@@ -162,6 +174,10 @@ export async function unlinkWorkspacesForRemovedRepositories(
 
   for (const link of affected) {
     await db.delete(workspaceGithubLink).where(eq(workspaceGithubLink.organizationId, link.organizationId))
+    await db
+      .update(workspaceConfig)
+      .set({ gitRemoteUrl: null })
+      .where(eq(workspaceConfig.organizationId, link.organizationId))
   }
 }
 

@@ -76,22 +76,64 @@ export async function resolveWorkspaceConfig(workspaceId: string): Promise<Works
   }
 }
 
+function isGitHubHttpsRemote(remoteUrl: string): boolean {
+  try {
+    const hostname = new URL(remoteUrl).hostname.toLowerCase()
+    return hostname === 'github.com' || hostname === 'www.github.com'
+  }
+  catch {
+    return false
+  }
+}
+
+export interface WorkspaceGitNetwork {
+  /** Clean remote URL stored in workspace_config (no secrets). */
+  remoteUrl?: string
+  /** Short-lived App installation token or PAT for HTTPS git ops. */
+  accessToken?: string
+}
+
+/**
+ * Resolves clean remote + runtime GitHub credentials for network operations.
+ * Tokens are minted/decrypted on demand and never saved in `workspace_config`.
+ */
+export async function resolveWorkspaceGitNetwork(workspaceId: string): Promise<WorkspaceGitNetwork> {
+  const config = await resolveWorkspaceConfig(workspaceId)
+  if (!config.remoteUrl)
+    return {}
+
+  if (!isAuthEnabled())
+    return { remoteUrl: config.remoteUrl }
+
+  const credentials = await resolveWorkspaceGitHubCredentials(workspaceId)
+  if (!credentials) {
+    if (isGitHubHttpsRemote(config.remoteUrl)) {
+      throw createError({
+        statusCode: 503,
+        statusMessage: 'GitHub credentials unavailable',
+        message: 'This workspace has a GitHub remote but no App/PAT link. Unlink or re-link sync in workspace settings.',
+      })
+    }
+    return { remoteUrl: config.remoteUrl }
+  }
+
+  return {
+    remoteUrl: config.remoteUrl,
+    accessToken: credentials.token,
+  }
+}
+
 /**
  * Resolves the Git remote URL to use for a network operation. GitHub credentials are
  * minted or decrypted on demand and never saved in `workspace_config`.
  */
 export async function resolveWorkspaceGitRemoteUrl(workspaceId: string): Promise<string | undefined> {
-  const config = await resolveWorkspaceConfig(workspaceId)
-  if (!config.remoteUrl || !isAuthEnabled()) {
-    return config.remoteUrl
-  }
-
-  const credentials = await resolveWorkspaceGitHubCredentials(workspaceId)
-  if (!credentials) {
-    return config.remoteUrl
-  }
-
-  return withGitHubAccessToken(config.remoteUrl, credentials.token)
+  const network = await resolveWorkspaceGitNetwork(workspaceId)
+  if (!network.remoteUrl)
+    return undefined
+  if (!network.accessToken)
+    return network.remoteUrl
+  return withGitHubAccessToken(network.remoteUrl, network.accessToken)
 }
 
 export async function resolveActiveWorkspaceId(event: H3Event): Promise<string> {

@@ -6,7 +6,7 @@ import { commitAndPush, ensureWorkingCopy, getSyncStatus, type SyncStatus } from
 import { isAuthEnabled } from '../utils/auth'
 import { vaultHasMarkdownNotes } from './index'
 import { invalidateVaultIndex } from './service'
-import { resolveWorkspaceConfig, resolveWorkspaceGitRemoteUrl } from './workspace'
+import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
 
 const WELCOME_NOTE = `# Welcome to Fluffmind
 
@@ -32,13 +32,13 @@ async function seedWelcomeNoteIfEmpty(
   await writeFile(welcomePath, WELCOME_NOTE, 'utf-8')
 
   const config = await resolveWorkspaceConfig(workspaceId)
-  const remoteUrl = await resolveWorkspaceGitRemoteUrl(workspaceId)
-  const git = await ensureWorkingCopy({ ...config, networkRemoteUrl: remoteUrl })
+  const network = await resolveWorkspaceGitNetwork(workspaceId)
+  const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
   await commitAndPush(git, {
     branch,
     message: 'Seed welcome note',
     remoteConfigured,
-    networkRemoteUrl: remoteUrl,
+    accessToken: network.accessToken,
   })
   invalidateVaultIndex(workspaceId)
 }
@@ -71,8 +71,8 @@ export function bootstrapWorkspace(workspaceId = 'default'): Promise<SyncStatus 
 
   const promise = (async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
-    const remoteUrl = await resolveWorkspaceGitRemoteUrl(workspaceId)
-    const git = await ensureWorkingCopy({ ...config, networkRemoteUrl: remoteUrl })
+    const network = await resolveWorkspaceGitNetwork(workspaceId)
+    const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
     await seedWelcomeNoteIfEmpty(
       workspaceId,
       config.path,
@@ -96,8 +96,8 @@ export async function getWorkspaceSyncStatus(workspaceId = 'default'): Promise<S
   try {
     await bootstrapWorkspace(workspaceId)
     const config = await resolveWorkspaceConfig(workspaceId)
-    const remoteUrl = await resolveWorkspaceGitRemoteUrl(workspaceId)
-    const git = await ensureWorkingCopy({ ...config, networkRemoteUrl: remoteUrl })
+    const network = await resolveWorkspaceGitNetwork(workspaceId)
+    const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
     return getSyncStatus(git, {
       branch: config.branch,
       remoteConfigured: Boolean(config.remoteUrl),
