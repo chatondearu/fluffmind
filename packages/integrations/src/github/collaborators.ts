@@ -10,7 +10,9 @@ interface GitHubPermissionsPayload {
 }
 
 interface GitHubCollaboratorApiPayload {
+  id?: number
   login: string
+  avatar_url?: string | null
   role_name?: string
   permissions?: GitHubPermissionsPayload
 }
@@ -18,6 +20,8 @@ interface GitHubCollaboratorApiPayload {
 export interface GitHubCollaborator {
   login: string
   permission: GitHubCollaboratorPermission
+  id?: string
+  avatarUrl?: string | null
 }
 
 function pickPermission(payload: GitHubCollaboratorApiPayload): GitHubCollaboratorPermission {
@@ -78,5 +82,7 @@ export async function fetchCollaborators(token: string, owner: string, repo: str
   return data.map((collaborator) => ({
     login: collaborator.login,
     permission: pickPermission(collaborator),
+    ...(collaborator.id != null ? { id: String(collaborator.id) } : {}),
+    avatarUrl: collaborator.avatar_url ?? null,
   }))
 }

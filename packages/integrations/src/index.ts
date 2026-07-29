@@ -16,6 +16,9 @@ export type {
 export { normalizeGitHubLogin, resolveGitHubUser } from './github/users'
 export type { ResolvedGitHubUser } from './github/users'
 
+export { fetchOrgMembers, listGitHubInviteCandidates } from './github/invite-candidates'
+export type { GitHubInviteCandidate } from './github/invite-candidates'
+
 export { syncWorkspaceMembersFromGitHub } from './github/sync'
 export type {
   MemberSyncMeta,
