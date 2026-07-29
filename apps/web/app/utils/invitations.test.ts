@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   acceptInvitationWithFallback,
   buildAcceptInvitationUrl,
+  buildWorkspaceInvitationPayload,
   extractInvitationIdFromInviteMemberResponse,
+  formatInvitationRecipient,
 } from './invitations'
 
 describe('invitations', () => {
@@ -19,6 +21,41 @@ describe('invitations', () => {
     expect(extractInvitationIdFromInviteMemberResponse({})).toBeNull()
     expect(extractInvitationIdFromInviteMemberResponse({ data: null })).toBeNull()
     expect(extractInvitationIdFromInviteMemberResponse({ data: { id: 123 } })).toBeNull()
+  })
+
+  it('builds a workspace invitation from an email or GitHub login', () => {
+    expect(buildWorkspaceInvitationPayload({
+      email: ' Member@Example.com ',
+      githubLogin: ' typed-login ',
+      selectedGithubLogin: 'selected-login',
+      role: 'write',
+    })).toEqual({
+      email: 'member@example.com',
+      githubLogin: 'typed-login',
+      role: 'write',
+    })
+
+    expect(buildWorkspaceInvitationPayload({
+      email: '',
+      githubLogin: '',
+      selectedGithubLogin: ' selected-login ',
+      role: 'read',
+    })).toEqual({
+      githubLogin: 'selected-login',
+      role: 'read',
+    })
+
+    expect(buildWorkspaceInvitationPayload({
+      email: ' ',
+      githubLogin: ' ',
+      selectedGithubLogin: '',
+      role: 'owner',
+    })).toBeNull()
+  })
+
+  it('formats a pending invitation recipient from its GitHub login or email', () => {
+    expect(formatInvitationRecipient({ githubLogin: 'octocat', email: 'octocat@example.com' })).toBe('@octocat')
+    expect(formatInvitationRecipient({ githubLogin: null, email: 'member@example.com' })).toBe('member@example.com')
   })
 
   it('falls back to the workspace endpoint when Better Auth rejects the invitation', async () => {

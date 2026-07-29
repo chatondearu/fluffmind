@@ -8,7 +8,12 @@ import {
   FluffmindTextField,
 } from '@fluffmind/design-system/src/components'
 import { authClient } from '../../composables/useAuth'
-import { buildAcceptInvitationUrl, extractInvitationIdFromInviteMemberResponse } from '../../utils/invitations'
+import {
+  buildAcceptInvitationUrl,
+  buildWorkspaceInvitationPayload,
+  extractInvitationIdFromInviteMemberResponse,
+  formatInvitationRecipient,
+} from '../../utils/invitations'
 
 type WorkspaceRole = 'read' | 'write' | 'owner'
 
@@ -24,8 +29,21 @@ interface WorkspaceInvitation {
   id: string
   role: string
   email: string
+  githubLogin: string | null
   status: string
   expiresAt: string | null
+}
+
+interface GitHubInviteCandidate {
+  login: string
+  label: string
+}
+
+interface WorkspaceInvitationResponse {
+  invitationId: string
+  url: string
+  githubLogin?: string
+  email?: string
 }
 
 type GitHubSyncMode = 'app' | 'pat' | 'local'
@@ -65,6 +83,9 @@ const loading = ref(true)
 const reloading = ref(false)
 const submittingInvitation = ref(false)
 const inviteEmail = ref('')
+const inviteGithubLogin = ref('')
+const selectedGithubCandidate = ref('')
+const githubInviteCandidates = ref<GitHubInviteCandidate[]>([])
 const inviteRole = ref<WorkspaceRole>('read')
 const invitationLink = ref<string | null>(null)
 const copyingInvitationLink = ref(false)
@@ -126,6 +147,10 @@ const githubRepositoryOptions = computed(() => githubInstallationRepositories.va
   value: repository.fullName,
   label: repository.fullName,
 })))
+const githubInviteCandidateOptions = computed(() => githubInviteCandidates.value.map(candidate => ({
+  value: candidate.login,
+  label: candidate.label,
+})))
 
 watch(showCreateGithubRepo, (show) => {
   if (show && !createRepoName.value)
@@ -182,6 +207,7 @@ function normalizeInvitations(input: unknown): WorkspaceInvitation[] {
       id: invitationId,
       role: asString(invitation.role, 'read'),
       email: asString(invitation.email, '—'),
+      githubLogin: typeof invitation.githubLogin === 'string' ? invitation.githubLogin : null,
       status: asString(invitation.status, 'pending'),
       expiresAt: typeof invitation.expiresAt === 'string' ? invitation.expiresAt : null,
     }
@@ -496,19 +522,17 @@ async function loadWorkspaceData(isManualReload = false) {
   inviteSuccess.value = null
 
   try {
-    const [fullOrganizationResponse, membersResponse, invitationsResponse, activeWorkspace] = await Promise.all([
+    const [fullOrganizationResponse, membersResponse, activeWorkspace] = await Promise.all([
       authClient.organization.getFullOrganization(),
       authClient.organization.listMembers({}),
-      authClient.organization.listInvitations({}),
       $fetch<{ member?: { role?: string | null } | null }>('/api/workspaces/active'),
     ])
 
     const fullOrganizationError = extractErrorMessage(fullOrganizationResponse, 'Impossible de charger le workspace.')
     const membersError = extractErrorMessage(membersResponse, 'Impossible de charger les membres.')
-    const invitationsError = extractErrorMessage(invitationsResponse, 'Impossible de charger les invitations.')
 
-    if (fullOrganizationError || membersError || invitationsError) {
-      pageError.value = fullOrganizationError || membersError || invitationsError
+    if (fullOrganizationError || membersError) {
+      pageError.value = fullOrganizationError || membersError
       return
     }
 
@@ -518,13 +542,29 @@ async function loadWorkspaceData(isManualReload = false) {
     workspaceRole.value = asString(activeWorkspace.member?.role, 'read')
 
     const fullMembers = fullOrganization.members
-    const fullInvitations = fullOrganization.invitations
     const fallbackMembers = extractData(membersResponse)
-    const fallbackInvitations = extractData(invitationsResponse)
 
     members.value = normalizeMembers(Array.isArray(fullMembers) && fullMembers.length > 0 ? fullMembers : fallbackMembers)
-    invitations.value = normalizeInvitations(Array.isArray(fullInvitations) ? fullInvitations : fallbackInvitations)
     syncLocalOverrideModel()
+
+    if (canManageGitHub.value) {
+      const [pendingInvitations, candidateResponse] = await Promise.all([
+        $fetch<unknown[]>('/api/workspaces/invitations'),
+        $fetch<{ candidates?: Array<{ login?: string }> }>('/api/workspaces/github/invite-candidates'),
+      ])
+      invitations.value = normalizeInvitations(pendingInvitations)
+      githubInviteCandidates.value = Array.isArray(candidateResponse.candidates)
+        ? candidateResponse.candidates.flatMap((candidate) => {
+            const login = asString(candidate.login).trim()
+            return login ? [{ login, label: `@${login}` }] : []
+          })
+        : []
+    }
+    else {
+      invitations.value = []
+      githubInviteCandidates.value = []
+    }
+
     await loadGitHubState()
   } catch (error) {
     const asRecordError = error as { message?: string }
@@ -536,9 +576,14 @@ async function loadWorkspaceData(isManualReload = false) {
 }
 
 async function inviteMember() {
-  const email = inviteEmail.value.trim().toLowerCase()
-  if (!email) {
-    inviteError.value = 'L’email est requis.'
+  const payload = buildWorkspaceInvitationPayload({
+    email: inviteEmail.value,
+    githubLogin: inviteGithubLogin.value,
+    selectedGithubLogin: selectedGithubCandidate.value,
+    role: inviteRole.value,
+  })
+  if (!payload) {
+    inviteError.value = 'Renseignez un email ou un pseudo GitHub.'
     inviteSuccess.value = null
     invitationLink.value = null
     return
@@ -550,16 +595,10 @@ async function inviteMember() {
   invitationLink.value = null
 
   try {
-    const response = await authClient.organization.inviteMember({
-      email,
-      role: inviteRole.value,
+    const response = await $fetch<WorkspaceInvitationResponse>('/api/workspaces/invitations', {
+      method: 'POST',
+      body: payload,
     })
-
-    const errorMessage = extractErrorMessage(response, 'Invitation impossible.')
-    if (errorMessage) {
-      inviteError.value = errorMessage
-      return
-    }
 
     const invitationId = extractInvitationIdFromInviteMemberResponse(response)
     if (!invitationId) {
@@ -571,12 +610,17 @@ async function inviteMember() {
     invitationLink.value = link
 
     inviteEmail.value = ''
+    inviteGithubLogin.value = ''
+    selectedGithubCandidate.value = ''
     inviteRole.value = 'read'
-    inviteSuccess.value = 'Invitation prête (lien copiable).'
+    const successMessage = payload.githubLogin
+      ? `Invitation pour @${payload.githubLogin} prête (lien copiable).`
+      : 'Invitation prête (lien copiable).'
     await loadWorkspaceData(true)
+    inviteSuccess.value = successMessage
   } catch (error) {
-    const asRecordError = error as { message?: string }
-    inviteError.value = asRecordError.message || 'Invitation impossible.'
+    const asRecordError = error as { data?: { message?: string }, message?: string }
+    inviteError.value = asRecordError.data?.message || asRecordError.message || 'Invitation impossible.'
   } finally {
     submittingInvitation.value = false
   }
@@ -627,13 +671,29 @@ await loadWorkspaceData()
       <h2 class="mb-4 md3-title-md">
         Inviter un membre
       </h2>
-      <form class="grid gap-4 md:grid-cols-[1fr_auto_auto]" @submit.prevent="inviteMember">
+      <form class="grid gap-4 md:grid-cols-2" @submit.prevent="inviteMember">
         <label class="block">
-          <span class="mb-2 block md3-label-lg">Email</span>
+          <span class="mb-2 block md3-label-lg">Membre GitHub</span>
+          <FluffmindSelect
+            v-model="selectedGithubCandidate"
+            :options="githubInviteCandidateOptions"
+            placeholder="Choisir un membre GitHub"
+            :disabled="githubInviteCandidateOptions.length === 0"
+          />
+        </label>
+        <label class="block">
+          <span class="mb-2 block md3-label-lg">Pseudo GitHub</span>
+          <FluffmindTextField
+            v-model="inviteGithubLogin"
+            type="text"
+            placeholder="octocat"
+          />
+        </label>
+        <label class="block">
+          <span class="mb-2 block md3-label-lg">Email (optionnel si GitHub est renseigné)</span>
           <FluffmindTextField
             v-model="inviteEmail"
             type="email"
-            required
             placeholder="membre@exemple.com"
           />
         </label>
@@ -644,7 +704,7 @@ await loadWorkspaceData()
             :options="roleOptions"
           />
         </label>
-        <div class="flex items-end">
+        <div class="flex items-end md:col-span-2">
           <FluffmindButton type="submit" class="w-full" :disabled="submittingInvitation">
             {{ submittingInvitation ? 'Envoi…' : 'Inviter' }}
           </FluffmindButton>
@@ -971,7 +1031,7 @@ await loadWorkspaceData()
         <li v-for="invitation in invitations" :key="invitation.id" class="flex flex-wrap items-center justify-between gap-2 py-3">
           <div>
             <p class="md3-title-sm">
-              {{ invitation.email }}
+              {{ formatInvitationRecipient(invitation) }}
             </p>
             <p class="md3-body-md text-on-surface-variant">
               Expire le {{ formatDate(invitation.expiresAt) }}
