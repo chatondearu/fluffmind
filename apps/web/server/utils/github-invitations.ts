@@ -141,20 +141,10 @@ export function chooseInvitationEmail(
 
 export function matchesGithubInvitationIdentity(
   identity: {
-    userEmail: string
     githubAccountIds: string[]
-    betterAuthInvitationEmail: string | null
   },
   invitation: GithubInvitationIdentity,
 ): boolean {
-  const userEmail = identity.userEmail.trim().toLowerCase()
-  const acceptedEmails = [invitation.resolvedEmail, identity.betterAuthInvitationEmail]
-    .filter((email): email is string => Boolean(email))
-    .map(email => email.trim().toLowerCase())
-
-  if (acceptedEmails.includes(userEmail))
-    return true
-
   const acceptedGithubIds = new Set([
     invitation.githubLogin.trim().toLowerCase(),
     invitation.githubUserId?.trim().toLowerCase(),
@@ -403,16 +393,7 @@ export async function userMatchesGithubInvitation(
   userId: string,
   invitation: GithubInvitationIdentity,
 ): Promise<boolean> {
-  const db = getDb()
-  const [userRow] = await db
-    .select({ email: user.email })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1)
-  if (!userRow)
-    return false
-
-  const githubAccounts = await db
+  const githubAccounts = await getDb()
     .select({ accountId: account.accountId })
     .from(account)
     .where(and(
@@ -420,19 +401,7 @@ export async function userMatchesGithubInvitation(
       eq(account.providerId, 'github'),
     ))
 
-  let invitationEmail: string | null = null
-  if (invitation.betterAuthInvitationId) {
-    const [invitationRow] = await db
-      .select({ email: betterAuthInvitation.email })
-      .from(betterAuthInvitation)
-      .where(eq(betterAuthInvitation.id, invitation.betterAuthInvitationId))
-      .limit(1)
-    invitationEmail = invitationRow?.email ?? null
-  }
-
   return matchesGithubInvitationIdentity({
-    userEmail: userRow.email,
     githubAccountIds: githubAccounts.map(row => row.accountId),
-    betterAuthInvitationEmail: invitationEmail,
   }, invitation)
 }

@@ -51,41 +51,25 @@ afterEach(() => {
 describe('matchesGithubInvitationIdentity', () => {
   it('matches a linked GitHub account by login', () => {
     expect(matchesGithubInvitationIdentity({
-      userEmail: 'someone@example.com',
       githubAccountIds: ['OctoCat'],
-      betterAuthInvitationEmail: null,
     }, invitation)).toBe(true)
   })
 
   it('matches a linked GitHub account by GitHub user id', () => {
     expect(matchesGithubInvitationIdentity({
-      userEmail: 'someone@example.com',
       githubAccountIds: ['42'],
-      betterAuthInvitationEmail: null,
     }, invitation)).toBe(true)
   })
 
-  it('matches the resolved GitHub email case-insensitively', () => {
+  it('does not match a GitHub invitation without a linked GitHub account', () => {
     expect(matchesGithubInvitationIdentity({
-      userEmail: 'OctoCat@Example.com',
       githubAccountIds: [],
-      betterAuthInvitationEmail: null,
-    }, invitation)).toBe(true)
+    }, invitation)).toBe(false)
   })
 
-  it('matches the linked Better Auth invitation email', () => {
+  it('returns false when the linked GitHub identity does not match', () => {
     expect(matchesGithubInvitationIdentity({
-      userEmail: 'invitee@example.com',
-      githubAccountIds: [],
-      betterAuthInvitationEmail: 'INVITEE@example.com',
-    }, { ...invitation, resolvedEmail: null })).toBe(true)
-  })
-
-  it('returns false when neither email nor GitHub identity matches', () => {
-    expect(matchesGithubInvitationIdentity({
-      userEmail: 'someone@example.com',
       githubAccountIds: ['different-user'],
-      betterAuthInvitationEmail: 'other@example.com',
     }, invitation)).toBe(false)
   })
 })

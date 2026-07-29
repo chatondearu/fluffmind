@@ -45,11 +45,11 @@ async function acceptInvitation() {
   try {
     await acceptInvitationWithFallback(
       invitationId.value,
-      id => authClient.organization.acceptInvitation({ invitationId: id }),
       (id) => {
         const endpoint = `/api/workspaces/invitations/${encodeURIComponent(id)}/accept`
         return $fetch<{ ok: true }>(endpoint, { method: 'POST' })
       },
+      id => authClient.organization.acceptInvitation({ invitationId: id }),
     )
 
     accepted.value = true

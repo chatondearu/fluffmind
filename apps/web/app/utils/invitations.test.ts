@@ -65,31 +65,59 @@ describe('invitations', () => {
     })).resolves.toEqual([])
   })
 
-  it('falls back to the workspace endpoint when Better Auth rejects the invitation', async () => {
-    const acceptWithBetterAuth = async () => ({
-      error: { message: 'Invitation introuvable.' },
-    })
-    const acceptWithWorkspace = async () => ({ ok: true as const })
+  it('accepts through the workspace endpoint before Better Auth', async () => {
+    const calls: string[] = []
+    const acceptWithWorkspace = async () => {
+      calls.push('workspace')
+      return { ok: true as const }
+    }
+    const acceptWithBetterAuth = async () => {
+      calls.push('better-auth')
+      return { data: { id: 'inv_1' } }
+    }
 
     await expect(acceptInvitationWithFallback(
       'inv_1',
-      acceptWithBetterAuth,
       acceptWithWorkspace,
+      acceptWithBetterAuth,
     )).resolves.toEqual({ ok: true })
+
+    expect(calls).toEqual(['workspace'])
   })
 
-  it('does not call the fallback when Better Auth accepts the invitation', async () => {
-    let fallbackCalled = false
+  it('falls back to Better Auth only when the workspace invitation is not found', async () => {
+    const calls: string[] = []
 
     await expect(acceptInvitationWithFallback(
       'inv_1',
-      async () => ({ data: { id: 'inv_1' } }),
       async () => {
-        fallbackCalled = true
-        return { ok: true as const }
+        calls.push('workspace')
+        throw Object.assign(new Error('Not found'), { statusCode: 404 })
+      },
+      async () => {
+        calls.push('better-auth')
+        return { data: { id: 'inv_1' } }
       },
     )).resolves.toEqual({ ok: true })
 
-    expect(fallbackCalled).toBe(false)
+    expect(calls).toEqual(['workspace', 'better-auth'])
+  })
+
+  it('does not bypass a forbidden workspace invitation through Better Auth', async () => {
+    let betterAuthCalled = false
+    const forbidden = Object.assign(new Error('Forbidden'), { statusCode: 403 })
+
+    await expect(acceptInvitationWithFallback(
+      'inv_1',
+      async () => {
+        throw forbidden
+      },
+      async () => {
+        betterAuthCalled = true
+        return { data: { id: 'inv_1' } }
+      },
+    )).rejects.toBe(forbidden)
+
+    expect(betterAuthCalled).toBe(false)
   })
 })

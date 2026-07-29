@@ -86,9 +86,10 @@ export async function acceptWorkspaceInvitationWithDeps(
       ? await deps.userMatchesGithubInvitation(input.userId, linkedGithub)
       : false
 
-    if (!emailMatches && !githubMatches) {
-      if (linkedGithub)
-        forbiddenGithubAccount(linkedGithub.githubLogin)
+    if (linkedGithub && !githubMatches)
+      forbiddenGithubAccount(linkedGithub.githubLogin)
+
+    if (!linkedGithub && !emailMatches) {
       throw createError({
         statusCode: 403,
         statusMessage: 'Forbidden',

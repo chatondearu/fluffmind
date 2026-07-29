@@ -101,18 +101,34 @@ function hasInvitationAcceptError(response: unknown): boolean {
   }).error)
 }
 
+function getErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== 'object')
+    return null
+
+  const candidate = error as {
+    status?: unknown
+    statusCode?: unknown
+    response?: { status?: unknown }
+  }
+  const status = candidate.statusCode ?? candidate.status ?? candidate.response?.status
+  return typeof status === 'number' ? status : null
+}
+
 export async function acceptInvitationWithFallback(
   invitationId: string,
-  acceptWithBetterAuth: (id: string) => Promise<unknown>,
   acceptWithWorkspace: (id: string) => Promise<{ ok: true }>,
+  acceptWithBetterAuth: (id: string) => Promise<unknown>,
 ): Promise<{ ok: true }> {
   try {
-    const response = await acceptWithBetterAuth(invitationId)
-    if (!hasInvitationAcceptError(response))
-      return { ok: true }
-  } catch {
-    // The workspace endpoint handles GitHub-only and linked invitations.
+    return await acceptWithWorkspace(invitationId)
+  } catch (error) {
+    if (getErrorStatus(error) !== 404)
+      throw error
   }
 
-  return acceptWithWorkspace(invitationId)
+  const response = await acceptWithBetterAuth(invitationId)
+  if (hasInvitationAcceptError(response))
+    throw new Error('Impossible d’accepter l’invitation.')
+
+  return { ok: true }
 }

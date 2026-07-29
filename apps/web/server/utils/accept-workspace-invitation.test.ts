@@ -42,6 +42,34 @@ afterEach(() => {
 })
 
 describe('acceptWorkspaceInvitationWithDeps', () => {
+  it('rejects a linked GitHub invitation when only the invitation email matches', async () => {
+    stubCreateError()
+    const deps = createDeps({
+      findBetterAuthInvitation: vi.fn().mockResolvedValue({
+        id: 'ba_inv_1',
+        email: '42+octocat@users.noreply.github.com',
+        status: 'pending',
+        expiresAt: new Date('2026-08-01T12:00:00Z'),
+      }),
+      findGithubInvitationByBetterAuthId: vi.fn().mockResolvedValue(githubInvitation),
+      userMatchesGithubInvitation: vi.fn().mockResolvedValue(false),
+    })
+
+    await expect(acceptWorkspaceInvitationWithDeps({
+      id: 'ba_inv_1',
+      userId: 'user_without_github',
+      userEmail: '42+octocat@users.noreply.github.com',
+      headers: new Headers(),
+      now: new Date('2026-07-29T12:00:00Z'),
+    }, deps)).rejects.toMatchObject({
+      statusCode: 403,
+      message: 'Connecte-toi avec le compte GitHub @octocat.',
+    })
+
+    expect(deps.acceptBetterAuthInvitation).not.toHaveBeenCalled()
+    expect(deps.markGithubInvitationAccepted).not.toHaveBeenCalled()
+  })
+
   it('accepts a linked Better Auth invitation through a GitHub account match', async () => {
     stubCreateError()
     const deps = createDeps({
@@ -69,6 +97,31 @@ describe('acceptWorkspaceInvitationWithDeps', () => {
     )
     expect(deps.acceptBetterAuthInvitation).toHaveBeenCalledWith('ba_inv_1', expect.any(Headers))
     expect(deps.markGithubInvitationAccepted).toHaveBeenCalledWith('github_inv_1')
+  })
+
+  it('keeps accepting an email-only Better Auth invitation by email', async () => {
+    stubCreateError()
+    const deps = createDeps({
+      findBetterAuthInvitation: vi.fn().mockResolvedValue({
+        id: 'ba_email_inv_1',
+        email: 'invitee@example.com',
+        status: 'pending',
+        expiresAt: new Date('2026-08-01T12:00:00Z'),
+      }),
+    })
+
+    await expect(acceptWorkspaceInvitationWithDeps({
+      id: 'ba_email_inv_1',
+      userId: 'user_1',
+      userEmail: 'INVITEE@example.com',
+      headers: new Headers(),
+      now: new Date('2026-07-29T12:00:00Z'),
+    }, deps)).resolves.toEqual({ ok: true })
+
+    expect(deps.acceptBetterAuthInvitation).toHaveBeenCalledWith(
+      'ba_email_inv_1',
+      expect.any(Headers),
+    )
   })
 
   it('accepts a GitHub-only invitation manually', async () => {
