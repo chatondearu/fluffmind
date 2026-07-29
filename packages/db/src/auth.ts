@@ -27,6 +27,29 @@ type GithubSignupProfile = {
   email?: string | null
 }
 
+type GithubInvitationAcceptanceIdentity = {
+  githubLogin?: string | null
+  githubUserId?: string | null
+}
+
+export function canAcceptGithubInvitation(input: {
+  invitation: GithubInvitationAcceptanceIdentity | null
+  githubAccountIds: readonly string[]
+}): boolean {
+  const githubLogin = input.invitation?.githubLogin?.trim().toLowerCase()
+  if (!githubLogin)
+    return true
+
+  const acceptedAccountIds = new Set([
+    githubLogin,
+    input.invitation?.githubUserId?.trim().toLowerCase(),
+  ].filter((value): value is string => Boolean(value)))
+
+  return input.githubAccountIds.some(accountId =>
+    acceptedAccountIds.has(accountId.trim().toLowerCase()),
+  )
+}
+
 export function githubInvitationMatchesSignupEmail(
   email: string,
   invitation: GithubInvitationSignupIdentity,
@@ -163,6 +186,53 @@ function createAuth() {
           )
         },
         organizationHooks: {
+          async beforeAcceptInvitation({ invitation, user, organization }) {
+            const db = getDb()
+            const normalizedEmail = invitation.email.trim().toLowerCase()
+            const [githubInvite] = await db
+              .select({
+                githubLogin: schema.githubInvitation.githubLogin,
+                githubUserId: schema.githubInvitation.githubUserId,
+              })
+              .from(schema.githubInvitation)
+              .where(and(
+                eq(schema.githubInvitation.status, 'pending'),
+                or(
+                  eq(schema.githubInvitation.betterAuthInvitationId, invitation.id),
+                  and(
+                    eq(schema.githubInvitation.organizationId, organization.id),
+                    or(
+                      sql`lower(${schema.githubInvitation.resolvedEmail}) = ${normalizedEmail}`,
+                      and(
+                        isNotNull(schema.githubInvitation.githubUserId),
+                        sql`lower(${schema.githubInvitation.githubUserId} || '+' || ${schema.githubInvitation.githubLogin} || '@users.noreply.github.com') = ${normalizedEmail}`,
+                      ),
+                    ),
+                  ),
+                ),
+              ))
+              .limit(1)
+
+            if (!githubInvite?.githubLogin)
+              return
+
+            const githubAccounts = await db
+              .select({ accountId: schema.account.accountId })
+              .from(schema.account)
+              .where(and(
+                eq(schema.account.userId, user.id),
+                eq(schema.account.providerId, 'github'),
+              ))
+
+            if (!canAcceptGithubInvitation({
+              invitation: githubInvite,
+              githubAccountIds: githubAccounts.map(row => row.accountId),
+            })) {
+              throw new APIError('FORBIDDEN', {
+                message: `Connect the GitHub account @${githubInvite.githubLogin} before accepting this invitation.`,
+              })
+            }
+          },
           async afterAcceptInvitation({ invitation, member }) {
             const db = getDb()
             await db

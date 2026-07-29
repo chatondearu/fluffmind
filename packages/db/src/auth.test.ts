@@ -1,10 +1,50 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  canAcceptGithubInvitation,
   githubInvitationMatchesSignupEmail,
   hasPendingGithubInvitationForSignup,
   resolveGithubSignupEmail,
 } from './auth'
+
+describe('canAcceptGithubInvitation', () => {
+  it('denies a GitHub invitation when the user has no linked GitHub account', () => {
+    expect(canAcceptGithubInvitation({
+      invitation: {
+        githubLogin: 'octocat',
+        githubUserId: '42',
+      },
+      githubAccountIds: [],
+    })).toBe(false)
+  })
+
+  it('allows a GitHub invitation when the linked account matches its login', () => {
+    expect(canAcceptGithubInvitation({
+      invitation: {
+        githubLogin: 'OctoCat',
+        githubUserId: '42',
+      },
+      githubAccountIds: ['octocat'],
+    })).toBe(true)
+  })
+
+  it('allows a GitHub invitation when the linked account matches its user id', () => {
+    expect(canAcceptGithubInvitation({
+      invitation: {
+        githubLogin: 'octocat',
+        githubUserId: '42',
+      },
+      githubAccountIds: ['42'],
+    })).toBe(true)
+  })
+
+  it('allows an email-only invitation', () => {
+    expect(canAcceptGithubInvitation({
+      invitation: null,
+      githubAccountIds: [],
+    })).toBe(true)
+  })
+})
 
 describe('githubInvitationMatchesSignupEmail', () => {
   it('matches a resolved GitHub invitation email case-insensitively', () => {
