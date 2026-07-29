@@ -4,6 +4,14 @@
  * GitHub App lacks "Email addresses: Read-only". Better Auth still requires a
  * non-empty email, so we fall back to GitHub's noreply form.
  */
+export function buildGithubNoreplyEmail(input: { id: string, login: string }): string {
+  const id = input.id.trim()
+  const login = input.login.trim().toLowerCase()
+  if (!id || !login)
+    throw new Error('GitHub noreply email requires id and login.')
+  return `${id}+${login}@users.noreply.github.com`
+}
+
 export function resolveGithubAuthEmail(profile: {
   id?: string | number | null
   login?: string | null
@@ -17,7 +25,7 @@ export function resolveGithubAuthEmail(profile: {
   const login = typeof profile.login === 'string' ? profile.login.trim().toLowerCase() : ''
 
   if (id && login)
-    return `${id}+${login}@users.noreply.github.com`
+    return buildGithubNoreplyEmail({ id, login })
   if (login)
     return `${login}@users.noreply.github.com`
   if (id)

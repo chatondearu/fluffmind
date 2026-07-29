@@ -2,13 +2,91 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { APIError } from 'better-auth/api'
 import { betterAuth } from 'better-auth'
 import { organization } from 'better-auth/plugins'
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, eq, gt, isNotNull, or, sql } from 'drizzle-orm'
 
 import { getDb } from './client'
 import { resolveGithubAuthEmail } from './github-auth-email'
 import { ac, roles } from './permissions'
 import * as schema from './schema/index'
 import { canCreateUser, isPublicSignupEnabled } from './signup-policy'
+
+type GithubInvitationSignupIdentity = {
+  githubLogin: string
+  githubUserId: string | null
+  resolvedEmail: string | null
+  betterAuthInvitationEmail?: string | null
+}
+
+type PendingGithubInvitationForSignup = GithubInvitationSignupIdentity & {
+  expiresAt: Date
+  status: string
+}
+
+type GithubSignupProfile = {
+  id?: string | number | null
+  login?: string | null
+  email?: string | null
+}
+
+type GithubInvitationAcceptanceIdentity = {
+  githubLogin?: string | null
+  githubUserId?: string | null
+}
+
+export function canAcceptGithubInvitation(input: {
+  invitation: GithubInvitationAcceptanceIdentity | null
+  githubAccountIds: readonly string[]
+}): boolean {
+  const githubLogin = input.invitation?.githubLogin?.trim().toLowerCase()
+  if (!githubLogin)
+    return true
+
+  const acceptedAccountIds = new Set([
+    githubLogin,
+    input.invitation?.githubUserId?.trim().toLowerCase(),
+  ].filter((value): value is string => Boolean(value)))
+
+  return input.githubAccountIds.some(accountId =>
+    acceptedAccountIds.has(accountId.trim().toLowerCase()),
+  )
+}
+
+export function githubInvitationMatchesSignupEmail(
+  email: string,
+  invitation: GithubInvitationSignupIdentity,
+): boolean {
+  const normalizedEmail = email.trim().toLowerCase()
+  return invitation.resolvedEmail?.trim().toLowerCase() === normalizedEmail
+}
+
+export function hasPendingGithubInvitationForSignup(input: {
+  email: string
+  invitations: readonly PendingGithubInvitationForSignup[]
+  now?: Date
+}): boolean {
+  const now = input.now ?? new Date()
+
+  return input.invitations.some(invitation => (
+    invitation.status === 'pending'
+    && invitation.expiresAt > now
+    && githubInvitationMatchesSignupEmail(input.email, invitation)
+  ))
+}
+
+export function resolveGithubSignupEmail(
+  profile: GithubSignupProfile,
+  invitation?: GithubInvitationSignupIdentity,
+): string {
+  if (!invitation)
+    return resolveGithubAuthEmail(profile)
+
+  const invitationEmail = invitation.resolvedEmail?.trim()
+    || invitation.betterAuthInvitationEmail?.trim()
+  if (invitationEmail)
+    return invitationEmail.toLowerCase()
+
+  return resolveGithubAuthEmail(profile)
+}
 
 function getInvitationBaseUrl(): string {
   const configured = process.env.BETTER_AUTH_URL || process.env.APP_BASE_URL || 'http://localhost:3000'
@@ -36,9 +114,36 @@ function createAuth() {
           github: {
             clientId: process.env.GITHUB_CLIENT_ID,
             clientSecret: process.env.GITHUB_CLIENT_SECRET,
-            mapProfileToUser(profile) {
+            async mapProfileToUser(profile) {
+              const db = getDb()
+              const login = profile.login?.trim().toLowerCase() || ''
+              const [githubInvitation] = login
+                ? await db
+                    .select({
+                      githubLogin: schema.githubInvitation.githubLogin,
+                      githubUserId: schema.githubInvitation.githubUserId,
+                      resolvedEmail: schema.githubInvitation.resolvedEmail,
+                      betterAuthInvitationEmail: schema.invitation.email,
+                      expiresAt: schema.githubInvitation.expiresAt,
+                      status: schema.githubInvitation.status,
+                    })
+                    .from(schema.githubInvitation)
+                    .leftJoin(
+                      schema.invitation,
+                      eq(
+                        schema.githubInvitation.betterAuthInvitationId,
+                        schema.invitation.id,
+                      ),
+                    )
+                    .where(and(
+                      sql`lower(${schema.githubInvitation.githubLogin}) = ${login}`,
+                      eq(schema.githubInvitation.status, 'pending'),
+                      gt(schema.githubInvitation.expiresAt, new Date()),
+                    ))
+                    .limit(1)
+                : []
               return {
-                email: resolveGithubAuthEmail(profile),
+                email: resolveGithubSignupEmail(profile, githubInvitation),
                 name: profile.name || profile.login || undefined,
               }
             },
@@ -79,8 +184,56 @@ function createAuth() {
           )
         },
         organizationHooks: {
-          async afterAcceptInvitation({ member }) {
-            await getDb()
+          async beforeAcceptInvitation({ invitation, user, organization }) {
+            const db = getDb()
+            const normalizedEmail = invitation.email.trim().toLowerCase()
+            const [githubInvite] = await db
+              .select({
+                githubLogin: schema.githubInvitation.githubLogin,
+                githubUserId: schema.githubInvitation.githubUserId,
+              })
+              .from(schema.githubInvitation)
+              .where(and(
+                eq(schema.githubInvitation.status, 'pending'),
+                or(
+                  eq(schema.githubInvitation.betterAuthInvitationId, invitation.id),
+                  and(
+                    eq(schema.githubInvitation.organizationId, organization.id),
+                    or(
+                      sql`lower(${schema.githubInvitation.resolvedEmail}) = ${normalizedEmail}`,
+                      and(
+                        isNotNull(schema.githubInvitation.githubUserId),
+                        sql`lower(${schema.githubInvitation.githubUserId} || '+' || ${schema.githubInvitation.githubLogin} || '@users.noreply.github.com') = ${normalizedEmail}`,
+                      ),
+                    ),
+                  ),
+                ),
+              ))
+              .limit(1)
+
+            if (!githubInvite?.githubLogin)
+              return
+
+            const githubAccounts = await db
+              .select({ accountId: schema.account.accountId })
+              .from(schema.account)
+              .where(and(
+                eq(schema.account.userId, user.id),
+                eq(schema.account.providerId, 'github'),
+              ))
+
+            if (!canAcceptGithubInvitation({
+              invitation: githubInvite,
+              githubAccountIds: githubAccounts.map(row => row.accountId),
+            })) {
+              throw new APIError('FORBIDDEN', {
+                message: `Connect the GitHub account @${githubInvite.githubLogin} before accepting this invitation.`,
+              })
+            }
+          },
+          async afterAcceptInvitation({ invitation, member }) {
+            const db = getDb()
+            await db
               .insert(schema.memberSyncMeta)
               .values({
                 memberId: member.id,
@@ -92,6 +245,14 @@ function createAuth() {
                   source: 'manual',
                 },
               })
+
+            await db
+              .update(schema.githubInvitation)
+              .set({ status: 'accepted' })
+              .where(and(
+                eq(schema.githubInvitation.betterAuthInvitationId, invitation.id),
+                eq(schema.githubInvitation.status, 'pending'),
+              ))
           },
         },
       }),
@@ -114,6 +275,7 @@ function createAuth() {
                 .where(and(
                   eq(schema.invitation.email, email),
                   eq(schema.invitation.status, 'pending'),
+                  gt(schema.invitation.expiresAt, new Date()),
                 ))
                 .limit(1)
               hasPendingInvitation = Boolean(invite)

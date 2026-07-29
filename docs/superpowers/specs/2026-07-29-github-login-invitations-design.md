@@ -1,7 +1,7 @@
 # Invite workspace members by GitHub login — Design
 
 **Date:** 2026-07-29  
-**Status:** approved (product design)  
+**Status:** implemented  
 **ADR:** extends `foam/decisions/ADR-006-better-auth-workspaces.md` and
 `foam/decisions/ADR-009-github-app-installations.md` (no new ADR unless accept-path
 diverges from Better Auth enough to warrant one)  

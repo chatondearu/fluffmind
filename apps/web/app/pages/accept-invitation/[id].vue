@@ -6,6 +6,7 @@ import {
 import { authClient, useAuth } from '../../composables/useAuth'
 import { ensureWorkspaceOnboarding } from '../../composables/useOnboarding'
 import { getAuthCallbackUrl } from '../../utils/auth-callback-url'
+import { acceptInvitationWithFallback } from '../../utils/invitations'
 
 const route = useRoute()
 const { data: authSession, isPending } = await useAuth()
@@ -23,9 +24,14 @@ const started = ref(false)
 const postAcceptRedirect = computed(() => getAuthCallbackUrl(route.query.redirect, '/settings/workspace'))
 const loginLink = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
 
-function extractErrorMessage(response: unknown): string | null {
-  const error = (response as { error?: { message?: string | null } | null })?.error
-  return error?.message || null
+function extractErrorMessage(error: unknown): string {
+  const asError = error as {
+    data?: { message?: string }
+    message?: string
+  }
+  return asError.data?.message
+    || asError.message
+    || 'Impossible d’accepter l’invitation.'
 }
 
 async function acceptInvitation() {
@@ -37,23 +43,21 @@ async function acceptInvitation() {
   errorMessage.value = null
 
   try {
-    const response = await authClient.organization.acceptInvitation({
-      invitationId: invitationId.value,
-    })
-
-    const error = extractErrorMessage(response)
-    if (error) {
-      errorMessage.value = error
-      return
-    }
+    await acceptInvitationWithFallback(
+      invitationId.value,
+      (id) => {
+        const endpoint = `/api/workspaces/invitations/${encodeURIComponent(id)}/accept`
+        return $fetch<{ ok: true }>(endpoint, { method: 'POST' })
+      },
+      id => authClient.organization.acceptInvitation({ invitationId: id }),
+    )
 
     accepted.value = true
 
     await ensureWorkspaceOnboarding()
     await navigateTo(postAcceptRedirect.value)
   } catch (error) {
-    const asRecordError = error as { message?: string }
-    errorMessage.value = asRecordError.message || 'Impossible d’accepter l’invitation.'
+    errorMessage.value = extractErrorMessage(error)
   } finally {
     loading.value = false
   }

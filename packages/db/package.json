@@ -15,7 +15,8 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "test": "vitest run"
   },
   "dependencies": {
     "better-auth": "^1.6.23",
@@ -26,6 +27,7 @@
   "devDependencies": {
     "drizzle-kit": "^0.31.4",
     "@types/pg": "^8.15.4",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   }
 }

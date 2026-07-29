@@ -22,6 +22,13 @@
       "when": 1785318267805,
       "tag": "0002_flowery_starhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785326779419,
+      "tag": "0003_watery_jetstream",
+      "breakpoints": true
     }
   ]
 }
