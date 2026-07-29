@@ -7,6 +7,7 @@ import {
 } from '@fluffmind/design-system/src/components'
 import { authClient } from '../composables/useAuth'
 import { ensureWorkspaceOnboarding } from '../composables/useOnboarding'
+import { getAuthCallbackUrl } from '../utils/auth-callback-url'
 
 const route = useRoute()
 const { public: { githubOAuthEnabled } } = useRuntimeConfig()
@@ -15,6 +16,7 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const errorMessage = ref<string | null>(null)
+const callbackUrl = computed(() => getAuthCallbackUrl(route.query.redirect, '/'))
 
 function extractErrorMessage(error: unknown): string {
   const asRecord = error as { message?: string, statusText?: string }
@@ -29,7 +31,7 @@ async function signupWithEmail() {
     name: name.value.trim(),
     email: email.value.trim(),
     password: password.value,
-    callbackURL: '/',
+    callbackURL: callbackUrl.value,
   })
 
   if (response.error) {
@@ -39,7 +41,7 @@ async function signupWithEmail() {
   }
 
   await ensureWorkspaceOnboarding()
-  await navigateTo('/')
+  await navigateTo(callbackUrl.value)
 }
 
 async function signupWithGitHub() {
@@ -48,13 +50,17 @@ async function signupWithGitHub() {
 
   const response = await authClient.signIn.social({
     provider: 'github',
-    callbackURL: '/',
+    callbackURL: callbackUrl.value,
   })
 
   if (response.error) {
     errorMessage.value = extractErrorMessage(response.error)
     loading.value = false
+    return
   }
+
+  await ensureWorkspaceOnboarding()
+  await navigateTo(callbackUrl.value)
 }
 </script>
 

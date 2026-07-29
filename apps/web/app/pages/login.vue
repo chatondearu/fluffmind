@@ -7,6 +7,7 @@ import {
 } from '@fluffmind/design-system/src/components'
 import { authClient } from '../composables/useAuth'
 import { ensureWorkspaceOnboarding } from '../composables/useOnboarding'
+import { getAuthCallbackUrl } from '../utils/auth-callback-url'
 
 const route = useRoute()
 const { public: { githubOAuthEnabled } } = useRuntimeConfig()
@@ -14,11 +15,16 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const errorMessage = ref<string | null>(null)
-const callbackUrl = computed(() => {
-  const redirect = route.query.redirect
-  if (typeof redirect === 'string' && redirect.startsWith('/'))
-    return redirect
-  return '/'
+const callbackUrl = computed(() => getAuthCallbackUrl(route.query.redirect, '/'))
+const infoMessage = computed(() => {
+  const reason = route.query.reason
+  if (typeof reason !== 'string')
+    return null
+  if (reason === 'auth-required')
+    return 'Connexion requise pour accéder à cette page.'
+  if (reason === 'invite-only')
+    return 'Les inscriptions publiques sont désactivées. Utilisez un lien d’invitation.'
+  return null
 })
 
 function extractErrorMessage(error: unknown): string {
@@ -58,7 +64,11 @@ async function loginWithGitHub() {
   if (response.error) {
     errorMessage.value = extractErrorMessage(response.error)
     loading.value = false
+    return
   }
+
+  await ensureWorkspaceOnboarding()
+  await navigateTo(callbackUrl.value)
 }
 </script>
 
@@ -70,6 +80,10 @@ async function loginWithGitHub() {
       </h1>
       <p class="mt-2 mb-6 md3-body-md text-on-surface-variant">
         Connecte-toi à ton espace Fluffmind.
+      </p>
+
+      <p v-if="infoMessage" class="mt-2 mb-4 md3-body-md text-tertiary">
+        {{ infoMessage }}
       </p>
 
       <form class="flex flex-col gap-4" @submit.prevent="loginWithEmail">

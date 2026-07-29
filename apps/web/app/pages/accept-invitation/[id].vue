@@ -4,6 +4,8 @@ import {
   FluffmindCard,
 } from '@fluffmind/design-system/src/components'
 import { authClient, useAuth } from '../../composables/useAuth'
+import { ensureWorkspaceOnboarding } from '../../composables/useOnboarding'
+import { getAuthCallbackUrl } from '../../utils/auth-callback-url'
 
 const route = useRoute()
 const { data: authSession, isPending } = await useAuth()
@@ -17,6 +19,8 @@ const loading = ref(false)
 const accepted = ref(false)
 const errorMessage = ref<string | null>(null)
 const started = ref(false)
+
+const postAcceptRedirect = computed(() => getAuthCallbackUrl(route.query.redirect, '/settings/workspace'))
 const loginLink = computed(() => `/login?redirect=${encodeURIComponent(route.fullPath)}`)
 
 function extractErrorMessage(response: unknown): string | null {
@@ -44,6 +48,9 @@ async function acceptInvitation() {
     }
 
     accepted.value = true
+
+    await ensureWorkspaceOnboarding()
+    await navigateTo(postAcceptRedirect.value)
   } catch (error) {
     const asRecordError = error as { message?: string }
     errorMessage.value = asRecordError.message || 'Impossible d’accepter l’invitation.'
