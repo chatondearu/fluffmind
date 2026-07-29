@@ -26,3 +26,28 @@ export function extractInvitationIdFromInviteMemberResponse(response: unknown): 
 export function buildAcceptInvitationUrl(invitationId: string): string {
   return `/accept-invitation/${invitationId}`
 }
+
+function hasInvitationAcceptError(response: unknown): boolean {
+  if (!response || typeof response !== 'object')
+    return false
+
+  return Boolean((response as {
+    error?: { message?: string | null } | null
+  }).error)
+}
+
+export async function acceptInvitationWithFallback(
+  invitationId: string,
+  acceptWithBetterAuth: (id: string) => Promise<unknown>,
+  acceptWithWorkspace: (id: string) => Promise<{ ok: true }>,
+): Promise<{ ok: true }> {
+  try {
+    const response = await acceptWithBetterAuth(invitationId)
+    if (!hasInvitationAcceptError(response))
+      return { ok: true }
+  } catch {
+    // The workspace endpoint handles GitHub-only and linked invitations.
+  }
+
+  return acceptWithWorkspace(invitationId)
+}

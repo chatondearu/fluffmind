@@ -2,13 +2,36 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { APIError } from 'better-auth/api'
 import { betterAuth } from 'better-auth'
 import { organization } from 'better-auth/plugins'
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, eq, gt, isNotNull, or, sql } from 'drizzle-orm'
 
 import { getDb } from './client'
-import { resolveGithubAuthEmail } from './github-auth-email'
+import { buildGithubNoreplyEmail, resolveGithubAuthEmail } from './github-auth-email'
 import { ac, roles } from './permissions'
 import * as schema from './schema/index'
 import { canCreateUser, isPublicSignupEnabled } from './signup-policy'
+
+type GithubInvitationSignupIdentity = {
+  githubLogin: string
+  githubUserId: string | null
+  resolvedEmail: string | null
+}
+
+export function githubInvitationMatchesSignupEmail(
+  email: string,
+  invitation: GithubInvitationSignupIdentity,
+): boolean {
+  const normalizedEmail = email.trim().toLowerCase()
+  if (invitation.resolvedEmail?.trim().toLowerCase() === normalizedEmail)
+    return true
+
+  if (!invitation.githubUserId)
+    return false
+
+  return buildGithubNoreplyEmail({
+    id: invitation.githubUserId,
+    login: invitation.githubLogin,
+  }) === normalizedEmail
+}
 
 function getInvitationBaseUrl(): string {
   const configured = process.env.BETTER_AUTH_URL || process.env.APP_BASE_URL || 'http://localhost:3000'
@@ -79,8 +102,9 @@ function createAuth() {
           )
         },
         organizationHooks: {
-          async afterAcceptInvitation({ member }) {
-            await getDb()
+          async afterAcceptInvitation({ invitation, member }) {
+            const db = getDb()
+            await db
               .insert(schema.memberSyncMeta)
               .values({
                 memberId: member.id,
@@ -92,6 +116,14 @@ function createAuth() {
                   source: 'manual',
                 },
               })
+
+            await db
+              .update(schema.githubInvitation)
+              .set({ status: 'accepted' })
+              .where(and(
+                eq(schema.githubInvitation.betterAuthInvitationId, invitation.id),
+                eq(schema.githubInvitation.status, 'pending'),
+              ))
           },
         },
       }),
@@ -114,9 +146,37 @@ function createAuth() {
                 .where(and(
                   eq(schema.invitation.email, email),
                   eq(schema.invitation.status, 'pending'),
+                  gt(schema.invitation.expiresAt, new Date()),
                 ))
                 .limit(1)
               hasPendingInvitation = Boolean(invite)
+            }
+
+            if (email && !hasPendingInvitation) {
+              const [githubInvite] = await db
+                .select({
+                  githubLogin: schema.githubInvitation.githubLogin,
+                  githubUserId: schema.githubInvitation.githubUserId,
+                  resolvedEmail: schema.githubInvitation.resolvedEmail,
+                })
+                .from(schema.githubInvitation)
+                .where(and(
+                  eq(schema.githubInvitation.status, 'pending'),
+                  gt(schema.githubInvitation.expiresAt, new Date()),
+                  or(
+                    sql`lower(${schema.githubInvitation.resolvedEmail}) = ${email}`,
+                    and(
+                      isNotNull(schema.githubInvitation.githubUserId),
+                      sql`lower(${schema.githubInvitation.githubUserId} || '+' || ${schema.githubInvitation.githubLogin} || '@users.noreply.github.com') = ${email}`,
+                    ),
+                  ),
+                ))
+                .limit(1)
+
+              hasPendingInvitation = Boolean(
+                githubInvite
+                && githubInvitationMatchesSignupEmail(email, githubInvite),
+              )
             }
 
             const allowed = canCreateUser({
