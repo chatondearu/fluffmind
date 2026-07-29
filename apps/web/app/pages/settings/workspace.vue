@@ -8,6 +8,7 @@ import {
   FluffmindTextField,
 } from '@fluffmind/design-system/src/components'
 import { authClient } from '../../composables/useAuth'
+import { buildAcceptInvitationUrl, extractInvitationIdFromInviteMemberResponse } from '../../utils/invitations'
 
 type WorkspaceRole = 'read' | 'write' | 'owner'
 
@@ -62,6 +63,8 @@ const reloading = ref(false)
 const submittingInvitation = ref(false)
 const inviteEmail = ref('')
 const inviteRole = ref<WorkspaceRole>('read')
+const invitationLink = ref<string | null>(null)
+const copyingInvitationLink = ref(false)
 const pageError = ref<string | null>(null)
 const inviteSuccess = ref<string | null>(null)
 const inviteError = ref<string | null>(null)
@@ -477,12 +480,14 @@ async function inviteMember() {
   if (!email) {
     inviteError.value = 'L’email est requis.'
     inviteSuccess.value = null
+    invitationLink.value = null
     return
   }
 
   submittingInvitation.value = true
   inviteSuccess.value = null
   inviteError.value = null
+  invitationLink.value = null
 
   try {
     const response = await authClient.organization.inviteMember({
@@ -496,15 +501,40 @@ async function inviteMember() {
       return
     }
 
+    const invitationId = extractInvitationIdFromInviteMemberResponse(response)
+    if (!invitationId) {
+      inviteError.value = 'Invitation créée, mais le lien n’est pas disponible.'
+      return
+    }
+
+    const link = buildAcceptInvitationUrl(invitationId)
+    invitationLink.value = link
+
     inviteEmail.value = ''
     inviteRole.value = 'read'
-    inviteSuccess.value = 'Invitation envoyée.'
+    inviteSuccess.value = 'Invitation prête (lien copiable).'
     await loadWorkspaceData(true)
   } catch (error) {
     const asRecordError = error as { message?: string }
     inviteError.value = asRecordError.message || 'Invitation impossible.'
   } finally {
     submittingInvitation.value = false
+  }
+}
+
+async function copyInvitationLink() {
+  if (!invitationLink.value)
+    return
+
+  copyingInvitationLink.value = true
+  try {
+    await navigator.clipboard.writeText(invitationLink.value)
+    inviteSuccess.value = 'Lien copié dans le presse-papiers.'
+  } catch (error) {
+    const asRecordError = error as { message?: string }
+    inviteError.value = asRecordError.message || 'Impossible de copier le lien.'
+  } finally {
+    copyingInvitationLink.value = false
   }
 }
 
@@ -563,6 +593,23 @@ await loadWorkspaceData()
       <p v-if="inviteSuccess" class="mt-4 md3-body-md text-tertiary">
         {{ inviteSuccess }}
       </p>
+      <div v-if="invitationLink" class="mt-4">
+        <p class="md3-body-md text-on-surface-variant">
+          Lien d’invitation :
+        </p>
+        <code class="block break-all text-primary">
+          {{ invitationLink }}
+        </code>
+        <FluffmindButton
+          variant="outlined"
+          size="sm"
+          class="mt-2"
+          :disabled="copyingInvitationLink"
+          @click="copyInvitationLink"
+        >
+          {{ copyingInvitationLink ? 'Copie…' : 'Copier le lien' }}
+        </FluffmindButton>
+      </div>
       <p v-if="inviteError" class="mt-4 md3-body-md text-error">
         {{ inviteError }}
       </p>
