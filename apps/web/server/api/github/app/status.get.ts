@@ -1,5 +1,5 @@
-import { isGitHubAppConfigured } from '../../../utils/github-credentials'
+import { fetchGitHubAppStatus } from '../../../utils/github-app-status'
 
-export default defineEventHandler(() => {
-  return { configured: isGitHubAppConfigured() }
+export default defineEventHandler(async () => {
+  return fetchGitHubAppStatus()
 })

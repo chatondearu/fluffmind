@@ -12,9 +12,38 @@ each Fluffmind **workspace** binds **one repository** under Settings → workspa
 (App mode). No personal access token is needed per workspace. One installation can
 back many workspaces, with one repository per workspace.
 
-> **Today:** Fluffmind **links** an existing repository (create the empty repository
-> on GitHub first, or choose an existing vault repository). Auto-creating a new GitHub
-> repository when you create a Fluffmind workspace is **not** shipped yet.
+> After changing permissions on GitHub, **re-approve / update** the App installation so
+> the new scopes take effect on existing orgs.
+
+## Required permissions checklist
+
+### Repository permissions
+
+| Permission | Access | Required | Why |
+| ---------- | ------ | -------- | --- |
+| **Contents** | Read & write | yes | Clone, commit, and push the vault |
+| **Metadata** | Read-only | yes | Required by GitHub for every App |
+| **Members** | Read-only | yes | Hybrid collaborator → workspace role sync |
+| **Administration** | Read & write | recommended | Create a GitHub repository when creating a workspace |
+
+### Account permissions
+
+| Permission | Access | Required | Why |
+| ---------- | ------ | -------- | --- |
+| **Email addresses** | Read-only | recommended | GitHub login with a real email (`GITHUB_CLIENT_*` from this App). Without it, Fluffmind falls back to `{id}+{login}@users.noreply.github.com`. |
+
+### Webhook events
+
+Subscribe to:
+
+- **Push**
+- **Installation**
+- **Installation repositories**
+
+Webhook URL: `https://<your-fluffmind-host>/api/webhooks/github`
+
+Fluffmind **Settings** shows a live checklist (`GET /api/github/app/status`) with ✓ / ○
+for each permission once `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY` are set.
 
 ## 1. Create the GitHub App
 
@@ -35,11 +64,7 @@ back many workspaces, with one repository per workspace.
    the App, copy its **Client ID** and generate a **Client secret**, then set them as
    `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` on the instance.
 
-   Under **Account permissions**, set **Email addresses** to **Read-only**. Without this
-   permission, GitHub often returns no email and login used to fail with
-   `error=email_not_found`. Fluffmind now falls back to a GitHub noreply address
-   (`{id}+{login}@users.noreply.github.com`) when no email is available, but the
-   permission is still recommended so real emails can be stored when the user allows it.
+   Grant the **Account → Email addresses → Read-only** permission (see checklist above).
 
    You may instead create a separate GitHub **OAuth App** for login only; use the same
    callback URL on that OAuth App. Do not leave the callback empty if users should be
@@ -47,27 +72,13 @@ back many workspaces, with one repository per workspace.
 
    Optional: enable **Request user authorization (OAuth) during installation** if you
    want GitHub to prompt for user identity when the App is installed.
-5. Configure the webhook:
-   - Active: yes
-   - Webhook URL: `https://<your-fluffmind-host>/api/webhooks/github`
-   - Webhook secret: generate one, then set `GITHUB_APP_WEBHOOK_SECRET` (preferred) or
-     `GITHUB_WEBHOOK_SECRET`.
-6. Grant these repository permissions:
-
-   | Permission | Access | Why |
-   | ---------- | ------ | --- |
-   | Contents | Read & write | Clone, commit, and push the vault |
-   | Metadata | Read | Required by GitHub |
-   | Administration | Read & write | Create repositories on workspace create (optional) |
-   | Members (or collaborate through the repository collaborators API) | Read | Hybrid role sync |
-
-   Subscribe to the **Push**, **Installation**, and **Installation repositories**
-   events.
-7. Create the App and record its **App ID** for `GITHUB_APP_ID`.
-8. Generate a private key, download the `.pem` file, and store it as
+5. Configure the webhook (URL + secret) and grant the **repository** permissions from
+   the checklist above.
+6. Create the App and record its **App ID** for `GITHUB_APP_ID`.
+7. Generate a private key, download the `.pem` file, and store it as
    `GITHUB_APP_PRIVATE_KEY`. In Coolify or `.env`, put the PEM on one line with `\n`
    for newlines.
-9. Under **Install App**, install it on the organization or user after setting the
+8. Under **Install App**, install it on the organization or user after setting the
    Fluffmind environment. You can also use Fluffmind Settings →
    **Installer l’application** once `GITHUB_APP_SLUG` is set.
 
@@ -88,9 +99,10 @@ GITHUB_APP_SLUG=your-app-slug
 GITHUB_APP_WEBHOOK_SECRET=your-webhook-secret
 ```
 
-Redeploy the instance. `GET /api/github/app/status` reports `configured` when the App
-ID and private key are present. GitHub login appears on `/login` when
-`GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are set.
+Redeploy the instance. Open **Paramètres** in Fluffmind: the **GitHub App — permissions**
+card calls `GET /api/github/app/status` and shows ✓ / ○ for credentials and each
+permission. GitHub login appears on `/login` when `GITHUB_CLIENT_ID` and
+`GITHUB_CLIENT_SECRET` are set.
 
 ## 3. Install on the organization and bind repositories
 

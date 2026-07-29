@@ -26,6 +26,19 @@ export type {
 export { createAppJwt, createInstallationToken } from './github/app-auth'
 export type { GitHubAppCredentials, InstallationTokenOptions } from './github/app-auth'
 
+export {
+  GITHUB_APP_PERMISSION_REQUIREMENTS,
+  evaluateGitHubAppPermissions,
+  permissionSatisfies,
+  summarizeGitHubAppPermissionChecks,
+} from './github/app-permissions'
+export type {
+  GitHubAppPermissionCheck,
+  GitHubAppPermissionLevel,
+  GitHubAppPermissionRequirement,
+  GitHubAppPermissionScope,
+} from './github/app-permissions'
+
 export { buildGitHubHttpsRemoteUrl, withGitHubAccessToken } from './github/remote-url'
 
 export { createGithubRepository, GithubApiError } from './github/create-repo'
