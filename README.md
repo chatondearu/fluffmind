@@ -160,16 +160,19 @@ See also: [Docs → GitHub App setup](https://chatondearu.github.io/fluffmind/gu
    - Webhook URL: `https://<your-fluffmind-host>/api/webhooks/github`
    - Webhook secret: generate one → `GITHUB_APP_WEBHOOK_SECRET` (preferred) or
      `GITHUB_WEBHOOK_SECRET`
-6. **Permissions** (Repository):
+6. **Permissions** — full checklist in
+   [Docs → GitHub App setup](https://chatondearu.github.io/fluffmind/guide/github-app-setup):
 
-   | Permission | Access | Why |
-   | ---------- | ------ | --- |
-   | Contents | Read & write | clone / commit / push vault |
-   | Metadata | Read | required |
-   | Administration | Read & write | create repositories for new workspaces |
-   | Members (or collaborate via repo collaborators API) | Read | hybrid role sync |
+   | Scope | Permission | Access | Required |
+   | ----- | ---------- | ------ | -------- |
+   | Repository | Contents | Read & write | yes |
+   | Repository | Metadata | Read | yes |
+   | Repository | Members | Read | yes |
+   | Repository | Administration | Read & write | recommended (create repos) |
+   | Account | Email addresses | Read | recommended (login email) |
 
    Subscribe to events: **Push**, **Installation**, **Installation repositories**.
+   Fluffmind **Settings** shows a live ✓ / ○ checklist via `GET /api/github/app/status`.
 
 7. Create the App → note **App ID** (`GITHUB_APP_ID`).
 8. **Generate a private key** → download the `.pem` → store as
