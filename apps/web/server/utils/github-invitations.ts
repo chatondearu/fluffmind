@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {
   account,
-  buildGithubNoreplyEmail,
   getAuth,
   getDb,
   githubInvitation,
@@ -130,7 +129,7 @@ export function chooseInvitationEmail(
   if (githubUser?.email)
     return githubUser.email.toLowerCase()
   if (githubUser)
-    return buildGithubNoreplyEmail(githubUser)
+    return `gh-invite-${randomUUID()}@users.noreply.github.com`
 
   throw createError({
     statusCode: 400,
@@ -362,7 +361,7 @@ export async function createWorkspaceInvitationWithDeps(
         organizationId: input.organizationId,
         githubLogin: normalized.githubLogin,
         githubUserId: resolvedUser.id,
-        resolvedEmail: resolvedUser.email,
+        resolvedEmail: invitationEmail,
         betterAuthInvitationId: created.id,
         role: input.role,
         inviterId: input.inviterId,

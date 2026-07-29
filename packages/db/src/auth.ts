@@ -5,7 +5,7 @@ import { organization } from 'better-auth/plugins'
 import { and, count, eq, gt, isNotNull, or, sql } from 'drizzle-orm'
 
 import { getDb } from './client'
-import { buildGithubNoreplyEmail, resolveGithubAuthEmail } from './github-auth-email'
+import { resolveGithubAuthEmail } from './github-auth-email'
 import { ac, roles } from './permissions'
 import * as schema from './schema/index'
 import { canCreateUser, isPublicSignupEnabled } from './signup-policy'
@@ -14,6 +14,7 @@ type GithubInvitationSignupIdentity = {
   githubLogin: string
   githubUserId: string | null
   resolvedEmail: string | null
+  betterAuthInvitationEmail?: string | null
 }
 
 type PendingGithubInvitationForSignup = GithubInvitationSignupIdentity & {
@@ -55,16 +56,7 @@ export function githubInvitationMatchesSignupEmail(
   invitation: GithubInvitationSignupIdentity,
 ): boolean {
   const normalizedEmail = email.trim().toLowerCase()
-  if (invitation.resolvedEmail?.trim().toLowerCase() === normalizedEmail)
-    return true
-
-  if (!invitation.githubUserId)
-    return false
-
-  return buildGithubNoreplyEmail({
-    id: invitation.githubUserId,
-    login: invitation.githubLogin,
-  }) === normalizedEmail
+  return invitation.resolvedEmail?.trim().toLowerCase() === normalizedEmail
 }
 
 export function hasPendingGithubInvitationForSignup(input: {
@@ -88,14 +80,12 @@ export function resolveGithubSignupEmail(
   if (!invitation)
     return resolveGithubAuthEmail(profile)
 
-  const resolvedEmail = invitation.resolvedEmail?.trim()
-  if (resolvedEmail)
-    return resolvedEmail.toLowerCase()
+  const invitationEmail = invitation.resolvedEmail?.trim()
+    || invitation.betterAuthInvitationEmail?.trim()
+  if (invitationEmail)
+    return invitationEmail.toLowerCase()
 
-  return buildGithubNoreplyEmail({
-    id: String(profile.id),
-    login: String(profile.login),
-  })
+  return resolveGithubAuthEmail(profile)
 }
 
 function getInvitationBaseUrl(): string {
@@ -133,10 +123,18 @@ function createAuth() {
                       githubLogin: schema.githubInvitation.githubLogin,
                       githubUserId: schema.githubInvitation.githubUserId,
                       resolvedEmail: schema.githubInvitation.resolvedEmail,
+                      betterAuthInvitationEmail: schema.invitation.email,
                       expiresAt: schema.githubInvitation.expiresAt,
                       status: schema.githubInvitation.status,
                     })
                     .from(schema.githubInvitation)
+                    .leftJoin(
+                      schema.invitation,
+                      eq(
+                        schema.githubInvitation.betterAuthInvitationId,
+                        schema.invitation.id,
+                      ),
+                    )
                     .where(and(
                       sql`lower(${schema.githubInvitation.githubLogin}) = ${login}`,
                       eq(schema.githubInvitation.status, 'pending'),
@@ -281,35 +279,6 @@ function createAuth() {
                 ))
                 .limit(1)
               hasPendingInvitation = Boolean(invite)
-            }
-
-            if (email && !hasPendingInvitation) {
-              const [githubInvite] = await db
-                .select({
-                  githubLogin: schema.githubInvitation.githubLogin,
-                  githubUserId: schema.githubInvitation.githubUserId,
-                  resolvedEmail: schema.githubInvitation.resolvedEmail,
-                  expiresAt: schema.githubInvitation.expiresAt,
-                  status: schema.githubInvitation.status,
-                })
-                .from(schema.githubInvitation)
-                .where(and(
-                  eq(schema.githubInvitation.status, 'pending'),
-                  gt(schema.githubInvitation.expiresAt, new Date()),
-                  or(
-                    sql`lower(${schema.githubInvitation.resolvedEmail}) = ${email}`,
-                    and(
-                      isNotNull(schema.githubInvitation.githubUserId),
-                      sql`lower(${schema.githubInvitation.githubUserId} || '+' || ${schema.githubInvitation.githubLogin} || '@users.noreply.github.com') = ${email}`,
-                    ),
-                  ),
-                ))
-                .limit(1)
-
-              hasPendingInvitation = hasPendingGithubInvitationForSignup({
-                email,
-                invitations: githubInvite ? [githubInvite] : [],
-              })
             }
 
             const allowed = canCreateUser({

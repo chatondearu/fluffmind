@@ -85,7 +85,7 @@ describe('invitation input helpers', () => {
     expect(normalizeWorkspaceInvitationInput(null, 'octocat').kind).toBe('github')
   })
 
-  it('prefers explicit then resolved then noreply email', () => {
+  it('prefers explicit then resolved then unguessable invite email', () => {
     expect(chooseInvitationEmail('explicit@example.com', {
       id: '42',
       login: 'octocat',
@@ -96,11 +96,15 @@ describe('invitation input helpers', () => {
       login: 'octocat',
       email: 'resolved@example.com',
     })).toBe('resolved@example.com')
-    expect(chooseInvitationEmail(null, {
+    const inviteEmail = chooseInvitationEmail(null, {
       id: '42',
       login: 'octocat',
       email: null,
-    })).toBe('42+octocat@users.noreply.github.com')
+    })
+    expect(inviteEmail).toMatch(
+      /^gh-invite-[0-9a-f-]+@users\.noreply\.github\.com$/,
+    )
+    expect(inviteEmail).not.toBe('42+octocat@users.noreply.github.com')
   })
 })
 
@@ -109,24 +113,29 @@ describe('createWorkspaceInvitationWithDeps', () => {
     stubCreateError()
     const deps = createDeps()
 
-    await expect(createWorkspaceInvitationWithDeps({
+    const result = await createWorkspaceInvitationWithDeps({
       organizationId: 'org_1',
       inviterId: 'user_1',
       role: 'write',
       githubLogin: '@OctoCat',
       headers: new Headers(),
-    }, deps)).resolves.toEqual({
+    }, deps)
+
+    expect(result).toMatchObject({
       invitationId: 'inv_1',
       url: '/accept-invitation/inv_1',
       kind: 'github',
       githubLogin: 'octocat',
-      email: '42+octocat@users.noreply.github.com',
     })
+    expect(result.email).toMatch(
+      /^gh-invite-[0-9a-f-]+@users\.noreply\.github\.com$/,
+    )
+    expect(result.email).not.toBe('42+octocat@users.noreply.github.com')
 
     expect(deps.inviteMember).toHaveBeenCalledWith({
       headers: expect.any(Headers),
       body: {
-        email: '42+octocat@users.noreply.github.com',
+        email: result.email,
         role: 'write',
         organizationId: 'org_1',
       },
@@ -135,7 +144,7 @@ describe('createWorkspaceInvitationWithDeps', () => {
       betterAuthInvitationId: 'inv_1',
       githubLogin: 'octocat',
       githubUserId: '42',
-      resolvedEmail: null,
+      resolvedEmail: result.email,
     }))
   })
 

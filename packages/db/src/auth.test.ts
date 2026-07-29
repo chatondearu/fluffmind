@@ -55,7 +55,7 @@ describe('githubInvitationMatchesSignupEmail', () => {
     })).toBe(true)
   })
 
-  it('matches the synthesized GitHub noreply email', () => {
+  it('rejects the predictable GitHub noreply email', () => {
     expect(githubInvitationMatchesSignupEmail(
       '42+octocat@users.noreply.github.com',
       {
@@ -63,7 +63,7 @@ describe('githubInvitationMatchesSignupEmail', () => {
         githubUserId: '42',
         resolvedEmail: null,
       },
-    )).toBe(true)
+    )).toBe(false)
   })
 
   it('does not synthesize an unsafe noreply address without a GitHub user id', () => {
@@ -122,7 +122,7 @@ describe('resolveGithubSignupEmail', () => {
     )).toBe('invitation@example.com')
   })
 
-  it('builds a noreply email from the OAuth profile when the invitation has no email', () => {
+  it('uses the linked Better Auth invitation email when no resolved email is stored', () => {
     expect(resolveGithubSignupEmail(
       {
         id: 42,
@@ -133,7 +133,8 @@ describe('resolveGithubSignupEmail', () => {
         githubLogin: 'InvitedUser',
         githubUserId: null,
         resolvedEmail: null,
+        betterAuthInvitationEmail: 'GH-Invite-Secret@users.noreply.github.com',
       },
-    )).toBe('42+inviteduser@users.noreply.github.com')
+    )).toBe('gh-invite-secret@users.noreply.github.com')
   })
 })
