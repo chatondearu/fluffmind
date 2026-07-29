@@ -22,7 +22,6 @@ interface DeploymentInfo {
   sync: SyncStatus | null
 }
 
-const { public: { authEnabled } } = useRuntimeConfig()
 const { data, error, pending, refresh } = await useFetch<DeploymentInfo>('/api/deployment-info')
 
 function syncLabel(status: SyncStatus | null | undefined): string {
@@ -175,6 +174,11 @@ function syncLabel(status: SyncStatus | null | undefined): string {
         <NuxtLink to="/settings/workspace">
           <FluffmindButton variant="tonal" size="sm">
             Paramètres workspace →
+          </FluffmindButton>
+        </NuxtLink>
+        <NuxtLink to="/settings/admin" class="mt-4 inline-block">
+          <FluffmindButton variant="tonal" size="sm">
+            Administration →
           </FluffmindButton>
         </NuxtLink>
         <p v-if="!data.githubOAuthConfigured" class="mt-4 md3-body-md text-on-surface-variant">
