@@ -144,8 +144,7 @@ fluffmind config set|get|path
 - Extend root `flake.nix` with a `fluffmind-cli` package (keep existing `devShell`)
 - Docs: `apps/docs/guide/` agents page (MCP | CLI | skill); Settings UI snippets
 - Update `DESIGN.md` MCP section → broader « Agent surfaces »
-- PRD-037 + ADR-011 during implementation planning (ADR-010 remains accepted;
-  partially superseded on naming)
+- PRD-037 + ADR-011 written; ADR-010 remains accepted (naming partially superseded)
 
 ## Testing
 
