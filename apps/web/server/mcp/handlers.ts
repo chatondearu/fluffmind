@@ -2,6 +2,7 @@ import type { GraphData, NoteSummary, ResolvedLink } from '../vault/index'
 import { getGraph } from '../vault/index'
 import { readNote } from '../vault/reader'
 import { getVaultIndex, invalidateVaultIndex } from '../vault/service'
+import { ContentRootViolationError } from '../vault/content-roots'
 import { writeToWorkspace, GitConflictError, InvalidNoteIdError } from '../vault/write'
 import { getWorkspaceIdentity } from '../utils/mcp-tokens'
 import type { McpContext } from './context'
@@ -175,6 +176,9 @@ export function formatHandlerError(error: unknown): ReturnType<typeof toolError>
   }
   if (error instanceof InvalidNoteIdError) {
     return toolError(error.message)
+  }
+  if (error instanceof ContentRootViolationError) {
+    return toolError('Content root violation')
   }
   if (error instanceof Error) {
     return toolError(error.message)

@@ -1,6 +1,7 @@
 import { access, mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { commitAndPush, ensureWorkingCopy } from '@fluffmind/integrations'
+import { assertWithinContentRoots } from './content-roots'
 import { FOLDER_MARKER } from './folders'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { invalidateVaultIndex } from './service'
@@ -31,6 +32,7 @@ async function commitMutation(workspaceId: string, message: string) {
 export async function deleteNoteFromWorkspace(workspaceId: string, id: string) {
   return withWorkspaceWriteLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
+    assertWithinContentRoots(id, config.contentRoots)
     const filePath = resolveNoteFilePath(config.path, id)
     await rm(filePath, { force: true })
     return commitMutation(workspaceId, `Delete ${id}`)
@@ -45,6 +47,8 @@ export async function renameNoteInWorkspace(workspaceId: string, id: string, new
 
   return withWorkspaceWriteLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
+    assertWithinContentRoots(id, config.contentRoots)
+    assertWithinContentRoots(trimmed, config.contentRoots)
     const fromPath = resolveNoteFilePath(config.path, id)
     const toPath = resolveNoteFilePath(config.path, trimmed)
 
@@ -74,6 +78,8 @@ export async function renameVaultFolder(workspaceId: string, oldPath: string, ne
 
   return withWorkspaceWriteLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
+    assertWithinContentRoots(oldPath, config.contentRoots)
+    assertWithinContentRoots(newPath, config.contentRoots)
     const fromDir = join(config.path, ...oldPath.split('/'))
     const toDir = join(config.path, ...newPath.split('/'))
 
@@ -99,6 +105,7 @@ export async function deleteVaultFolder(workspaceId: string, folderPath: string,
 
   return withWorkspaceWriteLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
+    assertWithinContentRoots(folderPath, config.contentRoots)
     const dirPath = join(config.path, ...folderPath.split('/'))
     const noteCount = recursive ? await countMarkdownFiles(dirPath) : 0
 

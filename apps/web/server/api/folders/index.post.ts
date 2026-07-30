@@ -1,5 +1,6 @@
 import { isAuthEnabled, requireWorkspacePermission } from '../../utils/auth'
 import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
+import { ContentRootViolationError } from '../../vault/content-roots'
 import { createVaultFolder } from '../../vault/folders'
 import { InvalidNoteIdError } from '../../vault/note-id'
 import { resolveActiveWorkspaceId } from '../../vault/workspace'
@@ -24,6 +25,13 @@ export default defineEventHandler(async (event) => {
     return { path: folderPath }
   }
   catch (error) {
+    if (error instanceof ContentRootViolationError) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Content root violation',
+        message: error.message,
+      })
+    }
     if (error instanceof InvalidNoteIdError) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid folder path.' })
     }

@@ -3,10 +3,12 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import { ContentRootViolationError } from '../vault/content-roots'
 import { invalidateVaultIndex } from '../vault/service'
 import { DEFAULT_MCP_WORKSPACE_ID } from './context'
 import {
   createTask,
+  formatHandlerError,
   getVaultGraph,
   listBacklinks,
   readNoteById,
@@ -82,6 +84,13 @@ describe('mcp handlers', () => {
         '# nope\n',
       ),
     ).rejects.toThrow(/read-only/i)
+  })
+
+  it('formats content root violations as a stable tool error', () => {
+    expect(formatHandlerError(new ContentRootViolationError('outside foam'))).toEqual({
+      content: [{ type: 'text', text: 'Content root violation' }],
+      isError: true,
+    })
   })
 
   it('create_task appends checkbox to default inbox note', async () => {
