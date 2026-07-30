@@ -16,6 +16,15 @@ small JSON response is far cheaper in context than loading full MCP tool schemas
 Reach for **MCP** when the client already has a native tool-calling UI that pays
 that schema cost once, for every server (e.g. Cursor's own MCP panel).
 
+> **Prerequisite: auth must be enabled.** Agent tokens live in Postgres and are
+> checked against `workspaceConfig`, so this whole surface (`Settings → Agents`,
+> `/api/agent/*`, `/api/mcp` with a Bearer token) requires `DATABASE_URL` to be
+> set **and** `AUTH_DISABLED` to **not** be `true`. In P1 no-auth mode (no
+> `DATABASE_URL`, or `AUTH_DISABLED=true`) there is no owner/workspace concept
+> to attach a token to, so token creation and remote CLI/MCP access don't work —
+> only the local, unauthenticated MCP connection with implicit write scope on
+> the default workspace is available.
+
 ## 1. Create an agent token
 
 1. Sign in as a workspace **owner**.
@@ -33,11 +42,19 @@ there's only one token model to manage and revoke.
 curl -fsSL https://raw.githubusercontent.com/chatondearu/fluffmind/main/scripts/install-cli.sh | bash
 ```
 
-This installs `@fluffmind/cli` globally via npm when published, or writes a
-`~/.local/bin/fluffmind` wrapper against a local monorepo checkout
-(`FLUFFMIND_ROOT`). See `scripts/install-cli.sh` for override env vars
-(`FLUFFMIND_INSTALL_MODE`, `FLUFFMIND_BIN_DIR`). A Nix flake package is also
-available: `nix run github:chatondearu/fluffmind#fluffmind-cli`.
+`@fluffmind/cli` is not published on npm yet (still a private workspace
+package), so this writes a `~/.local/bin/fluffmind` wrapper against a local
+monorepo checkout instead — set `FLUFFMIND_ROOT` if the script can't detect it
+(e.g. when piped through `curl | bash`, which can't see its own path on disk).
+See `scripts/install-cli.sh` for override env vars (`FLUFFMIND_INSTALL_MODE`,
+`FLUFFMIND_BIN_DIR`). A Nix flake package is also available:
+`nix run github:chatondearu/fluffmind#fluffmind-cli`.
+
+The CLI requires **Node 22.6+** (for `--experimental-strip-types`, since the
+package ships TypeScript source directly). Its shebang uses `env -S`, which
+Alpine's default busybox `env` doesn't support — on Alpine, either install GNU
+coreutils' `env`, or run it via `pnpm --filter @fluffmind/cli start` instead of
+the `fluffmind` binary directly.
 
 ## 3. Configure and use it
 

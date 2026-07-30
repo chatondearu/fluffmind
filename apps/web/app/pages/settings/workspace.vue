@@ -934,6 +934,8 @@ await loadWorkspaceData()
         Endpoint MCP instance :
         <code class="text-primary">{{ agentEndpointUrl }}</code>
         — un même token Bearer lie l’agent (Cursor, CLI…) à ce workspace.
+        Nécessite l’authentification activée sur le serveur (<code>DATABASE_URL</code>
+        défini, <code>AUTH_DISABLED</code> différent de <code>true</code>).
       </p>
 
       <FluffmindCheckbox

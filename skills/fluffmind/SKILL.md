@@ -19,6 +19,12 @@ far cheaper in context than loading MCP tool schemas. Only reach for MCP (see
 
 ## Setup
 
+**Prerequisite:** the Fluffmind server must have auth enabled (`DATABASE_URL`
+set and `AUTH_DISABLED` not `true`) — agent tokens and `/api/agent/*` don't
+exist in no-auth (P1) mode. If `fluffmind whoami` fails with a config/auth
+error, ask the workspace owner to confirm auth is enabled before creating a
+token.
+
 Requires two environment variables (get them from workspace **Settings → Agents**
 in the Fluffmind app — the owner creates a named token there once):
 
@@ -27,7 +33,10 @@ export FLUFFMIND_URL=https://your-fluffmind.example.com
 export FLUFFMIND_TOKEN=fm_agent_...
 ```
 
-If `fluffmind` isn't on `PATH` yet, install it first — don't hand-roll HTTP calls:
+If `fluffmind` isn't on `PATH` yet, install it first — don't hand-roll HTTP calls.
+Requires **Node 22.6+**; if the install script can't find its own repo checkout
+(e.g. curl-piped with no local clone), set `FLUFFMIND_ROOT` to a clone of the
+repo:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/chatondearu/fluffmind/main/scripts/install-cli.sh | bash
@@ -83,5 +92,5 @@ Use the MCP server (`/api/mcp`, same Bearer token) instead of the CLI when:
 - The workflow benefits from the client's built-in MCP UI (approval prompts, tool
   call rendering) rather than raw shell output.
 
-Setup: see `apps/docs/guide/mcp.md` in the Fluffmind repo, or the Docs site's
-"MCP for AI agents" page.
+Setup: see [MCP for AI agents](https://chatondearu.github.io/fluffmind/guide/mcp)
+on the Fluffmind docs site.
