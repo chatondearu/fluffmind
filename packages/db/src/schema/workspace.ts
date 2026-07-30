@@ -21,14 +21,14 @@ export const workspaceConfig = pgTable('workspace_config', {
   vaultPath: text('vault_path').notNull(),
   gitRemoteUrl: text('git_remote_url'),
   gitBranch: text('git_branch').notNull().default('main'),
-  mcpEnabled: boolean('mcp_enabled').notNull().default(false),
+  agentEnabled: boolean('agent_enabled').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
 export const mcpTokenScope = pgEnum('mcp_token_scope', ['read', 'write'])
 
-export const workspaceMcpToken = pgTable(
-  'workspace_mcp_token',
+export const workspaceAgentToken = pgTable(
+  'workspace_agent_token',
   {
     id: text('id').primaryKey(),
     organizationId: text('organization_id').notNull(),
@@ -42,8 +42,8 @@ export const workspaceMcpToken = pgTable(
     revokedAt: timestamp('revoked_at'),
   },
   (table) => [
-    index('workspace_mcp_token_organizationId_idx').on(table.organizationId),
-    index('workspace_mcp_token_tokenHash_idx').on(table.tokenHash),
+    index('workspace_agent_token_organizationId_idx').on(table.organizationId),
+    index('workspace_agent_token_tokenHash_idx').on(table.tokenHash),
   ],
 )
 
