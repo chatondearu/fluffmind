@@ -14,6 +14,7 @@ export interface WorkspaceConfig {
   path: string
   remoteUrl?: string
   branch: string
+  contentRoots: string[]
 }
 
 function getWorkspacesRoot(): string {
@@ -72,7 +73,8 @@ export async function resolveWorkspaceConfig(workspaceId: string): Promise<Works
   return {
     path: vaultPath,
     remoteUrl: config.gitRemoteUrl || undefined,
-    branch: config.gitBranch || 'main'
+    branch: config.gitBranch || 'main',
+    contentRoots: Array.isArray(config.contentRoots) ? config.contentRoots : [],
   }
 }
 
@@ -189,6 +191,7 @@ export function workspaceConfigFromEnv(): WorkspaceConfig | null {
   return {
     path,
     remoteUrl: process.env.GIT_REMOTE_URL || undefined,
-    branch: process.env.GIT_BRANCH || 'main'
+    branch: process.env.GIT_BRANCH || 'main',
+    contentRoots: [],
   }
 }

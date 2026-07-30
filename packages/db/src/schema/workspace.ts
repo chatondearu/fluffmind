@@ -21,6 +21,7 @@ export const workspaceConfig = pgTable('workspace_config', {
   vaultPath: text('vault_path').notNull(),
   gitRemoteUrl: text('git_remote_url'),
   gitBranch: text('git_branch').notNull().default('main'),
+  contentRoots: text('content_roots').array().notNull().default([]),
   mcpEnabled: boolean('mcp_enabled').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
