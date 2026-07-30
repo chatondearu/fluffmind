@@ -3,9 +3,17 @@
 # Writes a wrapper to "${FLUFFMIND_BIN_DIR:-$HOME/.local/bin}/fluffmind"
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# BASH_SOURCE[0] is unset when this script is streamed to bash's stdin
+# (e.g. `curl ... | bash`), so it must be defaulted under `set -u`.
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
+if [[ -n "$SCRIPT_SOURCE" ]]; then
+  DETECTED_ROOT="$(cd "$(dirname "$SCRIPT_SOURCE")/.." && pwd)"
+else
+  DETECTED_ROOT=""
+fi
+
 BIN_DIR="${FLUFFMIND_BIN_DIR:-$HOME/.local/bin}"
-FLUFFMIND_ROOT="${FLUFFMIND_ROOT:-$ROOT}"
+FLUFFMIND_ROOT="${FLUFFMIND_ROOT:-$DETECTED_ROOT}"
 INSTALL_MODE="${FLUFFMIND_INSTALL_MODE:-auto}"
 
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -26,6 +34,19 @@ install_via_npm() {
 }
 
 install_via_wrapper() {
+  if [[ -z "$FLUFFMIND_ROOT" ]]; then
+    echo "error: could not determine the Fluffmind repo location." >&2
+    echo "This usually means the script was piped to bash (e.g. curl ... | bash)," >&2
+    echo "so it can't find its own path on disk." >&2
+    echo >&2
+    echo "Fix: clone the repo and set FLUFFMIND_ROOT, e.g.:" >&2
+    echo "  git clone https://github.com/chatondearu/fluffmind && cd fluffmind" >&2
+    echo "  FLUFFMIND_ROOT=\"\$PWD\" ./scripts/install-cli.sh" >&2
+    echo "Or, once @fluffmind/cli is published on npm:" >&2
+    echo "  FLUFFMIND_INSTALL_MODE=npm ./scripts/install-cli.sh" >&2
+    exit 1
+  fi
+
   if [[ ! -f "$FLUFFMIND_ROOT/packages/cli/package.json" ]]; then
     echo "error: packages/cli not found under FLUFFMIND_ROOT=$FLUFFMIND_ROOT" >&2
     echo "Clone the repo, set FLUFFMIND_ROOT, or use FLUFFMIND_INSTALL_MODE=npm once published." >&2
@@ -57,12 +78,22 @@ EOF
   echo "Alternative: pnpm --filter @fluffmind/cli link --global"
 }
 
+# @fluffmind/cli is not published on npm yet (private package) — "auto" only
+# tries the monorepo wrapper. Npm install must be requested explicitly, and
+# fails loudly rather than silently falling back, so a mistyped mode never
+# looks like a successful no-op.
 if [[ "$INSTALL_MODE" == "npm" ]]; then
+  if ! npm_package_available; then
+    echo "error: @fluffmind/cli is not published on npm yet." >&2
+    echo "Use FLUFFMIND_INSTALL_MODE=monorepo (default when a checkout is detected) instead." >&2
+    exit 1
+  fi
   install_via_npm
 elif [[ "$INSTALL_MODE" == "monorepo" ]]; then
   install_via_wrapper
-elif [[ "$INSTALL_MODE" == "auto" ]] && npm_package_available; then
-  install_via_npm
-else
+elif [[ "$INSTALL_MODE" == "auto" ]]; then
   install_via_wrapper
+else
+  echo "error: unknown FLUFFMIND_INSTALL_MODE=$INSTALL_MODE (expected auto, monorepo, or npm)" >&2
+  exit 1
 fi

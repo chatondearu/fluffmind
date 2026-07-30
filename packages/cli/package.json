@@ -8,6 +8,9 @@
   "bin": {
     "fluffmind": "./src/bin.ts"
   },
+  "engines": {
+    "node": ">=22.6.0"
+  },
   "scripts": {
     "build": "echo \"@fluffmind/cli: nothing to build yet, source-run via node --experimental-strip-types\"",
     "start": "node --experimental-strip-types src/bin.ts",
