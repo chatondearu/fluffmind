@@ -3,11 +3,11 @@ import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
 
 import { requireSession } from '../../../utils/auth'
-import { getWorkspaceMcpStatus, setWorkspaceMcpEnabled } from '../../../utils/mcp-tokens'
+import { createWorkspaceAgentToken } from '../../../utils/agent-tokens'
 import { readJsonBody } from '../../../utils/read-json-body'
 import { resolveActiveWorkspaceId } from '../../../vault/workspace'
 
-async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<Awaited<ReturnType<typeof requireSession>>> {
+async function requireOwnerSession(event: H3Event, workspaceId: string) {
   const session = await requireSession(event)
   const db = getDb()
 
@@ -21,7 +21,7 @@ async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<Aw
     throw createError({
       statusCode: 403,
       statusMessage: 'Forbidden',
-      message: 'Managing MCP requires owner role.',
+      message: 'Creating agent tokens requires owner role.',
     })
   }
 
@@ -30,17 +30,23 @@ async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<Aw
 
 export default defineEventHandler(async (event) => {
   const workspaceId = await resolveActiveWorkspaceId(event)
-  await requireOwnerRole(event, workspaceId)
+  const session = await requireOwnerSession(event, workspaceId)
 
-  const body = await readJsonBody<{ mcpEnabled?: boolean }>(event)
-  if (typeof body.mcpEnabled !== 'boolean') {
+  const body = await readJsonBody<{ name?: string, scope?: string }>(event)
+  const name = typeof body.name === 'string' ? body.name : ''
+  const scope = body.scope === 'read' || body.scope === 'write' ? body.scope : null
+  if (!scope) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Invalid payload',
-      message: '"mcpEnabled" boolean is required.',
+      statusMessage: 'Invalid scope',
+      message: 'Scope must be "read" or "write".',
     })
   }
 
-  await setWorkspaceMcpEnabled(workspaceId, body.mcpEnabled)
-  return getWorkspaceMcpStatus(workspaceId)
+  return createWorkspaceAgentToken({
+    organizationId: workspaceId,
+    name,
+    scope,
+    createdByUserId: session.user.id,
+  })
 })

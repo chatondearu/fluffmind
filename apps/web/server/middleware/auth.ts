@@ -1,5 +1,5 @@
 import { isAuthEnabled, requireSession } from '../utils/auth'
-import { extractMcpBearerToken } from '../utils/mcp-tokens'
+import { extractAgentBearerToken } from '../utils/agent-tokens'
 
 function isAuthRoute(path: string): boolean {
   return path === '/api/auth' || path.startsWith('/api/auth/')
@@ -31,8 +31,8 @@ export default defineEventHandler(async (event) => {
   if (!isProtectedRoute(path))
     return
 
-  // MCP Bearer tokens authenticate /api/mcp without a browser session.
-  if (path === '/api/mcp' && extractMcpBearerToken(getHeader(event, 'authorization')))
+  // Agent Bearer tokens authenticate /api/mcp without a browser session.
+  if (path === '/api/mcp' && extractAgentBearerToken(getHeader(event, 'authorization')))
     return
 
   await requireSession(event)

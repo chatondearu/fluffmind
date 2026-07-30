@@ -121,7 +121,7 @@ const loadingGitHubRepositories = ref(false)
 const syncingGitHub = ref(false)
 const localOverrides = ref<Record<string, boolean>>({})
 
-interface McpTokenRow {
+interface AgentTokenRow {
   id: string
   name: string
   scope: 'read' | 'write'
@@ -131,43 +131,54 @@ interface McpTokenRow {
   revokedAt: string | null
 }
 
-const mcpEnabled = ref(false)
-const mcpTokens = ref<McpTokenRow[]>([])
-const mcpLoading = ref(false)
-const mcpSaving = ref(false)
-const mcpCreating = ref(false)
-const mcpNewName = ref('')
-const mcpNewScope = ref<'read' | 'write'>('write')
-const mcpCreatedSecret = ref<string | null>(null)
-const mcpError = ref<string | null>(null)
-const mcpSuccess = ref<string | null>(null)
-const copyingMcpSnippet = ref(false)
+const agentEnabled = ref(false)
+const agentTokens = ref<AgentTokenRow[]>([])
+const agentLoading = ref(false)
+const agentSaving = ref(false)
+const agentCreating = ref(false)
+const agentNewName = ref('')
+const agentNewScope = ref<'read' | 'write'>('write')
+const agentCreatedSecret = ref<string | null>(null)
+const agentError = ref<string | null>(null)
+const agentSuccess = ref<string | null>(null)
+const copyingCursorSnippet = ref(false)
+const copyingCliSnippet = ref(false)
 
 const canManageGitHub = computed(() => workspaceRole.value === 'owner')
-const canManageMcp = computed(() => workspaceRole.value === 'owner')
-const mcpScopeOptions = [
+const canManageAgent = computed(() => workspaceRole.value === 'owner')
+const agentScopeOptions = [
   { value: 'read' as const, label: 'Lecture seule' },
   { value: 'write' as const, label: 'Lecture + écriture' },
 ]
-const mcpEndpointUrl = computed(() => {
+const agentEndpointUrl = computed(() => {
   if (!import.meta.client)
     return '/api/mcp'
   return `${window.location.origin}/api/mcp`
 })
-const mcpCursorSnippet = computed(() => {
-  const token = mcpCreatedSecret.value || 'fm_mcp_<votre-token>'
+const agentTokenSample = computed(() => agentCreatedSecret.value || 'fm_agent_<votre-token>')
+const agentCursorSnippet = computed(() => {
   return JSON.stringify({
     mcpServers: {
       fluffmind: {
-        url: mcpEndpointUrl.value,
+        url: agentEndpointUrl.value,
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${agentTokenSample.value}`,
         },
       },
     },
   }, null, 2)
 })
-const activeMcpTokens = computed(() => mcpTokens.value.filter(token => !token.revokedAt))
+const agentCliSnippet = computed(() => {
+  const host = !import.meta.client
+    ? 'https://<host>'
+    : window.location.origin
+  return [
+    `export FLUFFMIND_URL=${host}`,
+    `export FLUFFMIND_TOKEN=${agentTokenSample.value}`,
+    'fluffmind whoami',
+  ].join('\n')
+})
+const activeAgentTokens = computed(() => agentTokens.value.filter(token => !token.revokedAt))
 const isLocalSync = computed(() => githubSyncMode.value === 'local')
 const githubModeLabel = computed(() => {
   if (githubSyncMode.value === 'app') return 'GitHub App'
@@ -561,114 +572,129 @@ async function syncNowFromGitHub() {
   }
 }
 
-async function loadMcpState(): Promise<void> {
-  if (!canManageMcp.value) {
-    mcpEnabled.value = false
-    mcpTokens.value = []
+async function loadAgentState(): Promise<void> {
+  if (!canManageAgent.value) {
+    agentEnabled.value = false
+    agentTokens.value = []
     return
   }
 
-  mcpLoading.value = true
-  mcpError.value = null
+  agentLoading.value = true
+  agentError.value = null
   try {
-    const response = await $fetch<{ mcpEnabled: boolean, tokens: McpTokenRow[] }>('/api/workspaces/mcp')
-    mcpEnabled.value = Boolean(response.mcpEnabled)
-    mcpTokens.value = Array.isArray(response.tokens) ? response.tokens : []
+    const response = await $fetch<{ agentEnabled: boolean, tokens: AgentTokenRow[] }>('/api/workspaces/agent')
+    agentEnabled.value = Boolean(response.agentEnabled)
+    agentTokens.value = Array.isArray(response.tokens) ? response.tokens : []
   }
   catch (error) {
     const asRecordError = error as { data?: { message?: string }, message?: string }
-    mcpError.value = asRecordError.data?.message || asRecordError.message || 'Impossible de charger la config MCP.'
+    agentError.value = asRecordError.data?.message || asRecordError.message || 'Impossible de charger la config des agents.'
   }
   finally {
-    mcpLoading.value = false
+    agentLoading.value = false
   }
 }
 
-async function toggleMcpEnabled(next: boolean): Promise<void> {
-  if (!canManageMcp.value)
+async function toggleAgentEnabled(next: boolean): Promise<void> {
+  if (!canManageAgent.value)
     return
 
-  mcpSaving.value = true
-  mcpError.value = null
-  mcpSuccess.value = null
+  agentSaving.value = true
+  agentError.value = null
+  agentSuccess.value = null
   try {
-    const response = await $fetch<{ mcpEnabled: boolean, tokens: McpTokenRow[] }>('/api/workspaces/mcp', {
+    const response = await $fetch<{ agentEnabled: boolean, tokens: AgentTokenRow[] }>('/api/workspaces/agent', {
       method: 'PATCH',
-      body: { mcpEnabled: next },
+      body: { agentEnabled: next },
     })
-    mcpEnabled.value = Boolean(response.mcpEnabled)
-    mcpTokens.value = Array.isArray(response.tokens) ? response.tokens : []
-    mcpSuccess.value = next ? 'MCP activé pour ce workspace.' : 'MCP désactivé pour ce workspace.'
+    agentEnabled.value = Boolean(response.agentEnabled)
+    agentTokens.value = Array.isArray(response.tokens) ? response.tokens : []
+    agentSuccess.value = next ? 'Accès agents activé pour ce workspace.' : 'Accès agents désactivé pour ce workspace.'
   }
   catch (error) {
     const asRecordError = error as { data?: { message?: string }, message?: string }
-    mcpError.value = asRecordError.data?.message || asRecordError.message || 'Impossible de mettre à jour MCP.'
+    agentError.value = asRecordError.data?.message || asRecordError.message || 'Impossible de mettre à jour l’accès agents.'
   }
   finally {
-    mcpSaving.value = false
+    agentSaving.value = false
   }
 }
 
-async function createMcpToken(): Promise<void> {
-  if (!canManageMcp.value)
+async function createAgentToken(): Promise<void> {
+  if (!canManageAgent.value)
     return
 
-  mcpCreating.value = true
-  mcpError.value = null
-  mcpSuccess.value = null
-  mcpCreatedSecret.value = null
+  agentCreating.value = true
+  agentError.value = null
+  agentSuccess.value = null
+  agentCreatedSecret.value = null
   try {
-    const response = await $fetch<McpTokenRow & { token: string }>('/api/workspaces/mcp/tokens', {
+    const response = await $fetch<AgentTokenRow & { token: string }>('/api/workspaces/agent/tokens', {
       method: 'POST',
       body: {
-        name: mcpNewName.value.trim(),
-        scope: mcpNewScope.value,
+        name: agentNewName.value.trim(),
+        scope: agentNewScope.value,
       },
     })
-    mcpCreatedSecret.value = response.token
-    mcpNewName.value = ''
-    mcpNewScope.value = 'write'
-    mcpSuccess.value = 'Token créé — copiez-le maintenant, il ne sera plus affiché.'
-    await loadMcpState()
+    agentCreatedSecret.value = response.token
+    agentNewName.value = ''
+    agentNewScope.value = 'write'
+    agentSuccess.value = 'Token créé — copiez-le maintenant, il ne sera plus affiché.'
+    await loadAgentState()
   }
   catch (error) {
     const asRecordError = error as { data?: { message?: string }, message?: string }
-    mcpError.value = asRecordError.data?.message || asRecordError.message || 'Création du token impossible.'
+    agentError.value = asRecordError.data?.message || asRecordError.message || 'Création du token impossible.'
   }
   finally {
-    mcpCreating.value = false
+    agentCreating.value = false
   }
 }
 
-async function revokeMcpToken(tokenId: string): Promise<void> {
-  if (!canManageMcp.value)
+async function revokeAgentToken(tokenId: string): Promise<void> {
+  if (!canManageAgent.value)
     return
 
-  mcpError.value = null
-  mcpSuccess.value = null
+  agentError.value = null
+  agentSuccess.value = null
   try {
-    await $fetch(`/api/workspaces/mcp/tokens/${tokenId}`, { method: 'DELETE' })
-    mcpSuccess.value = 'Token révoqué.'
-    await loadMcpState()
+    await $fetch(`/api/workspaces/agent/tokens/${tokenId}`, { method: 'DELETE' })
+    agentSuccess.value = 'Token révoqué.'
+    await loadAgentState()
   }
   catch (error) {
     const asRecordError = error as { data?: { message?: string }, message?: string }
-    mcpError.value = asRecordError.data?.message || asRecordError.message || 'Révocation impossible.'
+    agentError.value = asRecordError.data?.message || asRecordError.message || 'Révocation impossible.'
   }
 }
 
-async function copyMcpSnippet(): Promise<void> {
-  copyingMcpSnippet.value = true
+async function copyCursorSnippet(): Promise<void> {
+  copyingCursorSnippet.value = true
   try {
-    await navigator.clipboard.writeText(mcpCursorSnippet.value)
-    mcpSuccess.value = 'Snippet Cursor copié.'
+    await navigator.clipboard.writeText(agentCursorSnippet.value)
+    agentSuccess.value = 'Snippet Cursor copié.'
   }
   catch (error) {
     const asRecordError = error as { message?: string }
-    mcpError.value = asRecordError.message || 'Impossible de copier le snippet.'
+    agentError.value = asRecordError.message || 'Impossible de copier le snippet.'
   }
   finally {
-    copyingMcpSnippet.value = false
+    copyingCursorSnippet.value = false
+  }
+}
+
+async function copyCliSnippet(): Promise<void> {
+  copyingCliSnippet.value = true
+  try {
+    await navigator.clipboard.writeText(agentCliSnippet.value)
+    agentSuccess.value = 'Snippet CLI copié.'
+  }
+  catch (error) {
+    const asRecordError = error as { message?: string }
+    agentError.value = asRecordError.message || 'Impossible de copier le snippet.'
+  }
+  finally {
+    copyingCliSnippet.value = false
   }
 }
 
@@ -721,7 +747,7 @@ async function loadWorkspaceData(isManualReload = false) {
     }
 
     await loadGitHubState()
-    await loadMcpState()
+    await loadAgentState()
   } catch (error) {
     const asRecordError = error as { message?: string }
     pageError.value = asRecordError.message || 'Chargement du workspace impossible.'
@@ -897,28 +923,28 @@ await loadWorkspaceData()
     <FluffmindCard padding="lg" class="mb-6">
       <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 class="md3-title-md">
-          MCP (agents IA)
+          Agents
         </h2>
         <FluffmindChip variant="outlined">
-          {{ mcpEnabled ? 'Activé' : 'Désactivé' }}
+          {{ agentEnabled ? 'Activé' : 'Désactivé' }}
         </FluffmindChip>
       </div>
 
       <p class="mb-4 md3-body-md text-on-surface-variant">
-        Endpoint instance :
-        <code class="text-primary">{{ mcpEndpointUrl }}</code>
-        — un token Bearer lie l’agent à ce workspace.
+        Endpoint MCP instance :
+        <code class="text-primary">{{ agentEndpointUrl }}</code>
+        — un même token Bearer lie l’agent (Cursor, CLI…) à ce workspace.
       </p>
 
       <FluffmindCheckbox
-        :model-value="mcpEnabled"
-        :disabled="!canManageMcp || mcpSaving || mcpLoading"
-        @update:model-value="toggleMcpEnabled"
+        :model-value="agentEnabled"
+        :disabled="!canManageAgent || agentSaving || agentLoading"
+        @update:model-value="toggleAgentEnabled"
       >
-        Activer MCP pour ce workspace
+        Activer l’accès agents pour ce workspace
       </FluffmindCheckbox>
 
-      <section v-if="mcpEnabled && canManageMcp" class="mt-6 rounded-xl bg-surface-container-low p-4">
+      <section v-if="agentEnabled && canManageAgent" class="mt-6 rounded-xl bg-surface-container-low p-4">
         <h3 class="md3-title-sm">
           Créer un token
         </h3>
@@ -926,7 +952,7 @@ await loadWorkspaceData()
           <label class="block">
             <span class="mb-2 block md3-label-lg">Nom</span>
             <FluffmindTextField
-              v-model="mcpNewName"
+              v-model="agentNewName"
               type="text"
               placeholder="Cursor perso"
             />
@@ -934,46 +960,61 @@ await loadWorkspaceData()
           <label class="block">
             <span class="mb-2 block md3-label-lg">Portée</span>
             <FluffmindSelect
-              v-model="mcpNewScope"
-              :options="mcpScopeOptions"
+              v-model="agentNewScope"
+              :options="agentScopeOptions"
             />
           </label>
           <div class="flex items-end">
             <FluffmindButton
-              :disabled="mcpCreating || !mcpNewName.trim()"
-              @click="createMcpToken"
+              :disabled="agentCreating || !agentNewName.trim()"
+              @click="createAgentToken"
             >
-              {{ mcpCreating ? 'Création…' : 'Créer' }}
+              {{ agentCreating ? 'Création…' : 'Créer' }}
             </FluffmindButton>
           </div>
         </div>
 
-        <div v-if="mcpCreatedSecret" class="mt-4">
+        <div v-if="agentCreatedSecret" class="mt-4">
           <p class="md3-body-md text-tertiary">
             Secret (affiché une seule fois) :
           </p>
           <code class="mt-1 block break-all text-primary">
-            {{ mcpCreatedSecret }}
+            {{ agentCreatedSecret }}
           </code>
+
           <p class="mt-4 md3-label-lg">
             Exemple Cursor (mcp.json)
           </p>
-          <pre class="mt-2 overflow-x-auto rounded-lg bg-surface p-3 md3-body-sm">{{ mcpCursorSnippet }}</pre>
+          <pre class="mt-2 overflow-x-auto rounded-lg bg-surface p-3 md3-body-sm">{{ agentCursorSnippet }}</pre>
           <FluffmindButton
             variant="outlined"
             size="sm"
             class="mt-2"
-            :disabled="copyingMcpSnippet"
-            @click="copyMcpSnippet"
+            :disabled="copyingCursorSnippet"
+            @click="copyCursorSnippet"
           >
-            {{ copyingMcpSnippet ? 'Copie…' : 'Copier le snippet' }}
+            {{ copyingCursorSnippet ? 'Copie…' : 'Copier le snippet' }}
+          </FluffmindButton>
+
+          <p class="mt-4 md3-label-lg">
+            Exemple CLI
+          </p>
+          <pre class="mt-2 overflow-x-auto rounded-lg bg-surface p-3 md3-body-sm">{{ agentCliSnippet }}</pre>
+          <FluffmindButton
+            variant="outlined"
+            size="sm"
+            class="mt-2"
+            :disabled="copyingCliSnippet"
+            @click="copyCliSnippet"
+          >
+            {{ copyingCliSnippet ? 'Copie…' : 'Copier le snippet' }}
           </FluffmindButton>
         </div>
       </section>
 
-      <ul v-if="activeMcpTokens.length > 0" class="mt-6 divide-y divide-outline-variant">
+      <ul v-if="activeAgentTokens.length > 0" class="mt-6 divide-y divide-outline-variant">
         <li
-          v-for="token in activeMcpTokens"
+          v-for="token in activeAgentTokens"
           :key="token.id"
           class="flex flex-wrap items-center justify-between gap-2 py-3"
         >
@@ -982,31 +1023,31 @@ await loadWorkspaceData()
               {{ token.name }}
             </p>
             <p class="md3-body-md text-on-surface-variant">
-              fm_mcp_{{ token.tokenPrefix }}… · {{ token.scope }} · créé {{ formatDate(token.createdAt) }}
+              fm_agent_{{ token.tokenPrefix }}… · {{ token.scope }} · créé {{ formatDate(token.createdAt) }}
             </p>
           </div>
           <FluffmindButton
             variant="outlined"
             size="sm"
-            :disabled="!canManageMcp"
-            @click="revokeMcpToken(token.id)"
+            :disabled="!canManageAgent"
+            @click="revokeAgentToken(token.id)"
           >
             Révoquer
           </FluffmindButton>
         </li>
       </ul>
-      <p v-else-if="mcpEnabled" class="mt-4 md3-body-md text-on-surface-variant">
+      <p v-else-if="agentEnabled" class="mt-4 md3-body-md text-on-surface-variant">
         Aucun token actif.
       </p>
 
-      <p v-if="!canManageMcp" class="mt-4 md3-body-md text-on-surface-variant">
-        Seuls les propriétaires peuvent gérer MCP.
+      <p v-if="!canManageAgent" class="mt-4 md3-body-md text-on-surface-variant">
+        Seuls les propriétaires peuvent gérer les agents.
       </p>
-      <p v-if="mcpSuccess" class="mt-4 md3-body-md text-tertiary">
-        {{ mcpSuccess }}
+      <p v-if="agentSuccess" class="mt-4 md3-body-md text-tertiary">
+        {{ agentSuccess }}
       </p>
-      <p v-if="mcpError" class="mt-4 md3-body-md text-error">
-        {{ mcpError }}
+      <p v-if="agentError" class="mt-4 md3-body-md text-error">
+        {{ agentError }}
       </p>
     </FluffmindCard>
 
