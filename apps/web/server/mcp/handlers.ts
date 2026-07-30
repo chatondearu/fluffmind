@@ -3,7 +3,7 @@ import { getGraph } from '../vault/index'
 import { readNote } from '../vault/reader'
 import { getVaultIndex, invalidateVaultIndex } from '../vault/service'
 import { writeToWorkspace, GitConflictError, InvalidNoteIdError } from '../vault/write'
-import { getWorkspaceIdentity } from '../utils/mcp-tokens'
+import { getWorkspaceIdentity } from '../utils/agent-tokens'
 import type { McpContext } from './context'
 
 export class McpForbiddenError extends Error {
