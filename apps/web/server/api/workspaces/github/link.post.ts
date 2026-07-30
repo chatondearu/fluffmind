@@ -9,6 +9,7 @@ import {
   setWorkspaceContentRootsIfAllowed,
   validateWorkspaceContentRootsUpdate,
 } from '../../../utils/content-roots-config'
+import type { ContentRootsUpdate } from '../../../utils/content-roots-config'
 import { encryptSyncToken } from '../../../utils/github-token-crypto'
 import { getWorkspaceGitHubSyncState, assertWorkspaceGithubLinkAbsent, parseRepoIdentifier } from '../../../utils/github-sync'
 import { readJsonBody } from '../../../utils/read-json-body'
@@ -103,9 +104,10 @@ export default defineEventHandler(async (event) => {
   }
 
   await assertWorkspaceGithubLinkAbsent(workspaceId)
+  let contentRootsUpdate: ContentRootsUpdate | undefined
   if (body.contentRoots !== undefined) {
     try {
-      await validateWorkspaceContentRootsUpdate(workspaceId, body.contentRoots)
+      contentRootsUpdate = await validateWorkspaceContentRootsUpdate(workspaceId, body.contentRoots)
     }
     catch (error) {
       if (error instanceof InvalidContentRootError) {
@@ -159,7 +161,7 @@ export default defineEventHandler(async (event) => {
     .where(eq(workspaceConfig.organizationId, workspaceId))
 
   if (body.contentRoots !== undefined)
-    await setWorkspaceContentRootsIfAllowed(workspaceId, body.contentRoots)
+    await setWorkspaceContentRootsIfAllowed(workspaceId, body.contentRoots, contentRootsUpdate)
 
   return getWorkspaceGitHubSyncState(workspaceId)
 })

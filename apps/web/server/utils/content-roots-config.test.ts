@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ContentRootsImmutableError,
   setWorkspaceContentRootsIfAllowed,
+  validateWorkspaceContentRootsUpdate,
 } from './content-roots-config'
 import { InvalidContentRootError } from '../vault/content-roots'
 
@@ -22,22 +23,23 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 function mockCurrentRoots(contentRoots: string[]) {
+  const select = vi.fn().mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([{ contentRoots }]),
+      }),
+    }),
+  })
   const updateWhere = vi.fn().mockResolvedValue(undefined)
   const updateSet = vi.fn().mockReturnValue({ where: updateWhere })
   const update = vi.fn().mockReturnValue({ set: updateSet })
 
   mocks.getDb.mockReturnValue({
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([{ contentRoots }]),
-        }),
-      }),
-    }),
+    select,
     update,
   })
 
-  return { update, updateSet, updateWhere }
+  return { select, update, updateSet, updateWhere }
 }
 
 describe('setWorkspaceContentRootsIfAllowed', () => {
@@ -52,6 +54,17 @@ describe('setWorkspaceContentRootsIfAllowed', () => {
       .resolves.toEqual(['foam', 'docs'])
 
     expect(updateSet).toHaveBeenCalledWith({ contentRoots: ['foam', 'docs'] })
+  })
+
+  it('persists a prepared update without selecting the workspace again', async () => {
+    const { select, updateSet } = mockCurrentRoots([])
+    const prepared = await validateWorkspaceContentRootsUpdate('org_1', ['/foam'])
+
+    await expect(setWorkspaceContentRootsIfAllowed('org_1', ['/foam'], prepared))
+      .resolves.toEqual(['foam'])
+
+    expect(select).toHaveBeenCalledTimes(1)
+    expect(updateSet).toHaveBeenCalledWith({ contentRoots: ['foam'] })
   })
 
   it('does not update when the incoming roots are empty', async () => {

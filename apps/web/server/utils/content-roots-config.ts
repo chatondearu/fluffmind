@@ -10,7 +10,7 @@ export class ContentRootsImmutableError extends Error {
   }
 }
 
-interface ContentRootsUpdate {
+export interface ContentRootsUpdate {
   contentRoots: string[]
   shouldUpdate: boolean
 }
@@ -41,8 +41,10 @@ export async function validateWorkspaceContentRootsUpdate(
 export async function setWorkspaceContentRootsIfAllowed(
   organizationId: string,
   incoming: unknown,
+  preparedUpdate?: ContentRootsUpdate,
 ): Promise<string[]> {
-  const { contentRoots, shouldUpdate } = await validateWorkspaceContentRootsUpdate(organizationId, incoming)
+  const { contentRoots, shouldUpdate } = preparedUpdate
+    ?? await validateWorkspaceContentRootsUpdate(organizationId, incoming)
 
   if (shouldUpdate) {
     const db = getDb()
