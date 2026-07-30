@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3'
+import { createRouter } from 'radix3'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -64,7 +65,11 @@ beforeAll(async () => {
     search: (await import('./notes/search.get')).default,
     readNote: (await import('./notes/[...id].get')).default,
     writeNote: (await import('./notes/[...id].put')).default,
-    backlinks: (await import('./notes/[...id]/backlinks.get')).default,
+    // `notes/[...id]/backlinks.get.ts` was unreachable: Nitro/h3's radix3
+    // router resolves the catch-all `notes/[...id]` for any deeper path
+    // segment, so a dedicated backlinks route file never matches. Backlinks
+    // is dispatched from the combined `notes/[...id]` GET handler instead.
+    backlinks: (await import('./notes/[...id].get')).default,
     graph: (await import('./graph.get')).default,
     createTask: (await import('./tasks.post')).default,
   }
@@ -176,16 +181,80 @@ describe('PUT /api/agent/notes/[...id]', () => {
   })
 })
 
+describe('Nitro file-based routing for notes/[...id]', () => {
+  // Regression test for the shadowing bug: Nitro/h3 convert the catch-all
+  // segment `[...id]` into the radix3 pattern `**:id`, which matches *any*
+  // depth of trailing path segments — including a would-be sibling route
+  // file at `notes/[...id]/backlinks.get.ts` (radix3 pattern
+  // `**:id/backlinks`). Because the catch-all is registered too, radix3
+  // always resolves the shallower catch-all first and the dedicated
+  // backlinks route is never reached. This proves the routing behavior
+  // independently of the mocked handler tests above.
+  function buildRouter() {
+    const router = createRouter<{ file: string }>()
+    router.insert('/api/agent/notes/**:id', { file: 'notes/[...id].get.ts' })
+    return router
+  }
+
+  it('resolves /api/agent/notes/alpha to the catch-all with id "alpha"', () => {
+    const router = buildRouter()
+    expect(router.lookup('/api/agent/notes/alpha')).toEqual({
+      file: 'notes/[...id].get.ts',
+      params: { id: 'alpha' },
+    })
+  })
+
+  it('would shadow a dedicated notes/[...id]/backlinks route with id "alpha/backlinks"', () => {
+    const router = buildRouter()
+    router.insert('/api/agent/notes/**:id/backlinks', { file: 'notes/[...id]/backlinks.get.ts' })
+
+    // If this ever resolves to the backlinks file, Nitro's router behavior
+    // has changed and the merged-handler workaround below can be reverted.
+    expect(router.lookup('/api/agent/notes/alpha/backlinks')).toEqual({
+      file: 'notes/[...id].get.ts',
+      params: { id: 'alpha/backlinks' },
+    })
+  })
+})
+
 describe('GET /api/agent/notes/[...id]/backlinks', () => {
-  it('lists backlinks', async () => {
-    vi.stubGlobal('getRouterParam', () => 'beta')
+  // Nitro/h3 (radix3) resolves `/api/agent/notes/beta/backlinks` against the
+  // catch-all `notes/[...id]` route, handing the combined `id` param
+  // `beta/backlinks` — never the standalone `notes/[...id]/backlinks`
+  // route file (radix3 always prefers the more specific static/catch-all
+  // match at the shallower segment). getRouterParam is stubbed here to
+  // mirror that real resolution instead of assuming a dedicated route.
+  it('lists backlinks when the catch-all id ends with /backlinks', async () => {
+    vi.stubGlobal('getRouterParam', () => 'beta/backlinks')
     mocks.requireAgentBearer.mockResolvedValue(auth)
     mocks.listBacklinks.mockResolvedValue([{ id: 'alpha', title: 'Alpha' }])
 
     const result = await handlers.backlinks(fakeEvent)
 
     expect(mocks.listBacklinks).toHaveBeenCalledWith('beta', 'org_1')
+    expect(mocks.readNoteById).not.toHaveBeenCalled()
     expect(result).toEqual([{ id: 'alpha', title: 'Alpha' }])
+  })
+
+  it('lists backlinks for a nested note id ending with /backlinks', async () => {
+    vi.stubGlobal('getRouterParam', () => 'projects/beta/backlinks')
+    mocks.requireAgentBearer.mockResolvedValue(auth)
+    mocks.listBacklinks.mockResolvedValue([])
+
+    await handlers.backlinks(fakeEvent)
+
+    expect(mocks.listBacklinks).toHaveBeenCalledWith('projects/beta', 'org_1')
+  })
+
+  it('does not treat a note literally named "backlinks" as the backlinks route', async () => {
+    vi.stubGlobal('getRouterParam', () => 'backlinks')
+    mocks.requireAgentBearer.mockResolvedValue(auth)
+    mocks.readNoteById.mockResolvedValue({ id: 'backlinks', title: 'Backlinks', frontmatter: {}, content: '' })
+
+    const result = await handlers.readNote(fakeEvent)
+
+    expect(mocks.readNoteById).toHaveBeenCalledWith('backlinks', 'org_1')
+    expect(result).toMatchObject({ id: 'backlinks' })
   })
 })
 
