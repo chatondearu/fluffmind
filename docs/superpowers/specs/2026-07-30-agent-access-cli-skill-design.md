@@ -1,9 +1,11 @@
 # Agent access — CLI, skill & REST (design)
 
 **Date:** 2026-07-30  
-**Status:** draft (awaiting user review)  
+**Status:** approved  
 **Depends on:** [[../../../prd/PRD-036-mcp-workspace-tokens|PRD-036]] (shipped), [[../../../foam/decisions/ADR-010-mcp-workspace-tokens|ADR-010]]  
-**Follow-up docs (implementation):** PRD-037, ADR-011 (to be written with the plan)
+**PRD:** [[../../../prd/PRD-037-agent-access-cli-skill|PRD-037]]  
+**ADR:** [[../../../foam/decisions/ADR-011-agent-tokens-and-cli|ADR-011]]  
+**Plan:** `docs/superpowers/plans/2026-07-30-agent-access-cli-skill.md`
 
 ## Problem
 

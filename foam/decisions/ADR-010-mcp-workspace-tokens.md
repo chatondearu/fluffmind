@@ -30,8 +30,15 @@ browser-centric. Tokens must be revocable and never recoverable from the databas
 - **Negative**: One Cursor MCP entry per workspace (no discovery).
 - **Constraint**: Write tools must check scope; disabled MCP rejects even valid hashes.
 
+## Supersession
+
+Naming (`fm_mcp_…`, `mcpEnabled`, owner `/api/workspaces/mcp`) is **partially superseded**
+by [[ADR-011-agent-tokens-and-cli|ADR-011]] (agent tokens + CLI/REST). The hash-only,
+workspace-bound, read/write model from this ADR remains in force.
+
 ## References
 
 - [[../../prd/PRD-036-mcp-workspace-tokens|PRD-036]]
 - `docs/superpowers/specs/2026-07-30-mcp-workspace-tokens-design.md`
 - [[ADR-006-better-auth-workspaces|ADR-006]]
+- [[ADR-011-agent-tokens-and-cli|ADR-011]]
