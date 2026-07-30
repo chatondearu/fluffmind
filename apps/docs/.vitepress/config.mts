@@ -23,6 +23,7 @@ export default defineConfig({
           { text: 'Self-hosting', link: '/guide/self-hosting' },
           { text: 'GitHub sync & auth', link: '/guide/github-sync-auth' },
           { text: 'GitHub App setup', link: '/guide/github-app-setup' },
+          { text: 'Agent access: MCP, CLI & skill', link: '/guide/agents' },
           { text: 'MCP for AI agents', link: '/guide/mcp' },
         ],
       },

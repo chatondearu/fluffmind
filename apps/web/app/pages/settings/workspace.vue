@@ -1009,6 +1009,18 @@ await loadWorkspaceData()
           >
             {{ copyingCliSnippet ? 'Copie…' : 'Copier le snippet' }}
           </FluffmindButton>
+
+          <p class="mt-4 md3-body-md text-on-surface-variant">
+            Agent codant (skill) : copiez
+            <code class="text-primary">skills/fluffmind/SKILL.md</code>
+            dans le dossier de skills de votre agent — voir la
+            <a
+              href="https://chatondearu.github.io/fluffmind/guide/agents"
+              target="_blank"
+              rel="noopener"
+              class="text-primary underline"
+            >documentation « Agent access »</a>.
+          </p>
         </div>
       </section>
 

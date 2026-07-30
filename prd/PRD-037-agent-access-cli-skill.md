@@ -16,11 +16,11 @@ that shells out to that CLI. Auth today is named and shaped as MCP-only (`fm_mcp
 
 ## Goals
 
-- [ ] Generalize workspace tokens to **agent tokens** (`fm_agent_…`) with compat for `fm_mcp_…`
-- [ ] Expose REST `/api/agent/*` mirroring MCP tools via the same handlers
-- [ ] Ship `fluffmind` CLI (`packages/cli`) against that REST API
-- [ ] Ship installable skill + `scripts/install-cli.sh` + flake package `fluffmind-cli`
-- [ ] Keep `/api/mcp` working; document CLI vs MCP choice
+- [x] Generalize workspace tokens to **agent tokens** (`fm_agent_…`) with compat for `fm_mcp_…`
+- [x] Expose REST `/api/agent/*` mirroring MCP tools via the same handlers
+- [x] Ship `fluffmind` CLI (`packages/cli`) against that REST API
+- [x] Ship installable skill + `scripts/install-cli.sh` + flake package `fluffmind-cli`
+- [x] Keep `/api/mcp` working; document CLI vs MCP choice
 
 ## Non-goals
 
@@ -41,18 +41,18 @@ that shells out to that CLI. Auth today is named and shaped as MCP-only (`fm_mcp
 
 ### Functional
 
-- [ ] Rename `mcp_enabled` → `agent_enabled`, table → `workspace_agent_token`
-- [ ] Issue `fm_agent_…`; accept `fm_agent_…` and `fm_mcp_…` on resolve
-- [ ] Owner APIs under `/api/workspaces/agent`
-- [ ] REST agent routes for workspace, search, read, write, backlinks, graph, tasks
-- [ ] CLI commands: whoami, search, read, write, backlinks, graph, task, config
-- [ ] Skill at `skills/fluffmind/SKILL.md` + docs how to copy it
+- [x] Rename `mcp_enabled` → `agent_enabled`, table → `workspace_agent_token`
+- [x] Issue `fm_agent_…`; accept `fm_agent_…` and `fm_mcp_…` on resolve
+- [x] Owner APIs under `/api/workspaces/agent`
+- [x] REST agent routes for workspace, search, read, write, backlinks, graph, tasks
+- [x] CLI commands: whoami, search, read, write, backlinks, graph, task, config
+- [x] Skill at `skills/fluffmind/SKILL.md` + docs how to copy it
 
 ### Non-functional
 
-- [ ] Writes only via `writeToWorkspace`
-- [ ] JSON stdout default on CLI; stable exit codes
-- [ ] Unit tests for token compat + agent route scope + CLI HTTP client mocks
+- [x] Writes only via `writeToWorkspace`
+- [x] JSON stdout default on CLI; stable exit codes
+- [x] Unit tests for token compat + agent route scope + CLI HTTP client mocks
 
 ## Related project memory
 
