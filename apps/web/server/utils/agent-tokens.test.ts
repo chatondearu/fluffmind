@@ -35,6 +35,8 @@ vi.mock('drizzle-orm', () => ({
   isNull: (column: unknown) => ({ __op: 'isNull', column }),
 }))
 
+// Vitest mock must be configured before importing the module under test.
+// eslint-disable-next-line import/first
 import {
   extractAgentBearerToken,
   generateAgentTokenPlaintext,

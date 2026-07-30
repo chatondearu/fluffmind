@@ -28,6 +28,25 @@ export interface ResolvedAgentTokenAuth {
 const TOKEN_PREFIX_LEN = 8
 const TOKEN_SECRET_BYTES = 24
 
+/**
+ * getDb() throws a plain (non-H3) Error when DATABASE_URL is unset. Agent
+ * auth/workspace lookups are reachable from unauthenticated Bearer requests
+ * and from the no-auth P1 MCP path, so surface a clear 503 instead of an
+ * opaque 500 when the database isn't configured.
+ */
+function getAgentDb(): ReturnType<typeof getDb> {
+  try {
+    return getDb()
+  }
+  catch {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Service Unavailable',
+      message: 'Agent access requires a configured database: set DATABASE_URL and ensure AUTH_DISABLED is not "true".',
+    })
+  }
+}
+
 export function hashAgentToken(token: string): string {
   return createHash('sha256').update(token, 'utf8').digest('hex')
 }
@@ -200,7 +219,7 @@ export async function revokeWorkspaceAgentToken(organizationId: string, tokenId:
  * workspace + scope. Throws H3 errors for invalid / revoked / agent-disabled.
  */
 export async function resolveAgentBearerAuth(token: string): Promise<ResolvedAgentTokenAuth> {
-  const db = getDb()
+  const db = getAgentDb()
   const tokenHash = hashAgentToken(token)
 
   const [row] = await db
@@ -251,17 +270,21 @@ export async function getWorkspaceIdentity(workspaceId: string): Promise<{
   id: string
   name: string
   slug: string
+  agentEnabled: boolean
 } | null> {
-  const db = getDb()
+  const db = getAgentDb()
   const [row] = await db
     .select({
       id: organization.id,
       name: organization.name,
       slug: organization.slug,
+      agentEnabled: workspaceConfig.agentEnabled,
     })
     .from(organization)
+    .leftJoin(workspaceConfig, eq(workspaceConfig.organizationId, organization.id))
     .where(eq(organization.id, workspaceId))
     .limit(1)
 
-  return row ?? null
+  if (!row) return null
+  return { id: row.id, name: row.name, slug: row.slug, agentEnabled: row.agentEnabled ?? false }
 }

@@ -1,5 +1,6 @@
-export type { AgentTokenScope } from '../utils/agent-tokens'
 import type { AgentTokenScope } from '../utils/agent-tokens'
+
+export type { AgentTokenScope }
 
 export interface McpContext {
   /** Workspace id passed to writeToWorkspace (default when auth is off). */

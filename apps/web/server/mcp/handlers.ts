@@ -162,7 +162,7 @@ export async function getWorkspaceInfo(ctx: McpContext): Promise<GetWorkspaceRes
     name: identity?.name ?? ctx.workspaceId,
     slug: identity?.slug ?? ctx.workspaceId,
     scope: ctx.scope,
-    agentEnabled: true,
+    agentEnabled: identity?.agentEnabled ?? false,
   }
 }
 
