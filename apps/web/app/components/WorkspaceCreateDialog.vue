@@ -4,6 +4,7 @@ import {
   FluffmindCheckbox,
   FluffmindDialog,
   FluffmindSelect,
+  FluffmindTextArea,
   FluffmindTextField,
 } from '@fluffmind/design-system/src/components'
 
@@ -28,6 +29,7 @@ const installationId = ref('')
 const repoName = ref('')
 const autoRepoName = ref('')
 const repoPrivate = ref(true)
+const contentRootsText = ref('')
 const githubAvailable = ref(false)
 const installations = ref<GitHubAppInstallation[]>([])
 const loadingGitHub = ref(false)
@@ -55,6 +57,7 @@ function resetForm(): void {
   repoName.value = ''
   autoRepoName.value = ''
   repoPrivate.value = true
+  contentRootsText.value = ''
   githubAvailable.value = false
   installations.value = []
   error.value = null
@@ -93,6 +96,13 @@ async function submit(): Promise<void> {
 
   try {
     const body: Record<string, unknown> = { name: trimmedName }
+    const contentRoots = contentRootsText.value
+      .split(/[\n,]/)
+      .map(root => root.trim())
+      .filter(Boolean)
+    if (contentRoots.length)
+      body.contentRoots = contentRoots
+
     if (createGithub.value && installationId.value) {
       body.createGithubRepo = {
         installationId: installationId.value,
@@ -155,6 +165,17 @@ watch(() => props.open, (isOpen) => {
           :disabled="submitting"
           autofocus
         />
+      </label>
+      <label class="block">
+        <span class="mb-2 block md3-label-lg">Dossiers du vault (optionnel)</span>
+        <FluffmindTextArea
+          v-model="contentRootsText"
+          placeholder="foam, docs"
+          :disabled="submitting"
+        />
+        <span class="mt-2 block md3-body-sm text-on-surface-variant">
+          Ex. foam, docs — laisser vide = dépôt entier
+        </span>
       </label>
 
       <section v-if="githubAvailable" class="rounded-xl bg-surface-container-low p-4">
