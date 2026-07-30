@@ -1,7 +1,11 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('../utils/mcp-tokens', () => ({
+  getWorkspaceIdentity: vi.fn().mockResolvedValue(null),
+}))
 
 import { ContentRootViolationError } from '../vault/content-roots'
 import { invalidateVaultIndex } from '../vault/service'
@@ -10,6 +14,7 @@ import {
   createTask,
   formatHandlerError,
   getVaultGraph,
+  getWorkspaceInfo,
   listBacklinks,
   readNoteById,
   searchNotes,
@@ -98,5 +103,17 @@ describe('mcp handlers', () => {
     invalidateVaultIndex()
     const note = await readNoteById('inbox/tasks')
     expect(note?.content).toContain('- [ ] Ship MCP')
+  })
+
+  it('get_workspace returns identity, scope, and contentRoots', async () => {
+    const workspace = await getWorkspaceInfo(ctx)
+    expect(workspace).toEqual({
+      id: DEFAULT_MCP_WORKSPACE_ID,
+      name: DEFAULT_MCP_WORKSPACE_ID,
+      slug: DEFAULT_MCP_WORKSPACE_ID,
+      scope: 'write',
+      mcpEnabled: true,
+      contentRoots: [],
+    })
   })
 })

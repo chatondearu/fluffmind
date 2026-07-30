@@ -5,6 +5,7 @@ import { getVaultIndex, invalidateVaultIndex } from '../vault/service'
 import { ContentRootViolationError } from '../vault/content-roots'
 import { writeToWorkspace, GitConflictError, InvalidNoteIdError } from '../vault/write'
 import { getWorkspaceIdentity } from '../utils/mcp-tokens'
+import { resolveWorkspaceConfig } from '../vault/workspace'
 import type { McpContext } from './context'
 
 export class McpForbiddenError extends Error {
@@ -47,6 +48,7 @@ export interface GetWorkspaceResult {
   slug: string
   scope: McpContext['scope']
   mcpEnabled: boolean
+  contentRoots: string[]
 }
 
 function toTextPayload(value: unknown): { content: [{ type: 'text', text: string }] } {
@@ -157,13 +159,17 @@ export async function createTask(
 
 /** Confirm which workspace and scope this MCP connection is bound to. */
 export async function getWorkspaceInfo(ctx: McpContext): Promise<GetWorkspaceResult> {
-  const identity = await getWorkspaceIdentity(ctx.workspaceId)
+  const [identity, config] = await Promise.all([
+    getWorkspaceIdentity(ctx.workspaceId),
+    resolveWorkspaceConfig(ctx.workspaceId),
+  ])
   return {
     id: ctx.workspaceId,
     name: identity?.name ?? ctx.workspaceId,
     slug: identity?.slug ?? ctx.workspaceId,
     scope: ctx.scope,
     mcpEnabled: true,
+    contentRoots: config.contentRoots,
   }
 }
 
