@@ -15,6 +15,6 @@ export default defineEventHandler(async (event) => {
   const index = await getVaultIndex(workspaceId)
   const notes = [...index.notes.values()].sort((a, b) => a.title.localeCompare(b.title))
   const config = await resolveWorkspaceConfig(workspaceId)
-  const folders = await listVaultFolders(config.path)
+  const folders = await listVaultFolders(config.path, config.contentRoots)
   return { notes, folders }
 })

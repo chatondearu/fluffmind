@@ -25,7 +25,7 @@ export async function getVaultIndex(workspaceId = 'default'): Promise<VaultIndex
   const config = await resolveWorkspaceConfig(workspaceId)
 
   if (!indexCache.has(workspaceId)) {
-    indexCache.set(workspaceId, buildVaultIndex(config.path))
+    indexCache.set(workspaceId, buildVaultIndex(config.path, config.contentRoots))
   }
 
   if (shouldWatchFilesystem() && !watchersStarted.has(config.path)) {
@@ -45,16 +45,20 @@ export function invalidateVaultIndex(workspaceId?: string): void {
   indexCache.clear()
 }
 
-function scheduleRebuild(vaultPath: string, workspaceId: string) {
-  const timerKey = `${workspaceId}:${vaultPath}`
-  const existing = rebuildTimers.get(timerKey)
+async function rebuildIndex(workspaceId: string): Promise<void> {
+  const config = await resolveWorkspaceConfig(workspaceId)
+  indexCache.set(workspaceId, buildVaultIndex(config.path, config.contentRoots))
+}
+
+function scheduleRebuild(workspaceId: string) {
+  const existing = rebuildTimers.get(workspaceId)
   if (existing) clearTimeout(existing)
 
   rebuildTimers.set(
-    timerKey,
+    workspaceId,
     setTimeout(() => {
-      rebuildTimers.delete(timerKey)
-      indexCache.set(workspaceId, buildVaultIndex(vaultPath))
+      rebuildTimers.delete(workspaceId)
+      void rebuildIndex(workspaceId)
     }, REBUILD_DEBOUNCE_MS),
   )
 }
@@ -62,7 +66,7 @@ function scheduleRebuild(vaultPath: string, workspaceId: string) {
 function startWatcher(vaultPath: string, workspaceId: string): void {
   const watcher = watch(vaultPath, { ignored: IGNORED_RE, ignoreInitial: true })
   const rebuild = () => {
-    scheduleRebuild(vaultPath, workspaceId)
+    scheduleRebuild(workspaceId)
   }
   watcher.on('add', rebuild).on('change', rebuild).on('unlink', rebuild)
 }

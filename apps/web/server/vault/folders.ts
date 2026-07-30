@@ -1,5 +1,6 @@
 import { access, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
+import { assertWithinContentRoots } from './content-roots'
 import { InvalidNoteIdError } from './note-id'
 import { invalidateVaultIndex } from './service'
 import { withWorkspaceWriteLock } from './write'
@@ -14,7 +15,10 @@ function toPosixPath(vaultPath: string, dirPath: string): string {
 }
 
 /** Lists explicit empty folders marked with `.fluffmind-folder`. */
-export async function listVaultFolders(vaultPath: string): Promise<string[]> {
+export async function listVaultFolders(
+  vaultPath: string,
+  contentRoots: string[] = [],
+): Promise<string[]> {
   const folders: string[] = []
 
   async function walk(dir: string): Promise<void> {
@@ -37,8 +41,19 @@ export async function listVaultFolders(vaultPath: string): Promise<string[]> {
     }
   }
 
-  await walk(vaultPath)
-  return folders.sort((a, b) => a.localeCompare(b))
+  const directories = contentRoots.length === 0
+    ? [vaultPath]
+    : contentRoots.map(root => join(vaultPath, ...root.split('/')))
+  for (const directory of directories) {
+    try {
+      await walk(directory)
+    }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+  }
+
+  return [...new Set(folders)].sort((a, b) => a.localeCompare(b))
 }
 
 export async function createVaultFolder(workspaceId: string, folderPath: string): Promise<void> {
@@ -51,6 +66,7 @@ export async function createVaultFolder(workspaceId: string, folderPath: string)
 
   return withWorkspaceWriteLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
+    assertWithinContentRoots(folderPath, config.contentRoots)
     const targetDir = join(config.path, ...segments)
     const markerPath = join(targetDir, FOLDER_MARKER)
 
