@@ -18,9 +18,11 @@ function encodeNoteId(id: string): string {
 
 async function extractErrorMessage(response: Response): Promise<string> {
   try {
-    const body = await response.json() as { message?: unknown }
+    const body = await response.json() as { message?: unknown, statusMessage?: unknown }
     if (typeof body?.message === 'string' && body.message)
       return body.message
+    if (typeof body?.statusMessage === 'string' && body.statusMessage)
+      return body.statusMessage
   }
   catch {
     // Error body wasn't JSON (or was empty) — fall through to statusText.
@@ -30,7 +32,11 @@ async function extractErrorMessage(response: Response): Promise<string> {
 
 /** Thin HTTP client for the `/api/agent/*` REST surface (PRD-037). No retries, no caching. */
 export class FluffmindClient {
-  constructor(private readonly config: FluffmindConfig) {}
+  private readonly config: FluffmindConfig
+
+  constructor(config: FluffmindConfig) {
+    this.config = config
+  }
 
   whoami(): Promise<unknown> {
     return this.request('GET', '/api/agent/workspace')
