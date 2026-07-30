@@ -15,6 +15,7 @@
 | [[ADR-009-github-app-installations|ADR-009]] | GitHub App installations for repo access (self-host) | accepted |
 | [[ADR-010-mcp-workspace-tokens|ADR-010]] | MCP workspace Bearer tokens (hash-only) | accepted |
 | [[ADR-011-agent-tokens-and-cli|ADR-011]] | Agent tokens, REST surface & CLI | accepted |
+| [[ADR-012-workspace-content-roots|ADR-012]] | Workspace content roots (logical vault subset) | accepted |
 
 Template: [[ADR-template|ADR-template]]
 

@@ -27,8 +27,10 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   called by `write.ts` after a commit.
 - `sync.ts` — `bootstrapWorkspace()` (clone/init/fetch + sync warnings at boot) and
   `getWorkspaceSyncStatus()` for `GET /api/sync-status`.
-- `workspace.ts` — env-based workspace config resolution (single hardcoded workspace
-  until P2).
+- `workspace.ts` — resolves `WorkspaceConfig` (path, remote, branch, `contentRoots`).
+  Auth-off / `VAULT_PATH` always uses `contentRoots: []` (full tree).
+- `content-roots.ts` — normalizes root paths and guards index/mutations; empty `[]` =
+  whole repo. See ADR-012.
 - `write.ts` — `writeToWorkspace(workspaceId, id, content)`: delegates to `lock.ts`,
   then updates/creates notes via Git (`note-id.ts` validates ids on create).
   Git plumbing itself (`ensureWorkingCopy`/`commitAndPush`) lives in
