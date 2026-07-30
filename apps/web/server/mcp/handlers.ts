@@ -2,8 +2,10 @@ import type { GraphData, NoteSummary, ResolvedLink } from '../vault/index'
 import { getGraph } from '../vault/index'
 import { readNote } from '../vault/reader'
 import { getVaultIndex, invalidateVaultIndex } from '../vault/service'
+import { ContentRootViolationError } from '../vault/content-roots'
 import { writeToWorkspace, GitConflictError, InvalidNoteIdError } from '../vault/write'
-import { getWorkspaceIdentity } from '../utils/agent-tokens'
+import { getWorkspaceIdentity } from '../utils/mcp-tokens'
+import { resolveWorkspaceConfig } from '../vault/workspace'
 import type { McpContext } from './context'
 
 export class McpForbiddenError extends Error {
@@ -45,7 +47,8 @@ export interface GetWorkspaceResult {
   name: string
   slug: string
   scope: McpContext['scope']
-  agentEnabled: boolean
+  mcpEnabled: boolean
+  contentRoots: string[]
 }
 
 function toTextPayload(value: unknown): { content: [{ type: 'text', text: string }] } {
@@ -156,13 +159,17 @@ export async function createTask(
 
 /** Confirm which workspace and scope this MCP connection is bound to. */
 export async function getWorkspaceInfo(ctx: McpContext): Promise<GetWorkspaceResult> {
-  const identity = await getWorkspaceIdentity(ctx.workspaceId)
+  const [identity, config] = await Promise.all([
+    getWorkspaceIdentity(ctx.workspaceId),
+    resolveWorkspaceConfig(ctx.workspaceId),
+  ])
   return {
     id: ctx.workspaceId,
     name: identity?.name ?? ctx.workspaceId,
     slug: identity?.slug ?? ctx.workspaceId,
     scope: ctx.scope,
-    agentEnabled: identity?.agentEnabled ?? false,
+    mcpEnabled: true,
+    contentRoots: config.contentRoots,
   }
 }
 
@@ -175,6 +182,9 @@ export function formatHandlerError(error: unknown): ReturnType<typeof toolError>
   }
   if (error instanceof InvalidNoteIdError) {
     return toolError(error.message)
+  }
+  if (error instanceof ContentRootViolationError) {
+    return toolError('Content root violation')
   }
   if (error instanceof Error) {
     return toolError(error.message)

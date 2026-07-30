@@ -1,4 +1,5 @@
 import { GitAuthError, isGitAuthErrorMessage } from '@fluffmind/integrations'
+import { ContentRootViolationError } from '../vault/content-roots'
 import { VaultConflictError } from '../vault/mutations'
 import { VaultReadOnlyError } from '../vault/readonly'
 import { GitConflictError, InvalidNoteIdError, WorkspaceLockTimeoutError } from '../vault/write'
@@ -43,6 +44,13 @@ export function rethrowVaultMutationError(error: unknown): never {
     throw createError({
       statusCode: 409,
       statusMessage: error.message,
+    })
+  }
+  if (error instanceof ContentRootViolationError) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Content root violation',
+      message: error.message,
     })
   }
   if (error instanceof InvalidNoteIdError) {

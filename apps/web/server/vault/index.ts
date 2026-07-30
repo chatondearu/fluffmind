@@ -75,9 +75,31 @@ async function findMarkdownFiles(dir: string): Promise<string[]> {
   return files
 }
 
+async function findMarkdownFilesInContentRoots(
+  vaultPath: string,
+  contentRoots: string[],
+): Promise<string[]> {
+  if (contentRoots.length === 0) return findMarkdownFiles(vaultPath)
+
+  const files: string[] = []
+  for (const root of contentRoots) {
+    const rootPath = join(vaultPath, ...root.split('/'))
+    try {
+      files.push(...(await findMarkdownFiles(rootPath)))
+    }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+  }
+  return files
+}
+
 /** Returns true when the vault contains at least one markdown note. */
-export async function vaultHasMarkdownNotes(vaultPath: string): Promise<boolean> {
-  const files = await findMarkdownFiles(vaultPath)
+export async function vaultHasMarkdownNotes(
+  vaultPath: string,
+  contentRoots: string[] = [],
+): Promise<boolean> {
+  const files = await findMarkdownFilesInContentRoots(vaultPath, contentRoots)
   return files.length > 0
 }
 
@@ -97,8 +119,11 @@ function resolveTarget(target: string, noteIds: string[], basenameIndex: Map<str
  * Walks `vaultPath` for markdown files and builds the in-memory vault index
  * (notes, resolved links, backlinks). Read-only — never writes to disk.
  */
-export async function buildVaultIndex(vaultPath: string): Promise<VaultIndex> {
-  const files = await findMarkdownFiles(vaultPath)
+export async function buildVaultIndex(
+  vaultPath: string,
+  contentRoots: string[] = [],
+): Promise<VaultIndex> {
+  const files = await findMarkdownFilesInContentRoots(vaultPath, contentRoots)
 
   const notes = new Map<string, NoteSummary>()
   const rawLinksByNote = new Map<string, ReturnType<typeof extractWikilinks>>()

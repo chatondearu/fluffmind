@@ -25,13 +25,14 @@ vi.mock('../utils/github-credentials', () => ({
   resolveWorkspaceGitHubCredentials: mocks.resolveWorkspaceGitHubCredentials,
 }))
 
-const { resolveWorkspaceGitNetwork, resolveWorkspaceGitRemoteUrl } = await import('./workspace')
+const { resolveWorkspaceConfig, resolveWorkspaceGitNetwork, resolveWorkspaceGitRemoteUrl } = await import('./workspace')
 
-function mockWorkspaceConfig(remoteUrl?: string): void {
+function mockWorkspaceConfig(remoteUrl?: string, contentRoots: string[] = []): void {
   const limit = vi.fn().mockResolvedValue([{
     vaultPath: '/tmp/fluffmind-workspace-test/org-1',
     gitRemoteUrl: remoteUrl ?? null,
     gitBranch: 'main',
+    contentRoots,
   }])
   const where = vi.fn().mockReturnValue({ limit })
   const from = vi.fn().mockReturnValue({ where })
@@ -78,6 +79,25 @@ describe('resolveWorkspaceGitNetwork', () => {
     await expect(resolveWorkspaceGitNetwork('org-1')).rejects.toMatchObject({
       statusCode: 503,
       statusMessage: 'GitHub credentials unavailable',
+    })
+  })
+})
+
+describe('resolveWorkspaceConfig', () => {
+  beforeEach(() => {
+    process.env.WORKSPACES_ROOT = '/tmp/fluffmind-workspace-test'
+  })
+
+  afterEach(() => {
+    delete process.env.WORKSPACES_ROOT
+    vi.clearAllMocks()
+  })
+
+  it('returns the configured content roots', async () => {
+    mockWorkspaceConfig(undefined, ['foam', 'docs'])
+
+    await expect(resolveWorkspaceConfig('org-1')).resolves.toMatchObject({
+      contentRoots: ['foam', 'docs'],
     })
   })
 })

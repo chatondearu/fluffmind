@@ -1,6 +1,7 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { ensureWorkingCopy, commitAndPush, GitConflictError } from '@fluffmind/integrations'
+import { assertWithinContentRoots } from './content-roots'
 import { withWorkspaceLock } from './lock'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { parseNote, serializeNoteFile } from './parser'
@@ -62,6 +63,7 @@ export async function writeToWorkspace(
 ): Promise<WriteResult> {
   return withWorkspaceLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
+    assertWithinContentRoots(id, config.contentRoots)
     const filePath = resolveNoteFilePath(config.path, id)
 
     let isCreate = false

@@ -1,5 +1,5 @@
-import { writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 
 import { commitAndPush, ensureWorkingCopy, getSyncStatus, type SyncStatus } from '@fluffmind/integrations'
 
@@ -24,11 +24,16 @@ async function seedWelcomeNoteIfEmpty(
   vaultPath: string,
   branch: string,
   remoteConfigured: boolean,
+  contentRoots: string[],
 ): Promise<void> {
-  if (await vaultHasMarkdownNotes(vaultPath))
+  if (await vaultHasMarkdownNotes(vaultPath, contentRoots))
     return
 
-  const welcomePath = join(vaultPath, 'welcome.md')
+  const welcomeRel = contentRoots.length > 0
+    ? join(contentRoots[0]!, 'welcome.md')
+    : 'welcome.md'
+  const welcomePath = join(vaultPath, welcomeRel)
+  await mkdir(dirname(welcomePath), { recursive: true })
   await writeFile(welcomePath, WELCOME_NOTE, 'utf-8')
 
   const config = await resolveWorkspaceConfig(workspaceId)
@@ -78,6 +83,7 @@ export function bootstrapWorkspace(workspaceId = 'default'): Promise<SyncStatus 
       config.path,
       config.branch,
       Boolean(config.remoteUrl),
+      config.contentRoots,
     )
     const status = await getSyncStatus(git, {
       branch: config.branch,

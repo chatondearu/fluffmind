@@ -7,9 +7,20 @@ import {
   parseCreateGithubRepoBody,
 } from '../../../utils/github-create-repo'
 import type { CreateGithubRepoBody } from '../../../utils/github-create-repo'
+import {
+  ContentRootsImmutableError,
+  setWorkspaceContentRootsIfAllowed,
+  validateWorkspaceContentRootsUpdate,
+} from '../../../utils/content-roots-config'
+import type { ContentRootsUpdate } from '../../../utils/content-roots-config'
 import { getWorkspaceGitHubSyncState } from '../../../utils/github-sync'
 import { readJsonBody } from '../../../utils/read-json-body'
+import { InvalidContentRootError } from '../../../vault/content-roots'
 import { resolveActiveWorkspaceId } from '../../../vault/workspace'
+
+interface CreateAndLinkGithubRepoBody extends CreateGithubRepoBody {
+  contentRoots?: string[]
+}
 
 async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<void> {
   const session = await requireSession(event)
@@ -34,7 +45,7 @@ export default defineEventHandler(async (event) => {
   const workspaceId = await resolveActiveWorkspaceId(event)
   await requireOwnerRole(event, workspaceId)
 
-  const body = await readJsonBody<CreateGithubRepoBody>(event)
+  const body = await readJsonBody<CreateAndLinkGithubRepoBody>(event)
   const input = parseCreateGithubRepoBody(body)
   if (!input) {
     throw createError({
@@ -59,12 +70,39 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  let contentRootsUpdate: ContentRootsUpdate | undefined
+  if (body.contentRoots !== undefined) {
+    try {
+      contentRootsUpdate = await validateWorkspaceContentRootsUpdate(workspaceId, body.contentRoots)
+    }
+    catch (error) {
+      if (error instanceof InvalidContentRootError) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Invalid content root',
+          message: error.message,
+        })
+      }
+      if (error instanceof ContentRootsImmutableError) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Content roots are immutable',
+          message: error.message,
+        })
+      }
+      throw error
+    }
+  }
+
   const github = await createAndLinkGithubRepo({
     workspaceId,
     workspaceSlug: workspace.slug,
     input,
     refuseIfLinked: true,
   })
+
+  if (body.contentRoots !== undefined)
+    await setWorkspaceContentRootsIfAllowed(workspaceId, body.contentRoots, contentRootsUpdate)
 
   if (!github.ok)
     return { github }

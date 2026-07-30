@@ -4,9 +4,16 @@ import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
 import { requireSession } from '../../../utils/auth'
 import { getGitHubAppCredentials, isGitHubAppConfigured } from '../../../utils/github-credentials'
+import {
+  ContentRootsImmutableError,
+  setWorkspaceContentRootsIfAllowed,
+  validateWorkspaceContentRootsUpdate,
+} from '../../../utils/content-roots-config'
+import type { ContentRootsUpdate } from '../../../utils/content-roots-config'
 import { encryptSyncToken } from '../../../utils/github-token-crypto'
 import { getWorkspaceGitHubSyncState, assertWorkspaceGithubLinkAbsent, parseRepoIdentifier } from '../../../utils/github-sync'
 import { readJsonBody } from '../../../utils/read-json-body'
+import { InvalidContentRootError } from '../../../vault/content-roots'
 import { resolveActiveWorkspaceId } from '../../../vault/workspace'
 
 interface LinkWorkspaceGitHubBody {
@@ -14,6 +21,7 @@ interface LinkWorkspaceGitHubBody {
   mode?: 'app' | 'pat'
   syncToken?: string
   installationId?: string
+  contentRoots?: string[]
 }
 
 async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<void> {
@@ -96,6 +104,29 @@ export default defineEventHandler(async (event) => {
   }
 
   await assertWorkspaceGithubLinkAbsent(workspaceId)
+  let contentRootsUpdate: ContentRootsUpdate | undefined
+  if (body.contentRoots !== undefined) {
+    try {
+      contentRootsUpdate = await validateWorkspaceContentRootsUpdate(workspaceId, body.contentRoots)
+    }
+    catch (error) {
+      if (error instanceof InvalidContentRootError) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Invalid content root',
+          message: error.message,
+        })
+      }
+      if (error instanceof ContentRootsImmutableError) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Content roots are immutable',
+          message: error.message,
+        })
+      }
+      throw error
+    }
+  }
 
   try {
     const token = mode === 'app'
@@ -128,6 +159,9 @@ export default defineEventHandler(async (event) => {
     .update(workspaceConfig)
     .set({ gitRemoteUrl: buildGitHubHttpsRemoteUrl(parsedRepository.owner, parsedRepository.repo) })
     .where(eq(workspaceConfig.organizationId, workspaceId))
+
+  if (body.contentRoots !== undefined)
+    await setWorkspaceContentRootsIfAllowed(workspaceId, body.contentRoots, contentRootsUpdate)
 
   return getWorkspaceGitHubSyncState(workspaceId)
 })

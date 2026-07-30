@@ -5,6 +5,7 @@ import {
   FluffmindCheckbox,
   FluffmindChip,
   FluffmindSelect,
+  FluffmindTextArea,
   FluffmindTextField,
 } from '@fluffmind/design-system/src/components'
 import { authClient } from '../../composables/useAuth'
@@ -70,6 +71,11 @@ interface GitHubInstallationRepository {
   fullName: string
 }
 
+interface ActiveWorkspaceResponse {
+  member?: { role?: string | null } | null
+  config?: { contentRoots?: string[] } | null
+}
+
 const roleOptions: Array<{ value: WorkspaceRole, label: string }> = [
   { value: 'read', label: 'Lecture' },
   { value: 'write', label: 'Écriture' },
@@ -120,6 +126,8 @@ const loadingGitHubInstallations = ref(false)
 const loadingGitHubRepositories = ref(false)
 const syncingGitHub = ref(false)
 const localOverrides = ref<Record<string, boolean>>({})
+const workspaceContentRoots = ref<string[]>([])
+const contentRootsText = ref('')
 
 interface AgentTokenRow {
   id: string
@@ -238,6 +246,13 @@ function asString(value: unknown, fallback = ''): string {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? value as Record<string, unknown> : {}
+}
+
+function parseContentRoots(value: string): string[] {
+  return value
+    .split(/[\n,]/)
+    .map(root => root.trim())
+    .filter(Boolean)
 }
 
 function normalizeMembers(input: unknown): WorkspaceMember[] {
@@ -431,15 +446,19 @@ async function linkGitHubAppRepository(): Promise<void> {
   githubLinkSuccess.value = null
   linkingGitHub.value = true
   try {
+    const contentRoots = parseContentRoots(contentRootsText.value)
     const response = await $fetch<GitHubSyncState>('/api/workspaces/github/link', {
       method: 'POST',
       body: {
         mode: 'app',
         repository,
         installationId,
+        ...(contentRoots.length ? { contentRoots } : {}),
       },
     })
     applyGitHubState(response)
+    if (contentRoots.length)
+      workspaceContentRoots.value = contentRoots
     githubLinkSuccess.value = 'Dépôt GitHub lié via GitHub App.'
   } catch (error) {
     const asRecordError = error as { data?: { message?: string }, message?: string }
@@ -469,16 +488,20 @@ async function linkGitHubRepository() {
   githubLinkSuccess.value = null
   linkingGitHub.value = true
   try {
+    const contentRoots = parseContentRoots(contentRootsText.value)
     const response = await $fetch<GitHubSyncState>('/api/workspaces/github/link', {
       method: 'POST',
       body: {
         mode: 'pat',
         repository,
         syncToken,
+        ...(contentRoots.length ? { contentRoots } : {}),
       },
     })
     applyGitHubState(response)
     githubToken.value = ''
+    if (contentRoots.length)
+      workspaceContentRoots.value = contentRoots
     githubLinkSuccess.value = 'Dépôt GitHub lié avec le PAT.'
   } catch (error) {
     const asRecordError = error as { data?: { message?: string }, message?: string }
@@ -709,7 +732,7 @@ async function loadWorkspaceData(isManualReload = false) {
     const [fullOrganizationResponse, membersResponse, activeWorkspace] = await Promise.all([
       authClient.organization.getFullOrganization(),
       authClient.organization.listMembers({}),
-      $fetch<{ member?: { role?: string | null } | null }>('/api/workspaces/active'),
+      $fetch<ActiveWorkspaceResponse>('/api/workspaces/active'),
     ])
 
     const fullOrganizationError = extractErrorMessage(fullOrganizationResponse, 'Impossible de charger le workspace.')
@@ -724,6 +747,9 @@ async function loadWorkspaceData(isManualReload = false) {
     organizationName.value = asString(fullOrganization.name, 'Workspace')
     organizationSlug.value = asString(fullOrganization.slug)
     workspaceRole.value = asString(activeWorkspace.member?.role, 'read')
+    workspaceContentRoots.value = Array.isArray(activeWorkspace.config?.contentRoots)
+      ? activeWorkspace.config.contentRoots
+      : []
 
     const fullMembers = fullOrganization.members
     const fallbackMembers = extractData(membersResponse)
@@ -1078,6 +1104,16 @@ await loadWorkspaceData()
       <p class="mb-4 md3-body-md text-on-surface-variant">
         Un seul mode actif par workspace (GitHub App, PAT ou local). Déliez d’abord pour en changer.
       </p>
+      <section v-if="workspaceContentRoots.length > 0" class="mb-4">
+        <h3 class="md3-title-sm">
+          Dossiers du vault
+        </h3>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <FluffmindChip v-for="root in workspaceContentRoots" :key="root" variant="outlined">
+            <code>{{ root }}</code>
+          </FluffmindChip>
+        </div>
+      </section>
 
       <!-- Active linked mode -->
       <template v-if="!isLocalSync">
@@ -1207,6 +1243,17 @@ await loadWorkspaceData()
               />
             </label>
           </div>
+          <label v-if="workspaceContentRoots.length === 0" class="mt-4 block">
+            <span class="mb-2 block md3-label-lg">Dossiers du vault (optionnel)</span>
+            <FluffmindTextArea
+              v-model="contentRootsText"
+              placeholder="foam, docs"
+              :disabled="!canManageGitHub"
+            />
+            <span class="mt-2 block md3-body-sm text-on-surface-variant">
+              Ex. foam, docs — laisser vide = dépôt entier
+            </span>
+          </label>
           <p v-if="githubInstallationId && !loadingGitHubRepositories && githubInstallationRepositories.length === 0" class="mt-4 md3-body-md text-on-surface-variant">
             Aucun dépôt disponible pour cette installation.
           </p>
@@ -1291,6 +1338,17 @@ await loadWorkspaceData()
               />
             </label>
           </div>
+          <label v-if="workspaceContentRoots.length === 0" class="mt-4 block">
+            <span class="mb-2 block md3-label-lg">Dossiers du vault (optionnel)</span>
+            <FluffmindTextArea
+              v-model="contentRootsText"
+              placeholder="foam, docs"
+              :disabled="!canManageGitHub"
+            />
+            <span class="mt-2 block md3-body-sm text-on-surface-variant">
+              Ex. foam, docs — laisser vide = dépôt entier
+            </span>
+          </label>
           <FluffmindButton class="mt-4" :disabled="linkingGitHub || !canManageGitHub" @click="linkGitHubRepository">
             {{ linkingGitHub ? 'Liaison…' : 'Lier avec le PAT' }}
           </FluffmindButton>
