@@ -1,4 +1,4 @@
-import { ensureWorkingCopy, pullFromRemote } from '@fluffmind/integrations'
+import { ensureWorkingCopy, GitAuthError, GitConflictError, pullFromRemote } from '@fluffmind/integrations'
 import type { PullFromRemoteResult } from '@fluffmind/integrations'
 
 import { invalidateVaultIndex } from './service'
@@ -21,11 +21,32 @@ export async function pullWorkspaceChanges(workspaceId = 'default'): Promise<Pul
   await bootstrapWorkspace(workspaceId)
   const network = await resolveWorkspaceGitNetwork(workspaceId)
   const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
-  const result = await pullFromRemote(git, {
-    branch: config.branch,
-    remoteConfigured: true,
-    accessToken: network.accessToken,
-  })
+
+  let result: PullFromRemoteResult
+  try {
+    result = await pullFromRemote(git, {
+      branch: config.branch,
+      remoteConfigured: true,
+      accessToken: network.accessToken,
+    })
+  }
+  catch (error) {
+    if (error instanceof GitConflictError) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'Conflict',
+        message: error.message,
+      })
+    }
+    if (error instanceof GitAuthError) {
+      throw createError({
+        statusCode: 502,
+        statusMessage: 'Git authentication failed',
+        message: 'Could not authenticate to the GitHub remote. Check App permissions or re-link sync in workspace settings.',
+      })
+    }
+    throw error
+  }
 
   if (result.updated) {
     invalidateVaultIndex(workspaceId)

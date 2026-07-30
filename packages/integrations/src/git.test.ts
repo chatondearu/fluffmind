@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { simpleGit } from 'simple-git'
 import { afterEach, describe, expect, it } from 'vitest'
-import { commitAndPush, ensureWorkingCopy } from './git.ts'
+import { commitAndPush, ensureWorkingCopy, GitConflictError, pullFromRemote } from './git.ts'
 
 describe('ensureWorkingCopy with empty remote', () => {
   const dirs: string[] = []
@@ -71,5 +71,107 @@ describe('ensureWorkingCopy with empty remote', () => {
     })
 
     expect(result).toEqual({ committed: true, pushed: true })
+  })
+})
+
+describe('pullFromRemote with divergent branches', () => {
+  const dirs: string[] = []
+
+  afterEach(async () => {
+    await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
+  })
+
+  async function tempDir(prefix: string): Promise<string> {
+    const dir = await mkdtemp(join(tmpdir(), prefix))
+    dirs.push(dir)
+    return dir
+  }
+
+  async function initIdentity(cwd: string) {
+    const git = simpleGit(cwd)
+    await git.addConfig('user.name', 'Fluffmind', false, 'local')
+    await git.addConfig('user.email', 'fluffmind@localhost', false, 'local')
+    return git
+  }
+
+  it('rebases local commits onto origin when histories diverged', async () => {
+    const bare = await tempDir('fluff-pull-bare-')
+    const remoteWork = await tempDir('fluff-pull-remote-')
+    const localWork = await tempDir('fluff-pull-local-')
+    await simpleGit().init(['--bare', bare])
+
+    const seed = simpleGit(remoteWork)
+    await seed.clone(bare, remoteWork)
+    await initIdentity(remoteWork)
+    await writeFile(join(remoteWork, 'shared.md'), '# base\n', 'utf-8')
+    await seed.add(['-A'])
+    await seed.commit('Base')
+    await seed.push('origin', 'main')
+
+    await simpleGit().clone(bare, localWork)
+    await initIdentity(localWork)
+    await writeFile(join(localWork, 'local.md'), '# local\n', 'utf-8')
+    const local = simpleGit(localWork)
+    await local.add(['-A'])
+    await local.commit('Local only')
+
+    await writeFile(join(remoteWork, 'remote.md'), '# remote\n', 'utf-8')
+    await seed.add(['-A'])
+    await seed.commit('Remote only')
+    await seed.push('origin', 'main')
+
+    const git = await ensureWorkingCopy({
+      path: localWork,
+      remoteUrl: bare,
+      branch: 'main',
+    })
+
+    const result = await pullFromRemote(git, {
+      branch: 'main',
+      remoteConfigured: true,
+    })
+
+    expect(result.updated).toBe(true)
+    expect(result.behindBefore).toBeGreaterThan(0)
+    const status = await git.status()
+    expect(status.behind).toBe(0)
+  })
+
+  it('throws GitConflictError when pull rebase hits a content conflict', async () => {
+    const bare = await tempDir('fluff-pull-conflict-bare-')
+    const remoteWork = await tempDir('fluff-pull-conflict-remote-')
+    const localWork = await tempDir('fluff-pull-conflict-local-')
+    await simpleGit().init(['--bare', bare])
+
+    const seed = simpleGit(remoteWork)
+    await seed.clone(bare, remoteWork)
+    await initIdentity(remoteWork)
+    await writeFile(join(remoteWork, 'note.md'), '# base\n', 'utf-8')
+    await seed.add(['-A'])
+    await seed.commit('Base')
+    await seed.push('origin', 'main')
+
+    await simpleGit().clone(bare, localWork)
+    await initIdentity(localWork)
+    await writeFile(join(localWork, 'note.md'), '# local edit\n', 'utf-8')
+    const local = simpleGit(localWork)
+    await local.add(['-A'])
+    await local.commit('Local edit')
+
+    await writeFile(join(remoteWork, 'note.md'), '# remote edit\n', 'utf-8')
+    await seed.add(['-A'])
+    await seed.commit('Remote edit')
+    await seed.push('origin', 'main')
+
+    const git = await ensureWorkingCopy({
+      path: localWork,
+      remoteUrl: bare,
+      branch: 'main',
+    })
+
+    await expect(pullFromRemote(git, {
+      branch: 'main',
+      remoteConfigured: true,
+    })).rejects.toBeInstanceOf(GitConflictError)
   })
 })

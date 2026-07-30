@@ -193,7 +193,9 @@ async function pullRemote(
   options: { accessToken?: string, networkRemoteUrl?: string } = {},
 ): Promise<void> {
   const accessToken = resolveAccessToken(options)
-  await git.raw([...gitHttpsAuthArgs(accessToken), 'pull', 'origin', branch])
+  // Always rebase: matches commitAndPush and avoids Git's "divergent branches"
+  // prompt when pull.rebase is unset (common in Alpine/Docker images).
+  await git.raw([...gitHttpsAuthArgs(accessToken), 'pull', '--rebase', 'origin', branch])
 }
 
 /** Thrown when a rebase-on-push-rejected hits a real conflict. The local commit is
@@ -287,8 +289,9 @@ export interface PullFromRemoteResult {
 }
 
 /**
- * Fetches and fast-forwards the local branch to match origin when the remote is ahead.
+ * Fetches and rebases the local branch onto origin when the remote is ahead.
  * No-op when already up to date or when no remote is configured.
+ * On rebase conflict (or unrelated histories), aborts cleanly and throws GitConflictError.
  */
 export async function pullFromRemote(
   git: SimpleGit,
@@ -305,7 +308,23 @@ export async function pullFromRemote(
     return { updated: false, behindBefore: 0 }
   }
 
-  await pullRemote(git, branch, { networkRemoteUrl, accessToken })
+  try {
+    await pullRemote(git, branch, { networkRemoteUrl, accessToken })
+  }
+  catch (error) {
+    rethrowIfGitAuthError(error)
+    await git.rebase(['--abort']).catch(() => {})
+    const message = asErrorMessage(error)
+    if (/unrelated histories/i.test(message)) {
+      throw new GitConflictError(
+        `Cannot pull branch "${branch}": local and remote have unrelated histories. Relink after resetting the workspace working copy, or push with an explicit history strategy.`,
+      )
+    }
+    throw new GitConflictError(
+      `Pull rebase conflict on branch "${branch}" — local commits are intact but the workspace is not synced with origin.`,
+    )
+  }
+
   return { updated: true, behindBefore: before.behind }
 }
 
