@@ -1,5 +1,9 @@
 # MCP for AI agents
 
+> Looking for the CLI or skill instead? MCP is one of three agent surfaces — see
+> [Agent access: MCP, CLI & skill](/guide/agents) for the full comparison and setup
+> for all three.
+
 Fluffmind exposes vault tools over [Model Context Protocol](https://modelcontextprotocol.io):
 
 | Tool | Description |
@@ -15,8 +19,8 @@ Fluffmind exposes vault tools over [Model Context Protocol](https://modelcontext
 ## Remote HTTP (recommended for staging / production)
 
 1. Sign in as a workspace **owner**.
-2. Open **Settings → workspace → MCP**.
-3. Enable MCP, create a named token (`read` or `write`).
+2. Open **Settings → workspace → Agents**.
+3. Enable agent access, create a named token (`read` or `write`).
 4. Copy the secret once and configure your client:
 
 ```json
@@ -25,15 +29,17 @@ Fluffmind exposes vault tools over [Model Context Protocol](https://modelcontext
     "fluffmind": {
       "url": "https://your-fluffmind.example.com/api/mcp",
       "headers": {
-        "Authorization": "Bearer fm_mcp_…"
+        "Authorization": "Bearer fm_agent_…"
       }
     }
   }
 }
 ```
 
-The Bearer token binds the agent to **that workspace**. Revoke tokens from the same
-settings page. Disabling MCP rejects tokens even if they are still valid hashes.
+The Bearer token binds the agent to **that workspace** — the same token also
+works for the [REST API and CLI](/guide/agents). Revoke tokens from the same
+settings page. Disabling agent access rejects tokens even if they are still valid
+hashes. Legacy `fm_mcp_…` tokens issued before this rename still authenticate.
 
 Session cookies still work as a fallback when no Bearer header is sent (browser).
 

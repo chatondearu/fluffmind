@@ -13,9 +13,9 @@ vi.mock('@fluffmind/db', () => ({
   },
   workspaceConfig: {
     organizationId: 'organizationId',
-    mcpEnabled: 'mcpEnabled',
+    agentEnabled: 'agentEnabled',
   },
-  workspaceMcpToken: {
+  workspaceAgentToken: {
     id: 'id',
     organizationId: 'organizationId',
     name: 'name',
@@ -35,37 +35,40 @@ vi.mock('drizzle-orm', () => ({
   isNull: (column: unknown) => ({ __op: 'isNull', column }),
 }))
 
+// Vitest mock must be configured before importing the module under test.
+// eslint-disable-next-line import/first
 import {
-  extractMcpBearerToken,
-  generateMcpTokenPlaintext,
-  hashMcpToken,
-  resolveMcpBearerAuth,
-} from './mcp-tokens'
+  extractAgentBearerToken,
+  generateAgentTokenPlaintext,
+  hashAgentToken,
+  resolveAgentBearerAuth,
+} from './agent-tokens'
 
-describe('mcp-tokens helpers', () => {
+describe('agent-tokens', () => {
   afterEach(() => {
     vi.clearAllMocks()
     vi.unstubAllGlobals()
   })
 
-  it('hashes stably', () => {
-    expect(hashMcpToken('fm_mcp_ab_cd')).toBe(hashMcpToken('fm_mcp_ab_cd'))
-    expect(hashMcpToken('a')).not.toBe(hashMcpToken('b'))
-  })
-
-  it('generates fm_mcp_ prefix tokens', () => {
-    const { token, tokenPrefix } = generateMcpTokenPlaintext()
-    expect(token).toMatch(/^fm_mcp_[a-f0-9]{8}_[a-f0-9]+$/)
+  it('generates fm_agent_ tokens', () => {
+    const { token, tokenPrefix } = generateAgentTokenPlaintext()
+    expect(token).toMatch(/^fm_agent_[a-f0-9]{8}_[a-f0-9]+$/)
     expect(token).toContain(tokenPrefix)
   })
 
-  it('extracts Bearer MCP tokens only', () => {
-    expect(extractMcpBearerToken('Bearer fm_mcp_aa_bb')).toBe('fm_mcp_aa_bb')
-    expect(extractMcpBearerToken('Bearer other')).toBeNull()
-    expect(extractMcpBearerToken(undefined)).toBeNull()
+  it('extracts fm_agent_ and legacy fm_mcp_ Bearer tokens', () => {
+    expect(extractAgentBearerToken('Bearer fm_agent_aa_bb')).toBe('fm_agent_aa_bb')
+    expect(extractAgentBearerToken('Bearer fm_mcp_aa_bb')).toBe('fm_mcp_aa_bb')
+    expect(extractAgentBearerToken('Bearer other')).toBeNull()
+    expect(extractAgentBearerToken(undefined)).toBeNull()
   })
 
-  it('resolveMcpBearerAuth rejects revoked tokens', async () => {
+  it('hashes stably', () => {
+    expect(hashAgentToken('fm_agent_x')).toBe(hashAgentToken('fm_agent_x'))
+    expect(hashAgentToken('a')).not.toBe(hashAgentToken('b'))
+  })
+
+  it('resolveAgentBearerAuth rejects revoked tokens', async () => {
     mocks.getDb.mockReturnValue({
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -76,7 +79,7 @@ describe('mcp-tokens helpers', () => {
                 organizationId: 'org_1',
                 scope: 'write',
                 revokedAt: new Date(),
-                mcpEnabled: true,
+                agentEnabled: true,
               }]),
             }),
           }),
@@ -91,12 +94,12 @@ describe('mcp-tokens helpers', () => {
       return error
     })
 
-    await expect(resolveMcpBearerAuth('fm_mcp_aa_bb')).rejects.toMatchObject({
+    await expect(resolveAgentBearerAuth('fm_agent_aa_bb')).rejects.toMatchObject({
       statusCode: 401,
     })
   })
 
-  it('resolveMcpBearerAuth rejects when MCP disabled', async () => {
+  it('resolveAgentBearerAuth rejects when agent access disabled', async () => {
     mocks.getDb.mockReturnValue({
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -107,7 +110,7 @@ describe('mcp-tokens helpers', () => {
                 organizationId: 'org_1',
                 scope: 'read',
                 revokedAt: null,
-                mcpEnabled: false,
+                agentEnabled: false,
               }]),
             }),
           }),
@@ -122,13 +125,13 @@ describe('mcp-tokens helpers', () => {
       return error
     })
 
-    await expect(resolveMcpBearerAuth('fm_mcp_aa_bb')).rejects.toMatchObject({
+    await expect(resolveAgentBearerAuth('fm_agent_aa_bb')).rejects.toMatchObject({
       statusCode: 403,
       statusMessage: 'Forbidden',
     })
   })
 
-  it('resolveMcpBearerAuth returns workspace and scope', async () => {
+  it('resolveAgentBearerAuth returns workspace and scope', async () => {
     const updateWhere = vi.fn().mockResolvedValue(undefined)
     const updateSet = vi.fn().mockReturnValue({ where: updateWhere })
     const update = vi.fn().mockReturnValue({ set: updateSet })
@@ -143,7 +146,7 @@ describe('mcp-tokens helpers', () => {
                 organizationId: 'org_1',
                 scope: 'read',
                 revokedAt: null,
-                mcpEnabled: true,
+                agentEnabled: true,
               }]),
             }),
           }),
@@ -152,11 +155,18 @@ describe('mcp-tokens helpers', () => {
       update,
     })
 
-    await expect(resolveMcpBearerAuth('fm_mcp_aa_bb')).resolves.toEqual({
+    await expect(resolveAgentBearerAuth('fm_agent_aa_bb')).resolves.toEqual({
       workspaceId: 'org_1',
       scope: 'read',
       tokenId: 'tok_1',
     })
     expect(updateSet).toHaveBeenCalled()
+
+    // Legacy fm_mcp_ plaintext must resolve identically (same hash-based lookup).
+    await expect(resolveAgentBearerAuth('fm_mcp_aa_bb')).resolves.toEqual({
+      workspaceId: 'org_1',
+      scope: 'read',
+      tokenId: 'tok_1',
+    })
   })
 })

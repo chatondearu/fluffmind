@@ -51,6 +51,7 @@
     "@unocss/nuxt": "^66.7.4",
     "@unocss/reset": "^66.7.4",
     "eslint": "^10.6.0",
+    "radix3": "1.1.2",
     "tsx": "^4.23.0",
     "vitest": "^3.2.4",
     "vue-tsc": "^3.3.6"

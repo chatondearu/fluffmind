@@ -138,14 +138,29 @@ all in `packages/design-system`.
   mixing both exports in one barrel file breaks the production build. See
   `packages/design-system/AGENTS.md`.
 
-## MCP server (P5)
+## Agent surfaces (P5 / PRD-037)
 
-Handlers (`search_notes`, `read_note`, `write_note`, `list_backlinks`, `create_task`,
-`get_graph`) are written **once**, in `apps/web/server`, and reused by two transports:
-a stdio bridge for local agents (e.g. Claude Code on the same machine) and an
-authenticated HTTP/SSE endpoint for remote agents. Both call the exact same
-`writeToWorkspace` path as the web UI — an agent's write is indistinguishable from a
-user's, including the single-writer-per-workspace guarantee.
+Vault handlers (`search_notes`, `read_note`, `write_note`, `list_backlinks`,
+`create_task`, `get_graph`) are written **once**, in `apps/web/server/mcp/handlers.ts`,
+and reused by three transports so an agent's write is indistinguishable from a
+user's, including the single-writer-per-workspace guarantee (`writeToWorkspace`):
+
+1. **stdio MCP** — a local bridge for agents on the same machine (e.g. Claude Code,
+   Cursor via `mcp:stdio`), no network hop, no token (trusts the local process).
+2. **HTTP MCP** (`/api/mcp`) — Streamable HTTP for remote MCP clients, authenticated
+   by a workspace **agent token** (Bearer) or session cookie fallback. Best for
+   native MCP tool-calling UIs that already pay the tool-schema context cost.
+3. **REST agent API + CLI** (`/api/agent/*` + `packages/cli`'s `fluffmind`) — a thin
+   JSON mirror of the same handlers, Bearer-only (no session fallback), built for
+   shell/CI use and for agents that prefer a low-context skill over loaded MCP tool
+   schemas. `skills/fluffmind/SKILL.md` documents this path and tells agents to
+   prefer it over MCP unless the client is a native tool-calling UI.
+
+All three share one token model: **agent tokens** (`fm_agent_…`, table
+`workspace_agent_token`), generalized from the original MCP-only tokens
+(`fm_mcp_…`, still accepted for compatibility). One token, one revoke list, one
+workspace binding — see [ADR-011](foam/decisions/ADR-011-agent-tokens-and-cli.md)
+and docs → [Agent access: MCP, CLI & skill](apps/docs/guide/agents.md).
 
 ## Deployment
 

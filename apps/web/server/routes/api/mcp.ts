@@ -1,18 +1,18 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 
 import { DEFAULT_MCP_WORKSPACE_ID } from '../../mcp/context'
-import type { McpTokenScope } from '../../mcp/context'
+import type { AgentTokenScope } from '../../mcp/context'
 import { createFluffmindMcpServer } from '../../mcp/server'
 import { isAuthEnabled, requireWorkspacePermission } from '../../utils/auth'
-import { extractMcpBearerToken, resolveMcpBearerAuth } from '../../utils/mcp-tokens'
+import { extractAgentBearerToken, resolveAgentBearerAuth } from '../../utils/agent-tokens'
 
 export default defineEventHandler(async (event) => {
   let workspaceId = DEFAULT_MCP_WORKSPACE_ID
-  let scope: McpTokenScope = 'write'
+  let scope: AgentTokenScope = 'write'
 
-  const bearer = extractMcpBearerToken(getHeader(event, 'authorization'))
+  const bearer = extractAgentBearerToken(getHeader(event, 'authorization'))
   if (bearer) {
-    const auth = await resolveMcpBearerAuth(bearer)
+    const auth = await resolveAgentBearerAuth(bearer)
     workspaceId = auth.workspaceId
     scope = auth.scope
   }

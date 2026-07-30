@@ -3,11 +3,11 @@ import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
 
 import { requireSession } from '../../../utils/auth'
-import { createWorkspaceMcpToken } from '../../../utils/mcp-tokens'
+import { getWorkspaceAgentStatus, setWorkspaceAgentEnabled } from '../../../utils/agent-tokens'
 import { readJsonBody } from '../../../utils/read-json-body'
 import { resolveActiveWorkspaceId } from '../../../vault/workspace'
 
-async function requireOwnerSession(event: H3Event, workspaceId: string) {
+async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<Awaited<ReturnType<typeof requireSession>>> {
   const session = await requireSession(event)
   const db = getDb()
 
@@ -21,7 +21,7 @@ async function requireOwnerSession(event: H3Event, workspaceId: string) {
     throw createError({
       statusCode: 403,
       statusMessage: 'Forbidden',
-      message: 'Creating MCP tokens requires owner role.',
+      message: 'Managing agent access requires owner role.',
     })
   }
 
@@ -30,23 +30,17 @@ async function requireOwnerSession(event: H3Event, workspaceId: string) {
 
 export default defineEventHandler(async (event) => {
   const workspaceId = await resolveActiveWorkspaceId(event)
-  const session = await requireOwnerSession(event, workspaceId)
+  await requireOwnerRole(event, workspaceId)
 
-  const body = await readJsonBody<{ name?: string, scope?: string }>(event)
-  const name = typeof body.name === 'string' ? body.name : ''
-  const scope = body.scope === 'read' || body.scope === 'write' ? body.scope : null
-  if (!scope) {
+  const body = await readJsonBody<{ agentEnabled?: boolean }>(event)
+  if (typeof body.agentEnabled !== 'boolean') {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Invalid scope',
-      message: 'Scope must be "read" or "write".',
+      statusMessage: 'Invalid payload',
+      message: '"agentEnabled" boolean is required.',
     })
   }
 
-  return createWorkspaceMcpToken({
-    organizationId: workspaceId,
-    name,
-    scope,
-    createdByUserId: session.user.id,
-  })
+  await setWorkspaceAgentEnabled(workspaceId, body.agentEnabled)
+  return getWorkspaceAgentStatus(workspaceId)
 })

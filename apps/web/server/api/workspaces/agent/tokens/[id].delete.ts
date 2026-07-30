@@ -2,9 +2,9 @@ import { getDb, member } from '@fluffmind/db'
 import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
 
-import { requireSession } from '../../../utils/auth'
-import { getWorkspaceMcpStatus } from '../../../utils/mcp-tokens'
-import { resolveActiveWorkspaceId } from '../../../vault/workspace'
+import { requireSession } from '../../../../utils/auth'
+import { revokeWorkspaceAgentToken } from '../../../../utils/agent-tokens'
+import { resolveActiveWorkspaceId } from '../../../../vault/workspace'
 
 async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<void> {
   const session = await requireSession(event)
@@ -20,7 +20,7 @@ async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<vo
     throw createError({
       statusCode: 403,
       statusMessage: 'Forbidden',
-      message: 'Managing MCP tokens requires owner role.',
+      message: 'Revoking agent tokens requires owner role.',
     })
   }
 }
@@ -28,5 +28,15 @@ async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<vo
 export default defineEventHandler(async (event) => {
   const workspaceId = await resolveActiveWorkspaceId(event)
   await requireOwnerRole(event, workspaceId)
-  return getWorkspaceMcpStatus(workspaceId)
+
+  const tokenId = getRouterParam(event, 'id')
+  if (!tokenId) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Missing token id',
+    })
+  }
+
+  await revokeWorkspaceAgentToken(workspaceId, tokenId)
+  return { ok: true }
 })

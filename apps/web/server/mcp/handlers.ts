@@ -3,7 +3,7 @@ import { getGraph } from '../vault/index'
 import { readNote } from '../vault/reader'
 import { getVaultIndex, invalidateVaultIndex } from '../vault/service'
 import { writeToWorkspace, GitConflictError, InvalidNoteIdError } from '../vault/write'
-import { getWorkspaceIdentity } from '../utils/mcp-tokens'
+import { getWorkspaceIdentity } from '../utils/agent-tokens'
 import type { McpContext } from './context'
 
 export class McpForbiddenError extends Error {
@@ -45,7 +45,7 @@ export interface GetWorkspaceResult {
   name: string
   slug: string
   scope: McpContext['scope']
-  mcpEnabled: boolean
+  agentEnabled: boolean
 }
 
 function toTextPayload(value: unknown): { content: [{ type: 'text', text: string }] } {
@@ -162,7 +162,7 @@ export async function getWorkspaceInfo(ctx: McpContext): Promise<GetWorkspaceRes
     name: identity?.name ?? ctx.workspaceId,
     slug: identity?.slug ?? ctx.workspaceId,
     scope: ctx.scope,
-    mcpEnabled: true,
+    agentEnabled: identity?.agentEnabled ?? false,
   }
 }
 
