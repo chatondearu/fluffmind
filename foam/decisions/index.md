@@ -13,6 +13,7 @@
 | [[ADR-007-distributed-workspace-lock|ADR-007]] | Distributed workspace lock (PG advisory + flock) | accepted |
 | [[ADR-008-inline-rich-contenteditable|ADR-008]] | Contenteditable inline marks (markdown-as-you-type) | accepted |
 | [[ADR-009-github-app-installations|ADR-009]] | GitHub App installations for repo access (self-host) | accepted |
+| [[ADR-010-mcp-workspace-tokens|ADR-010]] | MCP workspace Bearer tokens (hash-only) | accepted |
 
 Template: [[ADR-template|ADR-template]]
 

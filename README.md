@@ -231,12 +231,32 @@ Fluffmind exposes vault tools over [Model Context Protocol](https://modelcontext
 
 | Tool | Description |
 | ---- | ----------- |
+| `get_workspace` | Confirm bound workspace + token scope |
 | `search_notes` | Search by title or id |
 | `read_note` | Read markdown + frontmatter |
-| `write_note` | Create/update via `writeToWorkspace` |
+| `write_note` | Create/update via `writeToWorkspace` (write scope) |
 | `list_backlinks` | Incoming wikilinks |
 | `get_graph` | Vault link graph |
-| `create_task` | Append `- [ ]` task (default note: `inbox/tasks`) |
+| `create_task` | Append `- [ ]` task (write scope; default `inbox/tasks`) |
+
+### Remote HTTP (workspace tokens)
+
+1. As workspace **owner**, open **Settings → workspace → MCP**.
+2. Enable MCP and create a named token (`read` or `write`).
+3. Point your client at `/api/mcp` with the Bearer secret:
+
+```json
+{
+  "mcpServers": {
+    "fluffmind": {
+      "url": "https://your-host/api/mcp",
+      "headers": {
+        "Authorization": "Bearer fm_mcp_…"
+      }
+    }
+  }
+}
+```
 
 ### Local (stdio)
 
@@ -262,11 +282,7 @@ Example Cursor config (`.cursor/mcp.json`):
 }
 ```
 
-### Remote (HTTP)
-
-When the Nuxt app is running, agents can connect to **`/api/mcp`** (Streamable HTTP).
-If auth is enabled (`DATABASE_URL` set and `AUTH_DISABLED` not true), the client must
-send the same session cookies as the web UI (or authenticate first).
+More detail: [`apps/docs/guide/mcp.md`](./apps/docs/guide/mcp.md).
 
 ---
 

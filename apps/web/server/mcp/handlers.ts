@@ -3,7 +3,15 @@ import { getGraph } from '../vault/index'
 import { readNote } from '../vault/reader'
 import { getVaultIndex, invalidateVaultIndex } from '../vault/service'
 import { writeToWorkspace, GitConflictError, InvalidNoteIdError } from '../vault/write'
+import { getWorkspaceIdentity } from '../utils/mcp-tokens'
 import type { McpContext } from './context'
+
+export class McpForbiddenError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'McpForbiddenError'
+  }
+}
 
 export interface SearchNotesResult {
   id: string
@@ -32,6 +40,14 @@ export interface CreateTaskResult {
   content: string
 }
 
+export interface GetWorkspaceResult {
+  id: string
+  name: string
+  slug: string
+  scope: McpContext['scope']
+  mcpEnabled: boolean
+}
+
 function toTextPayload(value: unknown): { content: [{ type: 'text', text: string }] } {
   return {
     content: [{ type: 'text', text: JSON.stringify(value, null, 2) }],
@@ -40,6 +56,12 @@ function toTextPayload(value: unknown): { content: [{ type: 'text', text: string
 
 export function toolError(message: string): { content: [{ type: 'text', text: string }], isError: true } {
   return { content: [{ type: 'text', text: message }], isError: true }
+}
+
+function assertWriteScope(ctx: McpContext): void {
+  if (ctx.scope !== 'write') {
+    throw new McpForbiddenError('This MCP token is read-only. Create a write-scoped token to modify notes.')
+  }
 }
 
 /** Case-insensitive search on note id and title. */
@@ -85,6 +107,7 @@ export async function writeNoteContent(
   id: string,
   content: string,
 ): Promise<WriteNoteResult> {
+  assertWriteScope(ctx)
   return writeToWorkspace(ctx.workspaceId, id, content)
 }
 
@@ -112,6 +135,8 @@ export async function createTask(
   text: string,
   noteId = 'inbox/tasks',
 ): Promise<CreateTaskResult> {
+  assertWriteScope(ctx)
+
   const trimmed = text.trim()
   if (!trimmed) {
     throw new Error('Task text is required.')
@@ -129,7 +154,22 @@ export async function createTask(
   return { noteId, content }
 }
 
+/** Confirm which workspace and scope this MCP connection is bound to. */
+export async function getWorkspaceInfo(ctx: McpContext): Promise<GetWorkspaceResult> {
+  const identity = await getWorkspaceIdentity(ctx.workspaceId)
+  return {
+    id: ctx.workspaceId,
+    name: identity?.name ?? ctx.workspaceId,
+    slug: identity?.slug ?? ctx.workspaceId,
+    scope: ctx.scope,
+    mcpEnabled: true,
+  }
+}
+
 export function formatHandlerError(error: unknown): ReturnType<typeof toolError> {
+  if (error instanceof McpForbiddenError) {
+    return toolError(error.message)
+  }
   if (error instanceof GitConflictError) {
     return toolError(`Git conflict: ${error.message}`)
   }

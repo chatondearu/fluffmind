@@ -14,7 +14,7 @@ import {
   writeNoteContent,
 } from './handlers'
 
-const ctx = { workspaceId: DEFAULT_MCP_WORKSPACE_ID }
+const ctx = { workspaceId: DEFAULT_MCP_WORKSPACE_ID, scope: 'write' as const }
 let vaultPath = ''
 let previousVaultPath: string | undefined
 
@@ -72,6 +72,16 @@ describe('mcp handlers', () => {
     invalidateVaultIndex()
     const note = await readNoteById('gamma')
     expect(note?.content).toContain('Created via MCP.')
+  })
+
+  it('write_note rejects read-only scope', async () => {
+    await expect(
+      writeNoteContent(
+        { workspaceId: DEFAULT_MCP_WORKSPACE_ID, scope: 'read' },
+        'gamma',
+        '# nope\n',
+      ),
+    ).rejects.toThrow(/read-only/i)
   })
 
   it('create_task appends checkbox to default inbox note', async () => {

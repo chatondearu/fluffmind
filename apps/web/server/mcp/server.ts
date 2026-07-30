@@ -6,6 +6,7 @@ import {
   createTask,
   formatHandlerError,
   getVaultGraph,
+  getWorkspaceInfo,
   listBacklinks,
   readNoteById,
   searchNotes,
@@ -22,6 +23,23 @@ export function createFluffmindMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer(
     { name: 'fluffmind', version: '0.1.0' },
     { instructions: SERVER_INSTRUCTIONS },
+  )
+
+  server.registerTool(
+    'get_workspace',
+    {
+      description: 'Return the workspace this MCP connection is bound to (id, name, slug, scope).',
+      inputSchema: z.object({}),
+    },
+    async () => {
+      try {
+        const workspace = await getWorkspaceInfo(ctx)
+        return toTextPayload(workspace)
+      }
+      catch (error) {
+        return formatHandlerError(error)
+      }
+    },
   )
 
   server.registerTool(
