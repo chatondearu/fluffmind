@@ -10,7 +10,7 @@ async function main() {
   }
 
   const workspaceId = process.env.MCP_WORKSPACE_ID ?? DEFAULT_MCP_WORKSPACE_ID
-  const server = createFluffmindMcpServer({ workspaceId })
+  const server = createFluffmindMcpServer({ workspaceId, scope: 'write' })
   const transport = new StdioServerTransport()
   await server.connect(transport)
   console.error(`fluffmind-mcp: stdio transport ready (workspace=${workspaceId})`)
