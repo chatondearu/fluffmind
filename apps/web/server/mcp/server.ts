@@ -28,7 +28,7 @@ export function createFluffmindMcpServer(ctx: McpContext): McpServer {
   server.registerTool(
     'get_workspace',
     {
-      description: 'Return the workspace this MCP connection is bound to (id, name, slug, scope).',
+      description: 'Return the workspace this MCP connection is bound to (id, name, slug, scope, agentEnabled).',
       inputSchema: z.object({}),
     },
     async () => {
