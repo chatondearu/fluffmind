@@ -8,6 +8,7 @@ import {
   parseCreateGithubRepoBody,
 } from '../../utils/github-create-repo'
 import { readJsonBody } from '../../utils/read-json-body'
+import { InvalidContentRootError, normalizeContentRoots } from '../../vault/content-roots'
 import { ACTIVE_WORKSPACE_COOKIE, getWorkspaceVaultPath } from '../../vault/workspace'
 import { isAuthEnabled, requireSession } from '../../utils/auth'
 
@@ -18,6 +19,7 @@ interface CreateWorkspaceBody {
   gitRemoteUrl?: string | null
   gitBranch?: string
   createGithubRepo?: CreateGithubRepoBody | false
+  contentRoots?: string[]
 }
 
 interface CreatedOrganization {
@@ -89,6 +91,21 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  let contentRoots: string[]
+  try {
+    contentRoots = normalizeContentRoots(body.contentRoots)
+  }
+  catch (error) {
+    if (error instanceof InvalidContentRootError) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Invalid content root',
+        message: error.message,
+      })
+    }
+    throw error
+  }
+
   let createGithubRepo: CreateGithubRepoBody | null = null
   if (body.createGithubRepo !== undefined && body.createGithubRepo !== false) {
     createGithubRepo = parseCreateGithubRepoBody(body.createGithubRepo)
@@ -123,7 +140,8 @@ export default defineEventHandler(async (event) => {
     organizationId: organization.id,
     vaultPath,
     gitBranch,
-    gitRemoteUrl
+    gitRemoteUrl,
+    contentRoots,
   })
 
   const github = createGithubRepo
@@ -149,7 +167,8 @@ export default defineEventHandler(async (event) => {
       organizationId: organization.id,
       vaultPath,
       gitBranch,
-      gitRemoteUrl: linkedGitRemoteUrl
+      gitRemoteUrl: linkedGitRemoteUrl,
+      contentRoots,
     },
     ...(github ? { github } : {})
   }

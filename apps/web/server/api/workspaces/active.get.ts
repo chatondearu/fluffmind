@@ -21,7 +21,8 @@ export default defineEventHandler(async (event) => {
       config: {
         vaultPath: config.path,
         gitRemoteUrl: config.remoteUrl || null,
-        gitBranch: config.branch
+        gitBranch: config.branch,
+        contentRoots: [],
       }
     }
   }
@@ -72,7 +73,8 @@ export default defineEventHandler(async (event) => {
     .select({
       vaultPath: workspaceConfig.vaultPath,
       gitRemoteUrl: workspaceConfig.gitRemoteUrl,
-      gitBranch: workspaceConfig.gitBranch
+      gitBranch: workspaceConfig.gitBranch,
+      contentRoots: workspaceConfig.contentRoots,
     })
     .from(workspaceConfig)
     .where(eq(workspaceConfig.organizationId, workspaceId))

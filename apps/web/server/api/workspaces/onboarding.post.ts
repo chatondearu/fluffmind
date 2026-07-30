@@ -77,6 +77,7 @@ export default defineEventHandler(async (event) => {
     vaultPath,
     gitBranch: 'main',
     gitRemoteUrl: null,
+    contentRoots: [],
   })
 
   setCookie(event, ACTIVE_WORKSPACE_COOKIE, created.id, {
