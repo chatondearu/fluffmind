@@ -55,7 +55,7 @@ vi.mock('drizzle-orm', () => ({
   eq: (column: unknown, value: unknown) => ({ __op: 'eq', column, value }),
 }))
 
-const { assertConfirmSlug, deleteAdminWorkspace, listAdminWorkspaces } = await import('./admin-workspaces')
+const { assertConfirmSlug, deleteAdminWorkspace, listAdminWorkspaces, rebindOrphanFolder } = await import('./admin-workspaces')
 
 describe('assertConfirmSlug', () => {
   beforeEach(() => {
@@ -195,5 +195,77 @@ describe('deleteAdminWorkspace', () => {
     })
     expect(mocks.rm).not.toHaveBeenCalled()
     expect(mocks.invalidateVaultIndex).not.toHaveBeenCalled()
+  })
+})
+
+describe('rebindOrphanFolder', () => {
+  beforeEach(() => {
+    vi.stubGlobal('createError', (options: {
+      statusCode: number
+      statusMessage: string
+      message: string
+    }) => Object.assign(new Error(options.message), options))
+    process.env.WORKSPACES_ROOT = '/data/workspaces'
+    mocks.access.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllGlobals()
+    delete process.env.WORKSPACES_ROOT
+  })
+
+  it('rejects folderName containing ..', async () => {
+    mocks.getDb.mockReturnValue({ select: vi.fn() })
+
+    await expect(rebindOrphanFolder({ organizationId: 'org-1', folderName: '../escape' }))
+      .rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid path' })
+
+    expect(mocks.getDb).not.toHaveBeenCalled()
+  })
+
+  it('rejects unknown organization', async () => {
+    const limit = vi.fn().mockResolvedValue([])
+    const where = vi.fn().mockReturnValue({ limit })
+    const from = vi.fn().mockReturnValue({ where })
+    const select = vi.fn().mockReturnValue({ from })
+    mocks.getDb.mockReturnValue({ select })
+
+    await expect(rebindOrphanFolder({ organizationId: 'missing-org', folderName: 'org-orphan' }))
+      .rejects.toMatchObject({ statusCode: 404, statusMessage: 'Workspace not found' })
+  })
+
+  it('upserts workspaceConfig with orphan folder vaultPath', async () => {
+    const orgId = 'org-1'
+    const folderName = 'org-orphan'
+    const vaultPath = '/data/workspaces/org-orphan'
+
+    const limit = vi.fn().mockResolvedValue([{ id: orgId, slug: 'alpha' }])
+    const where = vi.fn().mockReturnValue({ limit })
+    const from = vi.fn().mockReturnValue({ where })
+    const select = vi.fn().mockReturnValue({ from })
+
+    const onConflictDoUpdate = vi.fn().mockResolvedValue(undefined)
+    const values = vi.fn().mockReturnValue({ onConflictDoUpdate })
+    const insert = vi.fn().mockReturnValue({ values })
+
+    mocks.getDb.mockReturnValue({ select, insert })
+
+    const result = await rebindOrphanFolder({ organizationId: orgId, folderName })
+
+    expect(mocks.access).toHaveBeenCalledWith(vaultPath)
+    expect(insert).toHaveBeenCalled()
+    expect(values).toHaveBeenCalledWith({
+      organizationId: orgId,
+      vaultPath,
+      gitRemoteUrl: null,
+      gitBranch: 'main',
+      contentRoots: [],
+    })
+    expect(onConflictDoUpdate).toHaveBeenCalledWith({
+      target: expect.anything(),
+      set: { vaultPath },
+    })
+    expect(result).toEqual({ vaultPath })
   })
 })

@@ -148,3 +148,55 @@ export async function deleteAdminWorkspace(organizationId: string): Promise<void
   await rm(vaultPath, { recursive: true, force: true })
   invalidateVaultIndex(organizationId)
 }
+
+export async function rebindOrphanFolder(options: {
+  organizationId: string
+  folderName: string
+}): Promise<{ vaultPath: string }> {
+  const { organizationId, folderName } = options
+  if (!folderName || folderName.includes('/') || folderName.includes('\\') || folderName.includes('..') || folderName.startsWith('.')) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid path',
+      message: 'folderName must be a single non-hidden path segment under WORKSPACES_ROOT.',
+    })
+  }
+
+  const db = getDb()
+  const root = getWorkspacesRoot()
+  const vaultPath = resolve(root, folderName)
+  if (!isPathWithinRoot(root, vaultPath)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid path',
+      message: 'Vault path escapes WORKSPACES_ROOT.',
+    })
+  }
+
+  const [org] = await db.select({ id: organization.id, slug: organization.slug })
+    .from(organization).where(eq(organization.id, organizationId)).limit(1)
+  if (!org) {
+    throw createError({ statusCode: 404, statusMessage: 'Workspace not found', message: 'Workspace not found.' })
+  }
+
+  await access(vaultPath).catch(() => {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Orphan folder not found',
+      message: `No folder found at ${vaultPath}.`,
+    })
+  })
+
+  await db.insert(workspaceConfig).values({
+    organizationId,
+    vaultPath,
+    gitRemoteUrl: null,
+    gitBranch: 'main',
+    contentRoots: [],
+  }).onConflictDoUpdate({
+    target: workspaceConfig.organizationId,
+    set: { vaultPath },
+  })
+
+  return { vaultPath }
+}
