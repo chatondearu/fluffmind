@@ -1,9 +1,9 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { simpleGit } from 'simple-git'
 import { afterEach, describe, expect, it } from 'vitest'
-import { commitAndPush, ensureWorkingCopy, GitConflictError, pullFromRemote } from './git.ts'
+import { commitAndPush, ensureWorkingCopy, GitConflictError, pullFromRemote, resetHardToRemote } from './git.ts'
 
 describe('ensureWorkingCopy with empty remote', () => {
   const dirs: string[] = []
@@ -173,5 +173,51 @@ describe('pullFromRemote with divergent branches', () => {
       branch: 'main',
       remoteConfigured: true,
     })).rejects.toBeInstanceOf(GitConflictError)
+  })
+})
+
+describe('resetHardToRemote', () => {
+  const dirs: string[] = []
+
+  afterEach(async () => {
+    await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
+  })
+
+  async function tempDir(prefix: string): Promise<string> {
+    const dir = await mkdtemp(join(tmpdir(), prefix))
+    dirs.push(dir)
+    return dir
+  }
+
+  async function initIdentity(cwd: string) {
+    const git = simpleGit(cwd)
+    await git.addConfig('user.name', 'Fluffmind', false, 'local')
+    await git.addConfig('user.email', 'fluffmind@localhost', false, 'local')
+    return git
+  }
+
+  it('resetHardToRemote discards local commits and matches origin', async () => {
+    const bare = await tempDir('fluff-reset-bare-')
+    const remoteWork = await tempDir('fluff-reset-remote-')
+    const localWork = await tempDir('fluff-reset-local-')
+    await simpleGit().init(['--bare', bare])
+
+    const seedGit = await ensureWorkingCopy({ path: remoteWork, remoteUrl: bare, branch: 'main' })
+    await writeFile(join(remoteWork, 'remote.md'), '# remote\n', 'utf-8')
+    await commitAndPush(seedGit, { branch: 'main', message: 'Remote', remoteConfigured: true })
+
+    await simpleGit().clone(bare, localWork)
+    await initIdentity(localWork)
+    await writeFile(join(localWork, 'local-only.md'), '# keep?\n', 'utf-8')
+    const local = simpleGit(localWork)
+    await local.add(['-A'])
+    await local.commit('Local only')
+
+    const git = await ensureWorkingCopy({ path: localWork, remoteUrl: bare, branch: 'main' })
+    await resetHardToRemote(git, { branch: 'main' })
+
+    const files = await readdir(localWork)
+    expect(files).toContain('remote.md')
+    expect(files).not.toContain('local-only.md')
   })
 })
