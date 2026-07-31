@@ -31,6 +31,9 @@ vi.mock('@fluffmind/db', () => ({
   memberSyncMeta: {
     memberId: 'memberId',
   },
+  session: {
+    activeOrganizationId: 'activeOrganizationId',
+  },
   workspaceConfig: {
     organizationId: 'organizationId',
     vaultPath: 'vaultPath',
@@ -171,12 +174,23 @@ describe('deleteAdminWorkspace', () => {
       .mockReturnValueOnce({ from: configFrom })
       .mockReturnValueOnce({ from: membersFrom })
 
-    mocks.getDb.mockReturnValue({ select, delete: deleteFn })
+    const updateWhere = vi.fn().mockResolvedValue(undefined)
+    const updateSet = vi.fn().mockReturnValue({ where: updateWhere })
+    const update = vi.fn().mockReturnValue({ set: updateSet })
+
+    mocks.getDb.mockReturnValue({ select, delete: deleteFn, update })
 
     await deleteAdminWorkspace(orgId)
 
     expect(deleteFn).toHaveBeenCalledTimes(6)
     expect(deleteWhere).toHaveBeenCalledTimes(6)
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(updateSet).toHaveBeenCalledWith({ activeOrganizationId: null })
+    expect(updateWhere).toHaveBeenCalledWith({
+      __op: 'eq',
+      column: 'activeOrganizationId',
+      value: orgId,
+    })
     expect(mocks.rm).toHaveBeenCalledWith(vaultPath, { recursive: true, force: true })
     expect(mocks.invalidateVaultIndex).toHaveBeenCalledWith(orgId)
   })

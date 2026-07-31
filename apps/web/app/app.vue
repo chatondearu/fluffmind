@@ -160,11 +160,22 @@ async function loadOrganizations() {
     return
   }
 
-  selectedWorkspaceId.value = organizationList[0]?.id || ''
+  const fallbackId = organizationList[0]?.id || ''
+  selectedWorkspaceId.value = fallbackId
+
+  // Heal stale/missing activeOrganizationId (e.g. after admin delete of the active
+  // workspace). Without this, settings keeps showing Better Auth's
+  // "Organization not found" even when a valid membership remains.
+  if (fallbackId)
+    await setActiveWorkspace(fallbackId)
 }
 
 async function setActiveWorkspace(workspaceId: string) {
-  if (!authModule || !workspaceId || workspaceId === selectedWorkspaceId.value)
+  if (!authModule || !workspaceId)
+    return
+
+  const sessionActiveId = authSession.value?.session?.activeOrganizationId || ''
+  if (workspaceId === selectedWorkspaceId.value && workspaceId === sessionActiveId)
     return
 
   workspaceLoading.value = true

@@ -6,6 +6,7 @@ import {
   member,
   memberSyncMeta,
   organization,
+  session,
   workspaceAgentToken,
   workspaceConfig,
   workspaceGithubLink,
@@ -143,6 +144,13 @@ export async function deleteAdminWorkspace(organizationId: string): Promise<void
   for (const m of members) {
     await db.delete(memberSyncMeta).where(eq(memberSyncMeta.memberId, m.id))
   }
+
+  // Stale activeOrganizationId makes Better Auth return "Organization not found"
+  // on getFullOrganization / listMembers until the client heals the session.
+  await db.update(session)
+    .set({ activeOrganizationId: null })
+    .where(eq(session.activeOrganizationId, organizationId))
+
   await db.delete(organization).where(eq(organization.id, organizationId))
 
   await rm(vaultPath, { recursive: true, force: true })
