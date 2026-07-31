@@ -36,6 +36,10 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   `/api/admin/workspaces/*`; gated by `requireAdminInstance` (`server/utils/admin.ts`).
   Destructive actions require slug confirmation; paths must stay within `WORKSPACES_ROOT`.
   See ADR-013.
+- `server/utils/admin-github.ts` — instance-admin GitHub App status and installation
+  recovery (list, resync, unlink-all workspaces, remove from DB). Routes under
+  `/api/admin/github/*`; gated by `requireAdminInstance`. Destructive actions require
+  typing `installationId`; local DB only — never uninstalls the App on GitHub. See ADR-014.
 - `write.ts` — `writeToWorkspace(workspaceId, id, content)`: delegates to `lock.ts`,
   then updates/creates notes via Git (`note-id.ts` validates ids on create).
   Git plumbing itself (`ensureWorkingCopy`/`commitAndPush`) lives in

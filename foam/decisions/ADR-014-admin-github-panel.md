@@ -1,6 +1,6 @@
 # ADR-014 — Instance-admin GitHub App panel
 
-- **Status**: proposed
+- **Status**: accepted
 - **Date**: 2026-07-31
 - **Tags**: #architecture #admin #github #ops
 

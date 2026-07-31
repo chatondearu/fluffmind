@@ -1,11 +1,13 @@
 # PRD-040 — Instance admin GitHub App panel
 
-- **Status**: proposed
+- **Status**: shipped
+- **Shipped**: 2026-07-31
 - **Date**: 2026-07-31
 - **Tags**: #product #admin #github #ops
 - **Depends on**: [[PRD-033-github-app-installations|PRD-033]], [[PRD-039-admin-dangerous-workspace-ops|PRD-039]]
 - **Design spec**: `docs/superpowers/specs/2026-07-31-admin-github-panel-design.md`
-- **ADR**: [[../foam/decisions/ADR-014-admin-github-panel|ADR-014]] (proposed)
+- **Plan**: [[../plans/PLAN-040-admin-github-panel|PLAN-040]] · `docs/superpowers/plans/2026-07-31-admin-github-panel.md`
+- **ADR**: [[../foam/decisions/ADR-014-admin-github-panel|ADR-014]] (accepted)
 
 ## Problem
 
@@ -16,12 +18,12 @@ create/link flows.
 
 ## Goals
 
-- [ ] Admin GitHub panel on `/settings/admin`
-- [ ] Show App status (env + permissions) and install URL when available
-- [ ] List installations with linked workspaces
-- [ ] Resync installation account from GitHub
-- [ ] Unlink all workspaces for an installation (keep installation row)
-- [ ] Remove installation from DB (local only; confirm installation id)
+- [x] Admin GitHub panel on `/settings/admin`
+- [x] Show App status (env + permissions) and install URL when available
+- [x] List installations with linked workspaces
+- [x] Resync installation account from GitHub
+- [x] Unlink all workspaces for an installation (keep installation row)
+- [x] Remove installation from DB (local only; confirm installation id)
 
 ## Non-goals
 
@@ -40,21 +42,27 @@ create/link flows.
 
 ## Requirements
 
-1. All APIs under `/api/admin/github/*` use `requireAdminInstance`
-2. Destructive actions require typing `installationId`
-3. Reuse existing installation helpers; no schema change
-4. French UI copy; do not delete remote GitHub repositories
-5. ASCII `statusMessage` with detail in `message`
+### Functional
+
+- [x] `GET /api/admin/github` (status + installations + installUrl)
+- [x] Resync / unlink-all / remove-from-DB endpoints under `/api/admin/github/*`
+- [x] `installationId` confirmation on destructive actions
+- [x] UI as third panel on admin settings page
+
+### Non-functional
+
+- [x] All routes `requireAdminInstance`
+- [x] Reuse existing installation helpers; no schema change
+- [x] French UI copy; do not delete remote GitHub repositories
+- [x] ASCII `statusMessage` with detail in `message`
+
+## Related project memory
+
+- ADRs: [[../foam/decisions/ADR-014-admin-github-panel|ADR-014]], [[../foam/decisions/ADR-009-github-app-installations|ADR-009]], [[../foam/decisions/ADR-013-admin-dangerous-workspace-ops|ADR-013]]
+- Design: `docs/superpowers/specs/2026-07-31-admin-github-panel-design.md`
 
 ## Success criteria
 
 - Admin can diagnose App + installations without SSH/DB
 - Remove-from-DB and unlink-all behave as documented; resync refreshes account fields
 - Non-admin cannot call admin GitHub routes
-
-## References
-
-- [[../foam/decisions/ADR-009-github-app-installations|ADR-009]]
-- [[../foam/decisions/ADR-013-admin-dangerous-workspace-ops|ADR-013]]
-- [[../foam/decisions/ADR-014-admin-github-panel|ADR-014]]
-- `docs/superpowers/specs/2026-07-31-admin-github-panel-design.md`
