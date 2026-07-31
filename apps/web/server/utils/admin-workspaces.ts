@@ -1,7 +1,18 @@
-import { access, readdir } from 'node:fs/promises'
+import { access, readdir, rm } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
-import { getDb, organization, workspaceConfig, workspaceGithubLink } from '@fluffmind/db'
+import {
+  getDb,
+  githubInvitation,
+  member,
+  memberSyncMeta,
+  organization,
+  workspaceAgentToken,
+  workspaceConfig,
+  workspaceGithubLink,
+} from '@fluffmind/db'
 import { eq } from 'drizzle-orm'
+
+import { invalidateVaultIndex } from '../vault/service'
 
 const DEFAULT_WORKSPACES_ROOT = '/data/workspaces'
 
@@ -106,4 +117,34 @@ export async function listAdminWorkspaces(): Promise<{
   }
 
   return { workspaces, orphans }
+}
+
+export async function deleteAdminWorkspace(organizationId: string): Promise<void> {
+  const db = getDb()
+  const root = getWorkspacesRoot()
+  const [config] = await db.select().from(workspaceConfig)
+    .where(eq(workspaceConfig.organizationId, organizationId)).limit(1)
+  const vaultPath = config?.vaultPath ? resolve(config.vaultPath) : resolve(root, organizationId)
+  if (!isPathWithinRoot(root, vaultPath)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid path',
+      message: 'Vault path escapes WORKSPACES_ROOT.',
+    })
+  }
+
+  await db.delete(workspaceAgentToken).where(eq(workspaceAgentToken.organizationId, organizationId))
+  await db.delete(githubInvitation).where(eq(githubInvitation.organizationId, organizationId))
+  await db.delete(workspaceGithubLink).where(eq(workspaceGithubLink.organizationId, organizationId))
+  await db.delete(workspaceConfig).where(eq(workspaceConfig.organizationId, organizationId))
+
+  const members = await db.select({ id: member.id }).from(member)
+    .where(eq(member.organizationId, organizationId))
+  for (const m of members) {
+    await db.delete(memberSyncMeta).where(eq(memberSyncMeta.memberId, m.id))
+  }
+  await db.delete(organization).where(eq(organization.id, organizationId))
+
+  await rm(vaultPath, { recursive: true, force: true })
+  invalidateVaultIndex(organizationId)
 }
