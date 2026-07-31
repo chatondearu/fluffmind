@@ -792,7 +792,7 @@ EOF
 - Modify: `foam/decisions/index.md`
 - Optional bullet in `apps/web/AGENTS.md`
 
-- [ ] **Step 1: Write PLAN-039 pointer**
+- [x] **Step 1: Write PLAN-039 pointer**
 
 ```md
 # PLAN-039 — Admin dangerous workspace ops
@@ -808,8 +808,8 @@ EOF
 Design: `docs/superpowers/specs/2026-07-31-admin-dangerous-workspace-ops-design.md`
 ```
 
-- [ ] **Step 2: Mark ADR accepted + PRD shipped**
-- [ ] **Step 3: Commit**
+- [x] **Step 2: Mark ADR accepted + PRD shipped**
+- [x] **Step 3: Commit**
 
 ```bash
 git commit -m "$(cat <<'EOF'

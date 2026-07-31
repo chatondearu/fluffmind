@@ -16,7 +16,7 @@
 | [[ADR-010-mcp-workspace-tokens|ADR-010]] | MCP workspace Bearer tokens (hash-only) | accepted |
 | [[ADR-011-agent-tokens-and-cli|ADR-011]] | Agent tokens, REST surface & CLI | accepted |
 | [[ADR-012-workspace-content-roots|ADR-012]] | Workspace content roots (logical vault subset) | accepted |
-| [[ADR-013-admin-dangerous-workspace-ops|ADR-013]] | Instance-admin dangerous workspace operations | proposed |
+| [[ADR-013-admin-dangerous-workspace-ops|ADR-013]] | Instance-admin dangerous workspace operations | accepted |
 
 Template: [[ADR-template|ADR-template]]
 

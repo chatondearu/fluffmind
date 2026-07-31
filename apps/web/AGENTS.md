@@ -31,6 +31,11 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   Auth-off / `VAULT_PATH` always uses `contentRoots: []` (full tree).
 - `content-roots.ts` — normalizes root paths and guards index/mutations; empty `[]` =
   whole repo. See ADR-012.
+- `server/utils/admin-workspaces.ts` — instance-admin workspace inventory and dangerous
+  ops (reset-hard, invalidate index, force unlink, delete, rebind orphan). Routes under
+  `/api/admin/workspaces/*`; gated by `requireAdminInstance` (`server/utils/admin.ts`).
+  Destructive actions require slug confirmation; paths must stay within `WORKSPACES_ROOT`.
+  See ADR-013.
 - `write.ts` — `writeToWorkspace(workspaceId, id, content)`: delegates to `lock.ts`,
   then updates/creates notes via Git (`note-id.ts` validates ids on create).
   Git plumbing itself (`ensureWorkingCopy`/`commitAndPush`) lives in
