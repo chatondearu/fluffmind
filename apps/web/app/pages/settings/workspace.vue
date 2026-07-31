@@ -97,6 +97,7 @@ const inviteRole = ref<WorkspaceRole>('read')
 const invitationLink = ref<string | null>(null)
 const copyingInvitationLink = ref(false)
 const pageError = ref<string | null>(null)
+const repairingSession = ref(false)
 const inviteSuccess = ref<string | null>(null)
 const inviteError = ref<string | null>(null)
 const workspaceRole = ref<string>('read')
@@ -721,6 +722,39 @@ async function copyCliSnippet(): Promise<void> {
   }
 }
 
+const canRepairSession = computed(() =>
+  Boolean(pageError.value?.toLowerCase().includes('organization not found')),
+)
+
+async function repairSession(): Promise<void> {
+  repairingSession.value = true
+  pageError.value = null
+
+  try {
+    const result = await $fetch<{ workspaceId: string }>('/api/workspaces/repair-session', {
+      method: 'POST',
+    })
+
+    const setActiveResponse = await authClient.organization.setActive({
+      organizationId: result.workspaceId,
+    })
+    const setActiveError = extractErrorMessage(setActiveResponse, 'Impossible de réactiver le workspace.')
+    if (setActiveError) {
+      pageError.value = setActiveError
+      return
+    }
+
+    await loadWorkspaceData(true)
+  }
+  catch (error) {
+    const asRecordError = error as { message?: string, data?: { message?: string } }
+    pageError.value = asRecordError.data?.message || asRecordError.message || 'Réparation de session impossible.'
+  }
+  finally {
+    repairingSession.value = false
+  }
+}
+
 async function loadWorkspaceData(isManualReload = false) {
   if (isManualReload) reloading.value = true
   else loading.value = true
@@ -873,6 +907,19 @@ await loadWorkspaceData()
       <p class="md3-body-md text-error">
         {{ pageError }}
       </p>
+      <div v-if="canRepairSession" class="mt-3 flex flex-wrap items-center gap-3">
+        <p class="md3-body-sm text-on-surface-variant">
+          La session pointe probablement vers un workspace supprimé.
+        </p>
+        <FluffmindButton
+          variant="tonal"
+          size="sm"
+          :disabled="repairingSession || loading || reloading"
+          @click="repairSession"
+        >
+          {{ repairingSession ? 'Réparation…' : 'Réparer la session' }}
+        </FluffmindButton>
+      </div>
     </FluffmindCard>
 
     <FluffmindCard padding="lg" class="mb-6">
