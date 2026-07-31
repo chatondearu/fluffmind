@@ -8,6 +8,7 @@ export {
   commitAndPush,
   getSyncStatus,
   pullFromRemote,
+  resetHardToRemote,
   GitAuthError,
   GitConflictError,
   isGitAuthErrorMessage,

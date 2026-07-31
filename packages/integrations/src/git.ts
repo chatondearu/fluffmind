@@ -328,6 +328,27 @@ export async function pullFromRemote(
   return { updated: true, behindBefore: before.behind }
 }
 
+/**
+ * Fetches origin and hard-resets the local branch to match origin/<branch>.
+ * Discards unpushed local commits and uncommitted changes.
+ */
+export async function resetHardToRemote(
+  git: SimpleGit,
+  options: { branch: string, accessToken?: string, networkRemoteUrl?: string },
+): Promise<void> {
+  const { branch } = options
+  try {
+    await fetchRemote(git, branch, options)
+    await git.raw(['reset', '--hard', `origin/${branch}`])
+  }
+  catch (error) {
+    rethrowIfGitAuthError(error)
+    throw new GitConflictError(
+      `Failed to reset branch "${branch}" to origin/${branch}: ${asErrorMessage(error)}`,
+    )
+  }
+}
+
 function asErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
