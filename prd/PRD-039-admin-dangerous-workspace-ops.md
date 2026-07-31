@@ -1,11 +1,13 @@
 # PRD-039 — Instance admin dangerous workspace ops
 
-- **Status**: draft
+- **Status**: shipped
+- **Shipped**: 2026-07-31
 - **Date**: 2026-07-31
 - **Tags**: #product #admin #workspaces #ops
 - **Depends on**: [[PRD-023-p2-auth-workspaces|PRD-023]], [[PRD-035-auth-production-ready|PRD-035]]
 - **Design spec**: `docs/superpowers/specs/2026-07-31-admin-dangerous-workspace-ops-design.md`
-- **ADR**: [[../foam/decisions/ADR-013-admin-dangerous-workspace-ops|ADR-013]]
+- **Plan**: [[../plans/PLAN-039-admin-dangerous-workspace-ops|PLAN-039]] · `docs/superpowers/plans/2026-07-31-admin-dangerous-workspace-ops.md`
+- **ADR**: [[../foam/decisions/ADR-013-admin-dangerous-workspace-ops|ADR-013]] (accepted)
 
 ## Problem
 
@@ -15,12 +17,12 @@ unlink, delete, or rebind vault folders. Staging incidents force SSH/volume hack
 
 ## Goals
 
-- [ ] Admin-only Workspaces panel on `/settings/admin`
-- [ ] List all workspaces + orphan dirs under `WORKSPACES_ROOT`
-- [ ] Hard reset to `origin/<gitBranch>` with slug confirmation
-- [ ] Invalidate vault index; force GitHub unlink
-- [ ] Delete workspace (DB + disk) with slug confirmation
-- [ ] Rebind orphan folder to an organization
+- [x] Admin-only Workspaces panel on `/settings/admin`
+- [x] List all workspaces + orphan dirs under `WORKSPACES_ROOT`
+- [x] Hard reset to `origin/<gitBranch>` with slug confirmation
+- [x] Invalidate vault index; force GitHub unlink
+- [x] Delete workspace (DB + disk) with slug confirmation
+- [x] Rebind orphan folder to an organization
 
 ## Non-goals
 
@@ -40,16 +42,16 @@ unlink, delete, or rebind vault folders. Staging incidents force SSH/volume hack
 
 ### Functional
 
-- [ ] `GET /api/admin/workspaces` (+ orphans)
-- [ ] Reset-hard / invalidate / unlink / delete / rebind endpoints
-- [ ] Slug confirmation on destructive actions
-- [ ] UI on admin settings page
+- [x] `GET /api/admin/workspaces` (+ orphans)
+- [x] Reset-hard / invalidate / unlink / delete / rebind endpoints
+- [x] Slug confirmation on destructive actions
+- [x] UI on admin settings page
 
 ### Non-functional
 
-- [ ] All routes `requireAdminInstance`
-- [ ] Paths cannot escape `WORKSPACES_ROOT`
-- [ ] ASCII `statusMessage` on errors
+- [x] All routes `requireAdminInstance`
+- [x] Paths cannot escape `WORKSPACES_ROOT`
+- [x] ASCII `statusMessage` on errors
 
 ## Related project memory
 
