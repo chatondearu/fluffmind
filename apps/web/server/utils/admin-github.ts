@@ -1,6 +1,8 @@
 import { getDb, githubAppInstallation, organization, workspaceConfig, workspaceGithubLink } from '@fluffmind/db'
 import { eq } from 'drizzle-orm'
 
+import { fetchInstallationAccount, upsertGithubAppInstallation } from './github-installations'
+
 export interface AdminGithubLinkedWorkspace {
   organizationId: string
   name: string
@@ -95,4 +97,50 @@ export async function unlinkAllWorkspacesForInstallation(installationId: string)
   }
 
   return { unlinked: linked.length }
+}
+
+export async function resyncAdminGithubInstallation(installationId: string): Promise<AdminGithubInstallationRow> {
+  const db = getDb()
+  const [existing] = await db
+    .select()
+    .from(githubAppInstallation)
+    .where(eq(githubAppInstallation.installationId, installationId))
+    .limit(1)
+
+  if (!existing) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Installation not found',
+      message: `No GitHub App installation "${installationId}" in the database.`,
+    })
+  }
+
+  try {
+    const account = await fetchInstallationAccount(installationId)
+    await upsertGithubAppInstallation({
+      installationId,
+      accountLogin: account.accountLogin,
+      accountType: account.accountType,
+    })
+  }
+  catch (error) {
+    if (error && typeof error === 'object' && 'statusCode' in error)
+      throw error
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'GitHub App request failed',
+      message: error instanceof Error ? error.message : 'Failed to refresh installation from GitHub.',
+    })
+  }
+
+  const rows = await listAdminGithubInstallations()
+  const row = rows.find(r => r.installationId === installationId)
+  if (!row) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Installation not found',
+      message: `Installation "${installationId}" disappeared after resync.`,
+    })
+  }
+  return row
 }

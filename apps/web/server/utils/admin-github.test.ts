@@ -4,6 +4,11 @@ const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
 }))
 
+const githubMocks = vi.hoisted(() => ({
+  fetchInstallationAccount: vi.fn(),
+  upsertGithubAppInstallation: vi.fn(),
+}))
+
 vi.mock('@fluffmind/db', () => ({
   getDb: mocks.getDb,
   githubAppInstallation: {
@@ -28,8 +33,17 @@ vi.mock('drizzle-orm', () => ({
   eq: (column: unknown, value: unknown) => ({ __op: 'eq', column, value }),
 }))
 
-const { assertConfirmInstallationId, listAdminGithubInstallations, unlinkAllWorkspacesForInstallation }
-  = await import('./admin-github')
+vi.mock('./github-installations', () => ({
+  fetchInstallationAccount: githubMocks.fetchInstallationAccount,
+  upsertGithubAppInstallation: githubMocks.upsertGithubAppInstallation,
+}))
+
+const {
+  assertConfirmInstallationId,
+  listAdminGithubInstallations,
+  resyncAdminGithubInstallation,
+  unlinkAllWorkspacesForInstallation,
+} = await import('./admin-github')
 
 beforeEach(() => {
   vi.stubGlobal('createError', (options: Record<string, unknown>) => {
@@ -168,5 +182,78 @@ describe('unlinkAllWorkspacesForInstallation', () => {
       statusCode: 404,
       statusMessage: 'Installation not found',
     })
+  })
+})
+
+describe('resyncAdminGithubInstallation', () => {
+  it('resync upserts account from GitHub and returns updated row', async () => {
+    const existingRow = {
+      id: 'inst-uuid',
+      installationId: '123',
+      accountLogin: 'old-acme',
+      accountType: 'Organization',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-02T00:00:00Z'),
+    }
+
+    const updatedInstallationRow = {
+      ...existingRow,
+      accountLogin: 'new-acme',
+      updatedAt: new Date('2026-01-03T00:00:00Z'),
+    }
+
+    githubMocks.fetchInstallationAccount.mockResolvedValue({
+      accountLogin: 'new-acme',
+      accountType: 'Organization',
+    })
+    githubMocks.upsertGithubAppInstallation.mockResolvedValue(undefined)
+
+    mocks.getDb.mockReturnValue({
+      select: vi.fn()
+        .mockImplementationOnce(() => ({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([existingRow]),
+            }),
+          }),
+        }))
+        .mockImplementationOnce(() => ({
+          from: vi.fn().mockResolvedValue([updatedInstallationRow]),
+        }))
+        .mockImplementationOnce(() => ({
+          from: vi.fn().mockReturnValue({
+            innerJoin: vi.fn().mockResolvedValue([]),
+          }),
+        })),
+    })
+
+    const result = await resyncAdminGithubInstallation('123')
+
+    expect(githubMocks.fetchInstallationAccount).toHaveBeenCalledWith('123')
+    expect(githubMocks.upsertGithubAppInstallation).toHaveBeenCalledWith({
+      installationId: '123',
+      accountLogin: 'new-acme',
+      accountType: 'Organization',
+    })
+    expect(result.accountLogin).toBe('new-acme')
+    expect(result.installationId).toBe('123')
+  })
+
+  it('resync throws 404 when installation missing in DB', async () => {
+    mocks.getDb.mockReturnValue({
+      select: vi.fn().mockImplementationOnce(() => ({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      })),
+    })
+
+    await expect(resyncAdminGithubInstallation('missing')).rejects.toMatchObject({
+      statusCode: 404,
+      statusMessage: 'Installation not found',
+    })
+    expect(githubMocks.fetchInstallationAccount).not.toHaveBeenCalled()
   })
 })
