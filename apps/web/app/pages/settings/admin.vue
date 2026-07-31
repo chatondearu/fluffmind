@@ -29,14 +29,50 @@ interface AdminWorkspaceRow {
   behind: number | null
 }
 
+interface AdminGithubLinkedWorkspace {
+  organizationId: string
+  name: string
+  slug: string
+  owner: string
+  repo: string
+}
+
+interface AdminGithubInstallationRow {
+  id: string
+  installationId: string
+  accountLogin: string
+  accountType: string
+  createdAt: string
+  updatedAt: string
+  linkedWorkspaces: AdminGithubLinkedWorkspace[]
+}
+
+interface AdminGithubBundle {
+  appStatus: {
+    configured: boolean
+    slugConfigured: boolean
+    webhookSecretConfigured: boolean
+    oauthLoginConfigured: boolean
+    requiredOk: boolean
+    recommendedOk: boolean
+    permissionsError: string | null
+  }
+  installations: AdminGithubInstallationRow[]
+  installUrl: string | null
+}
+
 const usersLoading = ref(true)
 const workspacesLoading = ref(true)
+const githubLoading = ref(true)
 const usersError = ref<string | null>(null)
 const workspacesError = ref<string | null>(null)
+const githubError = ref<string | null>(null)
 const workspaceActionError = ref<string | null>(null)
+const githubActionError = ref<string | null>(null)
 const users = ref<AdminUser[]>([])
 const workspaces = ref<AdminWorkspaceRow[]>([])
 const orphans = ref<string[]>([])
+const githubBundle = ref<AdminGithubBundle | null>(null)
 
 function extractErrorMessage(error: unknown, fallback: string): string {
   const asRecordError = error as { data?: { message?: string }, message?: string }
@@ -74,7 +110,21 @@ async function loadWorkspaces() {
   }
 }
 
-await Promise.all([loadUsers(), loadWorkspaces()])
+async function loadGithub() {
+  githubLoading.value = true
+  githubError.value = null
+  try {
+    githubBundle.value = await $fetch<AdminGithubBundle>('/api/admin/github')
+  }
+  catch (error) {
+    githubError.value = extractErrorMessage(error, 'Impossible de charger les installations GitHub.')
+  }
+  finally {
+    githubLoading.value = false
+  }
+}
+
+await Promise.all([loadUsers(), loadWorkspaces(), loadGithub()])
 
 async function promoteOrDemote(user: AdminUser) {
   const nextRole = user.role === 'admin' ? 'owner' : 'admin'
@@ -183,6 +233,69 @@ async function rebindOrphan(folderName: string) {
     },
   })
 }
+
+async function runGithubMutation(
+  path: string,
+  options: { method: 'POST' | 'DELETE', body?: Record<string, unknown> },
+) {
+  githubActionError.value = null
+  try {
+    await $fetch(path, options)
+    await loadGithub()
+  }
+  catch (error) {
+    githubActionError.value = extractErrorMessage(error, 'Action impossible.')
+  }
+}
+
+function promptConfirmInstallationId(
+  installation: AdminGithubInstallationRow,
+  label: string,
+): string | null {
+  const typed = window.prompt(
+    `${label}\n\nTapez « ${installation.installationId} » pour confirmer.`,
+  )
+  if (typed === null)
+    return null
+  if (typed.trim() !== installation.installationId) {
+    githubActionError.value = `Confirmation incorrecte : attendu « ${installation.installationId} ».`
+    return null
+  }
+  return typed.trim()
+}
+
+async function resyncInstallation(installation: AdminGithubInstallationRow) {
+  await runGithubMutation(
+    `/api/admin/github/installations/${installation.installationId}/resync`,
+    { method: 'POST' },
+  )
+}
+
+async function unlinkAllWorkspaces(installation: AdminGithubInstallationRow) {
+  const confirmInstallationId = promptConfirmInstallationId(
+    installation,
+    'Unlink tous les workspaces de cette installation ?',
+  )
+  if (!confirmInstallationId)
+    return
+  await runGithubMutation(
+    `/api/admin/github/installations/${installation.installationId}/unlink-workspaces`,
+    { method: 'POST', body: { confirmInstallationId } },
+  )
+}
+
+async function removeInstallationFromDb(installation: AdminGithubInstallationRow) {
+  const confirmInstallationId = promptConfirmInstallationId(
+    installation,
+    'Retirer cette installation de la base de données ?',
+  )
+  if (!confirmInstallationId)
+    return
+  await runGithubMutation(
+    `/api/admin/github/installations/${installation.installationId}`,
+    { method: 'DELETE', body: { confirmInstallationId } },
+  )
+}
 </script>
 
 <template>
@@ -193,7 +306,7 @@ async function rebindOrphan(folderName: string) {
           Administration
         </h1>
         <p class="mt-1 md3-body-md text-on-surface-variant">
-          Gestion des comptes, des sessions et des opérations dangereuses sur les workspaces.
+          Gestion des comptes, des sessions, des workspaces et des installations GitHub App.
         </p>
       </div>
     </header>
@@ -260,7 +373,7 @@ async function rebindOrphan(folderName: string) {
       </template>
     </FluffmindCard>
 
-    <FluffmindCard padding="lg" variant="outlined">
+    <FluffmindCard padding="lg" variant="outlined" class="mb-6">
       <h2 class="md3-title-md mb-1">
         Workspaces — zone dangereuse
       </h2>
@@ -360,6 +473,158 @@ async function rebindOrphan(folderName: string) {
               <FluffmindButton variant="outlined" size="sm" @click="rebindOrphan(folder)">
                 Réassocier
               </FluffmindButton>
+            </li>
+          </ul>
+        </section>
+      </template>
+    </FluffmindCard>
+
+    <FluffmindCard padding="lg" variant="outlined">
+      <h2 class="md3-title-md mb-1">
+        GitHub App
+      </h2>
+      <p class="mb-4 md3-body-md text-on-surface-variant">
+        Inventaire des installations et actions de récupération (resync, unlink-all, retrait DB).
+      </p>
+
+      <FluffmindCard v-if="githubActionError" padding="md" variant="outlined" class="mb-4">
+        <p class="md3-body-md text-error">
+          {{ githubActionError }}
+        </p>
+      </FluffmindCard>
+
+      <FluffmindCard v-if="githubError" padding="md" variant="outlined" class="mb-4">
+        <p class="md3-body-md text-error">
+          {{ githubError }}
+        </p>
+      </FluffmindCard>
+
+      <template v-if="githubLoading">
+        <p class="md3-body-md text-on-surface-variant">
+          Chargement des installations GitHub…
+        </p>
+      </template>
+
+      <template v-else-if="!githubError && githubBundle">
+        <section class="mb-6">
+          <h3 class="md3-title-sm mb-2">
+            Statut de l'App
+          </h3>
+          <div class="flex flex-wrap items-center gap-2">
+            <FluffmindChip :variant="githubBundle.appStatus.configured ? 'filled' : 'outlined'">
+              {{ githubBundle.appStatus.configured ? 'App configurée' : 'App non configurée' }}
+            </FluffmindChip>
+            <FluffmindChip :variant="githubBundle.appStatus.slugConfigured ? 'filled' : 'outlined'">
+              {{ githubBundle.appStatus.slugConfigured ? 'Slug OK' : 'Slug manquant' }}
+            </FluffmindChip>
+            <FluffmindChip :variant="githubBundle.appStatus.webhookSecretConfigured ? 'filled' : 'outlined'">
+              {{ githubBundle.appStatus.webhookSecretConfigured ? 'Webhook OK' : 'Webhook manquant' }}
+            </FluffmindChip>
+            <FluffmindChip :variant="githubBundle.appStatus.oauthLoginConfigured ? 'filled' : 'outlined'">
+              {{ githubBundle.appStatus.oauthLoginConfigured ? 'OAuth login OK' : 'OAuth login manquant' }}
+            </FluffmindChip>
+            <FluffmindChip :variant="githubBundle.appStatus.requiredOk ? 'filled' : 'outlined'">
+              {{ githubBundle.appStatus.requiredOk ? 'Permissions requises OK' : 'Permissions requises KO' }}
+            </FluffmindChip>
+            <FluffmindChip :variant="githubBundle.appStatus.recommendedOk ? 'filled' : 'outlined'">
+              {{ githubBundle.appStatus.recommendedOk ? 'Permissions recommandées OK' : 'Permissions recommandées KO' }}
+            </FluffmindChip>
+          </div>
+          <p v-if="githubBundle.appStatus.permissionsError" class="mt-2 md3-body-sm text-error">
+            {{ githubBundle.appStatus.permissionsError }}
+          </p>
+          <p v-if="githubBundle.installUrl" class="mt-3">
+            <a
+              :href="githubBundle.installUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="md3-body-md text-primary underline"
+            >
+              Installer l'App
+            </a>
+          </p>
+        </section>
+
+        <section>
+          <h3 class="md3-title-sm mb-2">
+            Installations
+          </h3>
+
+          <p
+            v-if="!githubBundle.installations.length"
+            class="md3-body-md text-on-surface-variant"
+          >
+            Aucune installation enregistrée en base.
+          </p>
+
+          <ul v-else class="divide-y divide-outline-variant">
+            <li
+              v-for="installation in githubBundle.installations"
+              :key="installation.id"
+              class="py-4"
+            >
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="min-w-0 flex-1">
+                  <p class="md3-title-sm">
+                    {{ installation.accountLogin }}
+                    <span class="text-on-surface-variant">({{ installation.accountType }})</span>
+                  </p>
+                  <p class="md3-body-md text-on-surface-variant break-all">
+                    installationId : {{ installation.installationId }}
+                  </p>
+                  <p class="md3-body-sm text-on-surface-variant">
+                    Créée {{ installation.createdAt }} · Mise à jour {{ installation.updatedAt }}
+                  </p>
+
+                  <div v-if="installation.linkedWorkspaces.length" class="mt-3">
+                    <p class="md3-label-md text-on-surface-variant mb-1">
+                      Workspaces liés
+                    </p>
+                    <ul class="divide-y divide-outline-variant rounded-lg border border-outline-variant">
+                      <li
+                        v-for="ws in installation.linkedWorkspaces"
+                        :key="ws.organizationId"
+                        class="px-3 py-2"
+                      >
+                        <p class="md3-body-md">
+                          {{ ws.name }}
+                          <span class="text-on-surface-variant">({{ ws.slug }})</span>
+                        </p>
+                        <p class="md3-body-sm text-on-surface-variant break-all">
+                          {{ ws.organizationId }} · {{ ws.owner }}/{{ ws.repo }}
+                        </p>
+                      </li>
+                    </ul>
+                  </div>
+                  <p v-else class="mt-2 md3-body-sm text-on-surface-variant">
+                    Aucun workspace lié.
+                  </p>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                  <FluffmindButton
+                    variant="outlined"
+                    size="sm"
+                    @click="resyncInstallation(installation)"
+                  >
+                    Resynchroniser
+                  </FluffmindButton>
+                  <FluffmindButton
+                    variant="outlined"
+                    size="sm"
+                    @click="unlinkAllWorkspaces(installation)"
+                  >
+                    Unlink tous les workspaces
+                  </FluffmindButton>
+                  <FluffmindButton
+                    variant="tonal"
+                    size="sm"
+                    @click="removeInstallationFromDb(installation)"
+                  >
+                    Retirer de la DB
+                  </FluffmindButton>
+                </div>
+              </div>
             </li>
           </ul>
         </section>
