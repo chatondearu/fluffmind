@@ -24,7 +24,11 @@ export interface SyncWorkspaceMembersOptions {
 export interface SyncWorkspaceMembersDeps {
   listWorkspaceMembers(orgId: string): Promise<WorkspaceMember[]>
   listMemberSyncMeta(orgId: string): Promise<MemberSyncMeta[]>
-  resolveUserIdByGitHubLogin(login: string): Promise<string | null>
+  /**
+   * Resolve a Fluffmind user from a GitHub collaborator.
+   * Prefer matching `githubUserId` (Better Auth accountId) then login.
+   */
+  resolveUserIdByGitHubLogin(login: string, githubUserId?: string | null): Promise<string | null>
   createWorkspaceMember(orgId: string, userId: string, role: WorkspaceMemberPermission): Promise<WorkspaceMember>
   updateWorkspaceMemberRole(memberId: string, role: WorkspaceMemberPermission): Promise<void>
   upsertMemberSyncMeta(meta: MemberSyncMeta): Promise<void>
@@ -43,6 +47,44 @@ export interface SyncWorkspaceMembersResult {
   skippedLocalOverride: number
   skippedManual: number
   skippedUnlinked: number
+  /** Members that would have been removed but were kept to preserve last owner/member. */
+  skippedProtected: number
+}
+
+/**
+ * Members marked for removal that must stay so the workspace remains usable:
+ * - never leave the org with zero members
+ * - never leave the org with zero owners when at least one owner existed
+ */
+export function selectProtectedRemovals(
+  members: WorkspaceMember[],
+  removalCandidateIds: Set<string>,
+): Set<string> {
+  const protectedIds = new Set<string>()
+  if (removalCandidateIds.size === 0)
+    return protectedIds
+
+  const remaining = () => members.filter(member =>
+    !removalCandidateIds.has(member.id) || protectedIds.has(member.id),
+  )
+
+  // If every owner is a removal candidate, keep all of them.
+  if (remaining().filter(m => m.role === 'owner').length === 0) {
+    for (const member of members) {
+      if (member.role === 'owner' && removalCandidateIds.has(member.id))
+        protectedIds.add(member.id)
+    }
+  }
+
+  // Never leave the organization with zero members.
+  if (remaining().length === 0) {
+    const preferOwner = members.find(m => removalCandidateIds.has(m.id) && m.role === 'owner')
+      ?? members.find(m => removalCandidateIds.has(m.id))
+    if (preferOwner)
+      protectedIds.add(preferOwner.id)
+  }
+
+  return protectedIds
 }
 
 export async function syncWorkspaceMembersFromGitHub(
@@ -69,10 +111,11 @@ export async function syncWorkspaceMembersFromGitHub(
     skippedLocalOverride: 0,
     skippedManual: 0,
     skippedUnlinked: 0,
+    skippedProtected: 0,
   }
 
   for (const collaborator of collaborators) {
-    const userId = await deps.resolveUserIdByGitHubLogin(collaborator.login)
+    const userId = await deps.resolveUserIdByGitHubLogin(collaborator.login, collaborator.id)
     if (!userId) {
       result.skippedUnlinked += 1
       continue
@@ -125,17 +168,23 @@ export async function syncWorkspaceMembersFromGitHub(
   }
 
   if (deps.removeWorkspaceMember) {
+    const removalCandidateIds = new Set<string>()
     for (const member of members) {
       const memberMeta = syncMetaByMemberId.get(member.id)
-      if (!memberMeta || memberMeta.source !== 'github' || memberMeta.localOverride) {
+      if (!memberMeta || memberMeta.source !== 'github' || memberMeta.localOverride)
         continue
-      }
-
-      if (collaboratorUserIds.has(member.userId)) {
+      if (collaboratorUserIds.has(member.userId))
         continue
-      }
+      removalCandidateIds.add(member.id)
+    }
 
-      await deps.removeWorkspaceMember(member.id)
+    const protectedIds = selectProtectedRemovals(members, removalCandidateIds)
+    result.skippedProtected = protectedIds.size
+
+    for (const memberId of removalCandidateIds) {
+      if (protectedIds.has(memberId))
+        continue
+      await deps.removeWorkspaceMember(memberId)
       result.deleted += 1
     }
   }

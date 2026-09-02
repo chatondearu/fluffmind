@@ -1,10 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import {
-  account,
   getDb,
   member,
   memberSyncMeta,
-  user,
   workspaceConfig,
   workspaceGithubLink,
 } from '@fluffmind/db'
@@ -14,9 +12,10 @@ import {
   type SyncWorkspaceMembersDeps,
   type WorkspaceMemberPermission,
 } from '@fluffmind/integrations'
-import { and, eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 import { isGitHubAppConfigured, resolveWorkspaceGitHubCredentials } from './github-credentials'
+import { resolveUserIdByGithubIdentity } from './github-identity'
 
 export interface LocalOverrideInput {
   memberId: string
@@ -43,6 +42,7 @@ export interface SyncWorkspaceMembersForOrganizationResult extends GitHubSyncSta
     skippedLocalOverride: number
     skippedManual: number
     skippedUnlinked: number
+    skippedProtected: number
   }
 }
 
@@ -159,22 +159,8 @@ function buildSyncDeps(): SyncWorkspaceMembersDeps {
     async listMemberSyncMeta(organizationId: string) {
       return getMemberSyncMetaForOrganization(organizationId)
     },
-    async resolveUserIdByGitHubLogin(login: string) {
-      const [accountMatch] = await db
-        .select({ userId: account.userId })
-        .from(account)
-        .where(and(eq(account.providerId, 'github'), sql`lower(${account.accountId}) = lower(${login})`))
-        .limit(1)
-      if (accountMatch?.userId)
-        return accountMatch.userId
-
-      const [userMatch] = await db
-        .select({ id: user.id })
-        .from(user)
-        .where(sql`lower(${user.name}) = lower(${login})`)
-        .limit(1)
-
-      return userMatch?.id ?? null
+    async resolveUserIdByGitHubLogin(login: string, githubUserId?: string | null) {
+      return resolveUserIdByGithubIdentity(login, githubUserId)
     },
     async createWorkspaceMember(organizationId: string, userId: string, role) {
       const createdAt = new Date()
@@ -289,6 +275,12 @@ export async function syncWorkspaceMembersForOrganization(
     },
     buildSyncDeps(),
   )
+
+  if (result.skippedProtected > 0) {
+    console.warn(
+      `[github-sync] Kept ${result.skippedProtected} member(s) in ${organizationId} to preserve last owner/membership`,
+    )
+  }
 
   const now = new Date()
   await db

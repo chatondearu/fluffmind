@@ -16,16 +16,30 @@ vi.mock('@fluffmind/db', () => ({
   },
 }))
 
+vi.mock('drizzle-orm', () => ({
+  and: (...args: unknown[]) => ({ __op: 'and', args }),
+  eq: (column: unknown, value: unknown) => ({ __op: 'eq', column, value }),
+}))
+
+const authMocks = vi.hoisted(() => ({
+  requireSession: vi.fn(),
+}))
+
 vi.mock('../utils/auth', () => ({
   isAuthEnabled: () => true,
-  requireSession: vi.fn(),
+  requireSession: authMocks.requireSession,
 }))
 
 vi.mock('../utils/github-credentials', () => ({
   resolveWorkspaceGitHubCredentials: mocks.resolveWorkspaceGitHubCredentials,
 }))
 
-const { resolveWorkspaceConfig, resolveWorkspaceGitNetwork, resolveWorkspaceGitRemoteUrl } = await import('./workspace')
+const {
+  resolveActiveWorkspaceId,
+  resolveWorkspaceConfig,
+  resolveWorkspaceGitNetwork,
+  resolveWorkspaceGitRemoteUrl,
+} = await import('./workspace')
 
 function mockWorkspaceConfig(remoteUrl?: string, contentRoots: string[] = []): void {
   const limit = vi.fn().mockResolvedValue([{
@@ -124,5 +138,50 @@ describe('resolveWorkspaceGitRemoteUrl', () => {
     await expect(resolveWorkspaceGitRemoteUrl('org-1')).resolves.toBe(
       'https://x-access-token:ghs_token@github.com/acme/vault.git',
     )
+  })
+})
+
+describe('resolveActiveWorkspaceId — zero membership (staging 403)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('createError', (options: { statusCode: number, statusMessage: string, message: string }) => {
+      const error = new Error(options.message) as Error & { statusCode: number, statusMessage: string }
+      error.statusCode = options.statusCode
+      error.statusMessage = options.statusMessage
+      return error
+    })
+    vi.stubGlobal('getCookie', vi.fn(() => undefined))
+    vi.stubGlobal('setCookie', vi.fn())
+    authMocks.requireSession.mockResolvedValue({
+      user: { id: 'user-1' },
+      session: { id: 'sess-1', activeOrganizationId: 'org-deleted' },
+    })
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('throws 403 No workspace membership when the user has no member rows', async () => {
+    // Preferred org (cookie/session) is not a membership, then fallback list is empty —
+    // same end state after admin delete of the only workspace, or sync removing the last owner.
+    const preferredLimit = vi.fn().mockResolvedValue([])
+    const preferredWhere = vi.fn().mockReturnValue({ limit: preferredLimit })
+    const preferredFrom = vi.fn().mockReturnValue({ where: preferredWhere })
+
+    const fallbackLimit = vi.fn().mockResolvedValue([])
+    const fallbackWhere = vi.fn().mockReturnValue({ limit: fallbackLimit })
+    const fallbackFrom = vi.fn().mockReturnValue({ where: fallbackWhere })
+
+    const select = vi.fn()
+      .mockReturnValueOnce({ from: preferredFrom })
+      .mockReturnValueOnce({ from: fallbackFrom })
+    mocks.getDb.mockReturnValue({ select })
+
+    await expect(resolveActiveWorkspaceId({} as never)).rejects.toMatchObject({
+      statusCode: 403,
+      statusMessage: 'No workspace membership',
+      message: 'You are not a member of any workspace.',
+    })
   })
 })

@@ -40,6 +40,10 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   recovery (list, resync, unlink-all workspaces, remove from DB). Routes under
   `/api/admin/github/*`; gated by `requireAdminInstance`. Destructive actions require
   typing `installationId`; local DB only — never uninstalls the App on GitHub. See ADR-014.
+- Collaborator sync (`packages/integrations` `syncWorkspaceMembersFromGitHub`, wired via
+  `server/utils/github-sync.ts` + hourly cron) must **never** remove the last owner or
+  leave an org with zero members (`skippedProtected`). Resolve GitHub users by
+  numeric `accountId` **and** login (`server/utils/github-identity.ts`).
 - `write.ts` — `writeToWorkspace(workspaceId, id, content)`: delegates to `lock.ts`,
   then updates/creates notes via Git (`note-id.ts` validates ids on create).
   Git plumbing itself (`ensureWorkingCopy`/`commitAndPush`) lives in

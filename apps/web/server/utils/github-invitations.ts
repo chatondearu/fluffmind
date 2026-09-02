@@ -6,17 +6,17 @@ import {
   githubInvitation,
   invitation as betterAuthInvitation,
   member,
-  user,
 } from '@fluffmind/db'
 import {
   normalizeGitHubLogin,
   resolveGitHubUser,
   type ResolvedGitHubUser,
 } from '@fluffmind/integrations'
-import { and, eq, gt, or, sql } from 'drizzle-orm'
+import { and, eq, gt, sql } from 'drizzle-orm'
 
 import { buildAcceptInvitationUrl, extractInvitationIdFromInviteMemberResponse } from '../../app/utils/invitations'
 import { resolveWorkspaceGitHubCredentials } from './github-credentials'
+import { resolveUserIdByGithubIdentity } from './github-identity'
 
 export interface CreateWorkspaceInvitationInput {
   organizationId: string
@@ -152,34 +152,6 @@ export function matchesGithubInvitationIdentity(
   return identity.githubAccountIds.some(accountId =>
     acceptedGithubIds.has(accountId.trim().toLowerCase()),
   )
-}
-
-async function resolveUserIdByGithubIdentity(
-  githubLogin: string,
-  githubUserId: string,
-): Promise<string | null> {
-  const db = getDb()
-  const [accountMatch] = await db
-    .select({ userId: account.userId })
-    .from(account)
-    .where(and(
-      eq(account.providerId, 'github'),
-      or(
-        sql`lower(${account.accountId}) = lower(${githubLogin})`,
-        eq(account.accountId, githubUserId),
-      ),
-    ))
-    .limit(1)
-  if (accountMatch?.userId)
-    return accountMatch.userId
-
-  const [userMatch] = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(sql`lower(${user.name}) = lower(${githubLogin})`)
-    .limit(1)
-
-  return userMatch?.id ?? null
 }
 
 async function isExistingWorkspaceMember(

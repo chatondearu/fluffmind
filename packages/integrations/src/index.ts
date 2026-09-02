@@ -28,7 +28,7 @@ export type { ResolvedGitHubUser } from './github/users'
 export { fetchOrgMembers, listGitHubInviteCandidates } from './github/invite-candidates'
 export type { GitHubInviteCandidate } from './github/invite-candidates'
 
-export { syncWorkspaceMembersFromGitHub } from './github/sync'
+export { syncWorkspaceMembersFromGitHub, selectProtectedRemovals } from './github/sync'
 export type {
   MemberSyncMeta,
   MemberSyncSource,

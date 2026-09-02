@@ -230,10 +230,18 @@ watch(
       return
     try {
       await ensureWorkspaceOnboarding()
-    } catch {
-      // Non-fatal: settings page can recover manually.
+    }
+    catch (error) {
+      const asRecord = error as { message?: string, data?: { message?: string } }
+      workspaceError.value = asRecord.data?.message
+        || asRecord.message
+        || 'Impossible de préparer un workspace pour ce compte.'
     }
     await loadOrganizations()
+    if (!workspaceError.value && organizations.value.length === 0) {
+      workspaceError.value = 'Aucun workspace. Créez-en un pour continuer.'
+      workspaceCreateOpen.value = true
+    }
   },
   { immediate: true },
 )

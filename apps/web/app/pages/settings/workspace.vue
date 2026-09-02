@@ -9,6 +9,7 @@ import {
   FluffmindTextField,
 } from '@fluffmind/design-system/src/components'
 import { authClient } from '../../composables/useAuth'
+import { ensureWorkspaceOnboarding } from '../../composables/useOnboarding'
 import {
   buildAcceptInvitationUrl,
   buildWorkspaceInvitationPayload,
@@ -722,15 +723,35 @@ async function copyCliSnippet(): Promise<void> {
   }
 }
 
+function isNoMembershipError(message: string | null | undefined): boolean {
+  const lower = (message || '').toLowerCase()
+  return lower.includes('not a member of any workspace')
+    || lower.includes('no workspace membership')
+}
+
+function isStaleOrganizationError(message: string | null | undefined): boolean {
+  return (message || '').toLowerCase().includes('organization not found')
+}
+
 const canRepairSession = computed(() =>
-  Boolean(pageError.value?.toLowerCase().includes('organization not found')),
+  isStaleOrganizationError(pageError.value) || isNoMembershipError(pageError.value),
 )
 
+const recoveryNeedsOnboarding = computed(() => isNoMembershipError(pageError.value))
+
 async function repairSession(): Promise<void> {
+  const needsOnboarding = recoveryNeedsOnboarding.value
   repairingSession.value = true
   pageError.value = null
 
   try {
+    if (needsOnboarding) {
+      await ensureWorkspaceOnboarding()
+      await navigateTo('/')
+      await refreshNuxtData()
+      return
+    }
+
     const result = await $fetch<{ workspaceId: string }>('/api/workspaces/repair-session', {
       method: 'POST',
     })
@@ -809,8 +830,11 @@ async function loadWorkspaceData(isManualReload = false) {
     await loadGitHubState()
     await loadAgentState()
   } catch (error) {
-    const asRecordError = error as { message?: string }
-    pageError.value = asRecordError.message || 'Chargement du workspace impossible.'
+    const asRecordError = error as { message?: string, data?: { message?: string }, statusMessage?: string }
+    pageError.value = asRecordError.data?.message
+      || asRecordError.message
+      || asRecordError.statusMessage
+      || 'Chargement du workspace impossible.'
   } finally {
     loading.value = false
     reloading.value = false
@@ -909,7 +933,9 @@ await loadWorkspaceData()
       </p>
       <div v-if="canRepairSession" class="mt-3 flex flex-wrap items-center gap-3">
         <p class="md3-body-sm text-on-surface-variant">
-          La session pointe probablement vers un workspace supprimé.
+          {{ recoveryNeedsOnboarding
+            ? 'Aucun workspace n’est associé à ce compte. Vous pouvez en créer un automatiquement.'
+            : 'La session pointe probablement vers un workspace supprimé.' }}
         </p>
         <FluffmindButton
           variant="tonal"
@@ -917,7 +943,9 @@ await loadWorkspaceData()
           :disabled="repairingSession || loading || reloading"
           @click="repairSession"
         >
-          {{ repairingSession ? 'Réparation…' : 'Réparer la session' }}
+          {{ repairingSession
+            ? (recoveryNeedsOnboarding ? 'Création…' : 'Réparation…')
+            : (recoveryNeedsOnboarding ? 'Créer un workspace' : 'Réparer la session') }}
         </FluffmindButton>
       </div>
     </FluffmindCard>
