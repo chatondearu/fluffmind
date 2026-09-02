@@ -30,6 +30,7 @@ export type { GitHubInviteCandidate } from './github/invite-candidates'
 
 export { syncWorkspaceMembersFromGitHub, selectProtectedRemovals } from './github/sync'
 export type {
+  DeletionSweepSkipReason,
   MemberSyncMeta,
   MemberSyncSource,
   SyncWorkspaceMembersDeps,

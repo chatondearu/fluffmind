@@ -5,6 +5,7 @@ import { getAuth, getDb, member, workspaceConfig } from '@fluffmind/db'
 import { eq } from 'drizzle-orm'
 
 import { isAuthEnabled, requireSession } from '../../utils/auth'
+import { pinWorkspaceCreatorAsManual } from '../../utils/pin-workspace-creator'
 import { ACTIVE_WORKSPACE_COOKIE, getWorkspaceVaultPath } from '../../vault/workspace'
 
 /**
@@ -79,6 +80,8 @@ export default defineEventHandler(async (event) => {
     gitRemoteUrl: null,
     contentRoots: [],
   })
+
+  await pinWorkspaceCreatorAsManual(created.id, session.user.id)
 
   setCookie(event, ACTIVE_WORKSPACE_COOKIE, created.id, {
     path: '/',

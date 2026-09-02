@@ -40,6 +40,8 @@ export interface SyncWorkspaceMembersDeps {
   ): Promise<GitHubCollaborator[]>
 }
 
+export type DeletionSweepSkipReason = 'empty_collaborators' | 'unresolved_collaborators'
+
 export interface SyncWorkspaceMembersResult {
   created: number
   updated: number
@@ -49,6 +51,11 @@ export interface SyncWorkspaceMembersResult {
   skippedUnlinked: number
   /** Members that would have been removed but were kept to preserve last owner/member. */
   skippedProtected: number
+  /**
+   * When set, no member deletions ran because the collaborator signal is unsafe
+   * (empty list or zero resolved Fluffmind users).
+   */
+  deletionSweepSkipped: DeletionSweepSkipReason | null
 }
 
 /**
@@ -112,6 +119,7 @@ export async function syncWorkspaceMembersFromGitHub(
     skippedManual: 0,
     skippedUnlinked: 0,
     skippedProtected: 0,
+    deletionSweepSkipped: null,
   }
 
   for (const collaborator of collaborators) {
@@ -155,6 +163,16 @@ export async function syncWorkspaceMembersFromGitHub(
       continue
     }
 
+    // Pre-existing members without sync meta (workspace creators / bootstrap) must not
+    // be tagged source=github — that made them eligible for deletion on later sweeps.
+    if (!existingMeta) {
+      if (existingMember.role !== desiredRole) {
+        await deps.updateWorkspaceMemberRole(existingMember.id, desiredRole)
+        result.updated += 1
+      }
+      continue
+    }
+
     if (existingMember.role !== desiredRole) {
       await deps.updateWorkspaceMemberRole(existingMember.id, desiredRole)
       result.updated += 1
@@ -163,11 +181,21 @@ export async function syncWorkspaceMembersFromGitHub(
     await deps.upsertMemberSyncMeta({
       memberId: existingMember.id,
       source: 'github',
-      localOverride: existingMeta?.localOverride ?? false,
+      localOverride: existingMeta.localOverride,
     })
   }
 
   if (deps.removeWorkspaceMember) {
+    if (collaborators.length === 0) {
+      result.deletionSweepSkipped = 'empty_collaborators'
+      return result
+    }
+
+    if (collaboratorUserIds.size === 0) {
+      result.deletionSweepSkipped = 'unresolved_collaborators'
+      return result
+    }
+
     const removalCandidateIds = new Set<string>()
     for (const member of members) {
       const memberMeta = syncMetaByMemberId.get(member.id)

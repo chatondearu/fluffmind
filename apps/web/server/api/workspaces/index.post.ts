@@ -7,10 +7,11 @@ import {
   createAndLinkGithubRepo,
   parseCreateGithubRepoBody,
 } from '../../utils/github-create-repo'
+import { isAuthEnabled, requireSession } from '../../utils/auth'
+import { pinWorkspaceCreatorAsManual } from '../../utils/pin-workspace-creator'
 import { readJsonBody } from '../../utils/read-json-body'
 import { InvalidContentRootError, normalizeContentRoots } from '../../vault/content-roots'
 import { ACTIVE_WORKSPACE_COOKIE, getWorkspaceVaultPath } from '../../vault/workspace'
-import { isAuthEnabled, requireSession } from '../../utils/auth'
 
 interface CreateWorkspaceBody {
   name?: string
@@ -73,7 +74,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  await requireSession(event)
+  const session = await requireSession(event)
   const body = await readJsonBody<CreateWorkspaceBody>(event)
 
   const name = typeof body.name === 'string' ? body.name.trim() : ''
@@ -143,6 +144,8 @@ export default defineEventHandler(async (event) => {
     gitRemoteUrl,
     contentRoots,
   })
+
+  await pinWorkspaceCreatorAsManual(organization.id, session.user.id)
 
   const github = createGithubRepo
     ? await createAndLinkGithubRepo({

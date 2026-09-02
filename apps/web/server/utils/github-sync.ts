@@ -43,6 +43,7 @@ export interface SyncWorkspaceMembersForOrganizationResult extends GitHubSyncSta
     skippedManual: number
     skippedUnlinked: number
     skippedProtected: number
+    deletionSweepSkipped: 'empty_collaborators' | 'unresolved_collaborators' | null
   }
 }
 
@@ -279,6 +280,11 @@ export async function syncWorkspaceMembersForOrganization(
   if (result.skippedProtected > 0) {
     console.warn(
       `[github-sync] Kept ${result.skippedProtected} member(s) in ${organizationId} to preserve last owner/membership`,
+    )
+  }
+  if (result.deletionSweepSkipped) {
+    console.warn(
+      `[github-sync] Skipped member deletion sweep for ${organizationId}: ${result.deletionSweepSkipped}`,
     )
   }
 

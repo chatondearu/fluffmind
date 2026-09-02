@@ -5,10 +5,13 @@ import type { SyncWorkspaceMembersDeps } from './sync.ts'
 
 function createDeps(overrides: Partial<SyncWorkspaceMembersDeps> = {}): SyncWorkspaceMembersDeps & {
   removed: string[]
+  upserted: Array<{ memberId: string, source: string }>
 } {
   const removed: string[] = []
+  const upserted: Array<{ memberId: string, source: string }> = []
   return {
     removed,
+    upserted,
     async listWorkspaceMembers() {
       return []
     },
@@ -22,7 +25,9 @@ function createDeps(overrides: Partial<SyncWorkspaceMembersDeps> = {}): SyncWork
       return { id: `m-${userId}`, userId, role }
     },
     async updateWorkspaceMemberRole() {},
-    async upsertMemberSyncMeta() {},
+    async upsertMemberSyncMeta(meta) {
+      upserted.push({ memberId: meta.memberId, source: meta.source })
+    },
     async removeWorkspaceMember(memberId) {
       removed.push(memberId)
     },
@@ -33,14 +38,20 @@ function createDeps(overrides: Partial<SyncWorkspaceMembersDeps> = {}): SyncWork
   }
 }
 
-describe('syncWorkspaceMembersFromGitHub — last-owner protection', () => {
-  it('keeps the sole owner when collaborators are empty and source=github', async () => {
+describe('syncWorkspaceMembersFromGitHub — unsafe deletion sweeps', () => {
+  it('aborts all deletions when GitHub returns an empty collaborator list', async () => {
     const deps = createDeps({
       async listWorkspaceMembers() {
-        return [{ id: 'member-owner', userId: 'user-1', role: 'owner' }]
+        return [
+          { id: 'owner-a', userId: 'user-1', role: 'owner' },
+          { id: 'writer', userId: 'user-3', role: 'write' },
+        ]
       },
       async listMemberSyncMeta() {
-        return [{ memberId: 'member-owner', source: 'github', localOverride: false }]
+        return [
+          { memberId: 'owner-a', source: 'github', localOverride: false },
+          { memberId: 'writer', source: 'github', localOverride: false },
+        ]
       },
       async fetchCollaborators() {
         return []
@@ -54,23 +65,32 @@ describe('syncWorkspaceMembersFromGitHub — last-owner protection', () => {
     )
 
     expect(result.deleted).toBe(0)
-    expect(result.skippedProtected).toBe(1)
+    expect(result.deletionSweepSkipped).toBe('empty_collaborators')
     expect(deps.removed).toEqual([])
   })
 
-  it('keeps the sole owner when collaborators exist but login resolution fails', async () => {
+  it('aborts all deletions when no collaborator resolves to a Fluffmind user', async () => {
     const deps = createDeps({
       async listWorkspaceMembers() {
-        return [{ id: 'member-owner', userId: 'user-1', role: 'owner' }]
+        return [
+          { id: 'member-owner', userId: 'user-1', role: 'owner' },
+          { id: 'member-writer', userId: 'user-2', role: 'write' },
+        ]
       },
       async listMemberSyncMeta() {
-        return [{ memberId: 'member-owner', source: 'github', localOverride: false }]
+        return [
+          { memberId: 'member-owner', source: 'github', localOverride: false },
+          { memberId: 'member-writer', source: 'github', localOverride: false },
+        ]
       },
       async resolveUserIdByGitHubLogin() {
         return null
       },
       async fetchCollaborators() {
-        return [{ login: 'alice', permission: 'admin', id: '42' }]
+        return [
+          { login: 'alice', permission: 'admin', id: '1' },
+          { login: 'bob', permission: 'push', id: '2' },
+        ]
       },
     })
 
@@ -80,7 +100,43 @@ describe('syncWorkspaceMembersFromGitHub — last-owner protection', () => {
       deps,
     )
 
-    expect(result.skippedUnlinked).toBe(1)
+    expect(result.skippedUnlinked).toBe(2)
+    expect(result.deleted).toBe(0)
+    expect(result.deletionSweepSkipped).toBe('unresolved_collaborators')
+    expect(deps.removed).toEqual([])
+  })
+})
+
+describe('syncWorkspaceMembersFromGitHub — last-owner protection', () => {
+  it('keeps the sole owner when a partial collaborator set would remove them', async () => {
+    const deps = createDeps({
+      async listWorkspaceMembers() {
+        return [
+          { id: 'member-owner', userId: 'user-1', role: 'owner' },
+          { id: 'member-writer', userId: 'user-2', role: 'write' },
+        ]
+      },
+      async listMemberSyncMeta() {
+        return [
+          { memberId: 'member-owner', source: 'github', localOverride: false },
+          { memberId: 'member-writer', source: 'github', localOverride: false },
+        ]
+      },
+      async resolveUserIdByGitHubLogin(login) {
+        return login === 'bob' ? 'user-2' : null
+      },
+      async fetchCollaborators() {
+        // Writer still on GitHub; owner missing from list → protect last owner.
+        return [{ login: 'bob', permission: 'push', id: '2' }]
+      },
+    })
+
+    const result = await syncWorkspaceMembersFromGitHub(
+      'org-1',
+      { token: 't', owner: 'acme', repo: 'vault' },
+      deps,
+    )
+
     expect(result.deleted).toBe(0)
     expect(result.skippedProtected).toBe(1)
     expect(deps.removed).toEqual([])
@@ -146,6 +202,7 @@ describe('syncWorkspaceMembersFromGitHub — last-owner protection', () => {
     )
 
     expect(result.deleted).toBe(1)
+    expect(result.deletionSweepSkipped).toBeNull()
     expect(deps.removed).toEqual(['member-writer'])
   })
 
@@ -165,8 +222,12 @@ describe('syncWorkspaceMembersFromGitHub — last-owner protection', () => {
           { memberId: 'writer', source: 'github', localOverride: false },
         ]
       },
+      async resolveUserIdByGitHubLogin(login) {
+        return login === 'carol' ? 'user-3' : null
+      },
       async fetchCollaborators() {
-        return []
+        // Only the writer remains on GitHub — both owners would be removed without protection.
+        return [{ login: 'carol', permission: 'push' }]
       },
     })
 
@@ -176,9 +237,9 @@ describe('syncWorkspaceMembersFromGitHub — last-owner protection', () => {
       deps,
     )
 
-    expect(deps.removed).toContain('writer')
+    expect(deps.removed).toEqual([])
     expect(deps.removed.some(id => id.startsWith('owner-'))).toBe(false)
-    expect(result.deleted).toBe(1)
+    expect(result.deleted).toBe(0)
     expect(result.skippedProtected).toBe(2)
   })
 
@@ -191,7 +252,10 @@ describe('syncWorkspaceMembersFromGitHub — last-owner protection', () => {
         return []
       },
       async fetchCollaborators() {
-        return []
+        return [{ login: 'alice', permission: 'admin' }]
+      },
+      async resolveUserIdByGitHubLogin() {
+        return 'user-1'
       },
     })
 
@@ -203,5 +267,6 @@ describe('syncWorkspaceMembersFromGitHub — last-owner protection', () => {
 
     expect(result.deleted).toBe(0)
     expect(deps.removed).toEqual([])
+    expect(deps.upserted.some(row => row.source === 'github')).toBe(false)
   })
 })
