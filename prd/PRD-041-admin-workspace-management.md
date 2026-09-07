@@ -54,13 +54,14 @@ can access workspace X?" or to administer a workspace the admin doesn't belong t
 - [ ] `requireWorkspaceManageAuthority(event, workspaceId)` → passes for instance admin
       OR owner-of-workspace; returns `{ workspaceId, actor: 'admin' | 'owner' }`
 - [ ] Migrate `api/workspaces/**` management endpoints to accept an explicit
-      `workspaceId` and use the shared guard (members, invitations, GitHub link/unlink/
-      sync, content roots, agent/MCP tokens, agent enable)
-- [ ] Admin console on `/settings/admin`: expand each workspace row into a management
-      view reusing the owner settings components
+      `workspaceId` (uniform for owners and admins) and use the shared guard (members,
+      invitations, GitHub link/unlink/sync, content roots, agent/MCP tokens, agent enable)
+- [ ] Admin console route `/settings/admin/workspaces/[id]` reusing the owner settings
+      components (Members, GitHub sync, Content roots, Tokens) + danger zone
+- [ ] New `admin_audit` table + write on every admin cross-workspace mutation
 - [ ] Accessible confirmation modal for reset-hard / delete / unlink (replaces
       `window.prompt`), showing workspace name + impact
-- [ ] Instance-wide "workspace → members" visibility for admins
+- [ ] Instance-wide "workspace → members" **read-only** view for admins
 
 ### Non-functional
 
@@ -74,15 +75,20 @@ can access workspace X?" or to administer a workspace the admin doesn't belong t
 - ADRs: [[../foam/decisions/ADR-015-instance-admin-workspace-authority|ADR-015]], [[../foam/decisions/ADR-013-admin-dangerous-workspace-ops|ADR-013]], [[../foam/decisions/ADR-014-admin-github-panel|ADR-014]], [[../foam/decisions/ADR-006-better-auth-workspaces|ADR-006]]
 - Code: `apps/web/app/pages/settings/admin.vue`, `apps/web/app/pages/settings/workspace.vue`, `apps/web/server/api/workspaces/**`, `apps/web/server/utils/admin.ts`
 
-## Open questions
+## Resolved decisions
 
-1. Do we split the console into an admin route per workspace (`/settings/admin/workspaces/[id]`)
-   or expand rows inline on the existing page?
-2. Should owner endpoints also accept an explicit id (uniform API) or keep the
-   active-workspace shortcut for owners and add id-targeting only for admins?
-3. Where do audit logs land — a new `admin_audit` table, structured console logs, or
-   reuse an existing surface?
-4. Is instance-wide member visibility a read-only list now, with edit deferred?
+1. **Route per workspace** — the console is a dedicated admin route
+   `/settings/admin/workspaces/[id]` (not inline row expansion), so deep-links and
+   navigation are clean.
+2. **Uniform API** — management endpoints take an explicit `workspaceId` for **all**
+   callers (owners and admins alike); the active-workspace cookie is no longer implicit
+   authority. Owner UI passes the active id explicitly.
+3. **New `admin_audit` table** — admin cross-workspace mutations are recorded in a
+   dedicated `admin_audit` table (actor id, `actor='admin'`, action, target workspace,
+   timestamp), not just console logs.
+4. **Member visibility read-only first** — the instance-wide "workspace → members" view
+   ships read-only; cross-workspace member editing from that view is deferred (per-
+   workspace member management still edits via the console).
 
 ## Success metrics
 
