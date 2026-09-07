@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import {
+  isGitHubAppConfigured,
+  resolveWorkspaceGitHubCredentials,
+} from './github-credentials'
+
 const mocks = vi.hoisted(() => ({
   createInstallationToken: vi.fn(),
   decryptSyncToken: vi.fn(),
@@ -25,11 +30,6 @@ vi.mock('@fluffmind/integrations', () => ({
 vi.mock('./github-token-crypto', () => ({
   decryptSyncToken: mocks.decryptSyncToken,
 }))
-
-import {
-  isGitHubAppConfigured,
-  resolveWorkspaceGitHubCredentials,
-} from './github-credentials'
 
 function mockGitHubLink(link: Record<string, unknown> | undefined): void {
   const limit = vi.fn().mockResolvedValue(link ? [link] : [])

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { KanbanBoard, KanbanCard, KanbanColumn } from '@fluffmind/kanban'
+import type { KanbanBoard, KanbanCard } from '@fluffmind/kanban'
 import {
   FluffmindButton,
   FluffmindCheckbox,

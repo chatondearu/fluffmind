@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import {
+  assertWorkspaceGithubLinkAbsent,
+  getWorkspaceGitHubSyncState,
+  unlinkWorkspaceGithubSync,
+} from './github-sync'
+
 const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
   isGitHubAppConfigured: vi.fn(),
@@ -45,12 +51,6 @@ vi.mock('drizzle-orm', () => ({
 vi.mock('@fluffmind/integrations', () => ({
   syncWorkspaceMembersFromGitHub: vi.fn(),
 }))
-
-import {
-  assertWorkspaceGithubLinkAbsent,
-  getWorkspaceGitHubSyncState,
-  unlinkWorkspaceGithubSync,
-} from './github-sync'
 
 function mockSelectForSyncState(linkRows: unknown[]) {
   return vi.fn()

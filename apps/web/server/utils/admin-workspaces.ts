@@ -84,7 +84,7 @@ export async function listAdminWorkspaces(): Promise<{
       vaultExists = true
     }
     catch {
-      vaultExists = false
+      // vaultExists stays false when the path is missing
     }
     workspaces.push({
       organizationId: row.organizationId,
@@ -114,7 +114,7 @@ export async function listAdminWorkspaces(): Promise<{
     )
   }
   catch {
-    orphans = []
+    // orphans stays [] when the workspaces root is unreadable
   }
 
   return { workspaces, orphans }
