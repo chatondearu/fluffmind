@@ -14,6 +14,7 @@ import { encryptSyncToken } from '../../../utils/github-token-crypto'
 import { getWorkspaceGitHubSyncState, assertWorkspaceGithubLinkAbsent, parseRepoIdentifier } from '../../../utils/github-sync'
 import { readJsonBody } from '../../../utils/read-json-body'
 import { InvalidContentRootError } from '../../../vault/content-roots'
+import { invalidateBootstrap } from '../../../vault/sync'
 import { resolveActiveWorkspaceId } from '../../../vault/workspace'
 
 interface LinkWorkspaceGitHubBody {
@@ -162,6 +163,10 @@ export default defineEventHandler(async (event) => {
 
   if (body.contentRoots !== undefined)
     await setWorkspaceContentRootsIfAllowed(workspaceId, body.contentRoots, contentRootsUpdate)
+
+  // The Git remote just changed — drop the cached bootstrap so the working copy is
+  // re-adopted against the newly linked repository on the next access.
+  invalidateBootstrap(workspaceId)
 
   return getWorkspaceGitHubSyncState(workspaceId)
 })

@@ -144,10 +144,22 @@ async function withPostgresLock<T>(workspaceId: string, run: () => Promise<T>): 
   }
 }
 
+function runUnderWorkspaceLock<T>(workspaceId: string, run: () => Promise<T>): Promise<T> {
+  return withLocalChain(workspaceId, () => {
+    if (usePostgresLock()) {
+      return withPostgresLock(workspaceId, run)
+    }
+    return withFlockLock(workspaceId, run)
+  })
+}
+
 /**
  * Serialize vault mutations for a workspace across processes (Postgres advisory lock
  * when DATABASE_URL is set, otherwise cross-process file lock) and within the current
  * process (promise chain). Rejects immediately when `VAULT_READONLY=true`.
+ *
+ * Not reentrant: `run()` must not call `withWorkspaceLock`/`withWorkspaceSyncLock` for
+ * the same workspace, or the in-process promise chain deadlocks.
  */
 export function withWorkspaceLock<T>(workspaceId: string, run: () => Promise<T>): Promise<T> {
   try {
@@ -156,12 +168,18 @@ export function withWorkspaceLock<T>(workspaceId: string, run: () => Promise<T>)
   catch (error) {
     return Promise.reject(error)
   }
-  return withLocalChain(workspaceId, () => {
-    if (usePostgresLock()) {
-      return withPostgresLock(workspaceId, run)
-    }
-    return withFlockLock(workspaceId, run)
-  })
+  return runUnderWorkspaceLock(workspaceId, run)
+}
+
+/**
+ * Same cross-process + in-process serialization as {@link withWorkspaceLock}, but for
+ * remote-sync operations (pull/fetch/rebase) that only touch the working copy from the
+ * remote and must therefore be allowed even when `VAULT_READONLY=true`. Sharing one lock
+ * with writes is what prevents a webhook-triggered `git pull --rebase` from racing a
+ * concurrent `commitAndPush` and corrupting the working tree.
+ */
+export function withWorkspaceSyncLock<T>(workspaceId: string, run: () => Promise<T>): Promise<T> {
+  return runUnderWorkspaceLock(workspaceId, run)
 }
 
 /** @internal test helpers — not part of the public vault API */
