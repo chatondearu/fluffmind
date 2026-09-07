@@ -36,7 +36,9 @@ services:
       - GITHUB_APP_SLUG=${GITHUB_APP_SLUG:-}
       - GITHUB_APP_WEBHOOK_SECRET=${GITHUB_APP_WEBHOOK_SECRET:-}
       - AUTH_DISABLED=${AUTH_DISABLED:-true}
+      - AUTH_PUBLIC_SIGNUP=${AUTH_PUBLIC_SIGNUP:-}
       - WORKSPACES_ROOT=/data/workspaces
+      - LOCK_WAIT_MS=${LOCK_WAIT_MS:-}
       # Required when AUTH_DISABLED=false — set in Coolify UI to your public app URL.
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-}
