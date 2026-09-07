@@ -104,8 +104,12 @@ function blockToMarkdown(block: BlockNode): string {
     case 'divider':
       return '---'
     case 'image': {
-      const alt = block.alt ?? ''
-      const url = block.url ?? ''
+      // Escape `[`/`]` (and `\`) in alt, and wrap URLs containing spaces or parens in
+      // angle brackets, so an alt/url with special chars round-trips instead of breaking
+      // the `![alt](url)` syntax when reopened in Obsidian/VS Code.
+      const alt = (block.alt ?? '').replace(/[\\[\]]/g, '\\$&')
+      const rawUrl = block.url ?? ''
+      const url = /[\s()]/.test(rawUrl) ? `<${rawUrl.replace(/[<>]/g, '\\$&')}>` : rawUrl
       const title = block.title?.trim()
       if (title) {
         return `![${alt}](${url} "${title.replace(/"/g, '\\"')}")`

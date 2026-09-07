@@ -16,6 +16,13 @@ import { useNoteAutosave, type EditorMode } from '../../composables/useNoteAutos
 import { buildNoteSourceFile, parseNoteSourceFile } from '../../utils/note-source'
 import { splitTitleFromBlocks, blocksWithTitle } from '../../utils/note-title'
 
+// Remount the page on note→note navigation. Without this, `<NuxtPage>` reuses the
+// instance: `useFetch` refetches but the `initialized` guard and `noteId` ref keep the
+// previous note's state, so autosave would write to the wrong note. See review §blocker-3.
+definePageMeta({
+  key: route => route.path,
+})
+
 interface NoteDetailResponse {
   note: { id: string, title: string, frontmatter: Record<string, unknown>, content: string, html: string }
   links: ResolvedLink[]

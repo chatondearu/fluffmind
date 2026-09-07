@@ -55,4 +55,17 @@ describe('new markdown blocks', () => {
     expect(blocksToMarkdown([callout])).toBe('> [!tip] Hint\n> Do this')
     expect(blocksToMarkdown([mermaid])).toContain('```mermaid')
   })
+
+  it('round-trips an image whose alt/url contain special characters', () => {
+    const image = createEmptyBlock('image')
+    image.alt = 'a [b] c'
+    image.url = 'https://example.com/my file (v2).png'
+
+    const markdown = blocksToMarkdown([image])
+    const { blocks } = parseMarkdownToDocument(markdown)
+
+    expect(blocks[0]?.type).toBe('image')
+    expect(blocks[0]?.alt).toBe('a [b] c')
+    expect(blocks[0]?.url).toBe('https://example.com/my file (v2).png')
+  })
 })

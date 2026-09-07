@@ -63,17 +63,23 @@ watch(mode, (next) => {
   }
 })
 
+let mermaidInitialized = false
+
 async function renderPreview() {
   if (!previewEl.value) return
   rendering.value = true
   renderError.value = null
   try {
     const mermaid = (await import('mermaid')).default
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      theme: 'neutral',
-    })
+    // Initialize once per block, not on every keystroke/re-render in preview mode.
+    if (!mermaidInitialized) {
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: 'neutral',
+      })
+      mermaidInitialized = true
+    }
     const id = `mermaid-${props.block.id.replace(/[^a-zA-Z0-9_-]/g, '')}`
     const source = text.value.trim() || 'flowchart TD\n  A --> B'
     const { svg } = await mermaid.render(id, source)
