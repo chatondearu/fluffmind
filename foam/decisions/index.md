@@ -18,6 +18,7 @@
 | [[ADR-012-workspace-content-roots|ADR-012]] | Workspace content roots (logical vault subset) | accepted |
 | [[ADR-013-admin-dangerous-workspace-ops|ADR-013]] | Instance-admin dangerous workspace operations | accepted |
 | [[ADR-014-admin-github-panel|ADR-014]] | Instance-admin GitHub App panel | accepted |
+| [[ADR-015-instance-admin-workspace-authority|ADR-015]] | Instance-admin authority over any workspace | proposed |
 
 Template: [[ADR-template|ADR-template]]
 
