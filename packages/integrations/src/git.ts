@@ -313,7 +313,7 @@ export async function pullFromRemote(
   }
   catch (error) {
     rethrowIfGitAuthError(error)
-    await git.rebase(['--abort']).catch(() => {})
+    await abortRebaseQuietly(git, branch)
     const message = asErrorMessage(error)
     if (/unrelated histories/i.test(message)) {
       throw new GitConflictError(
@@ -351,6 +351,23 @@ export async function resetHardToRemote(
 
 function asErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * Abort an in-progress rebase, logging (rather than swallowing) a failed abort. A failed
+ * abort leaves the working copy mid-rebase, so the "local commit is intact" guarantee no
+ * longer holds — the next write starts from an inconsistent state. Surfacing it in logs
+ * makes that recoverable instead of silent.
+ */
+async function abortRebaseQuietly(git: SimpleGit, branch: string): Promise<void> {
+  try {
+    await git.rebase(['--abort'])
+  }
+  catch (abortError) {
+    console.warn(
+      `[git] Failed to abort rebase on branch "${branch}" — working copy may be left mid-rebase and need a manual reset: ${asErrorMessage(abortError)}`,
+    )
+  }
 }
 
 function rethrowIfGitAuthError(error: unknown): void {
@@ -403,7 +420,7 @@ export async function commitAndPush(git: SimpleGit, options: CommitPushOptions):
       await git.rebase([`origin/${branch}`])
     }
     catch {
-      await git.rebase(['--abort']).catch(() => {})
+      await abortRebaseQuietly(git, branch)
       throw new GitConflictError(
         `Rebase conflict syncing branch "${branch}" — local commit is intact but not pushed.`,
       )

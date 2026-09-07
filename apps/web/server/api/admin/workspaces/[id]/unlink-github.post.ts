@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { requireAdminInstance } from '../../../../utils/admin'
 import { unlinkWorkspaceGithubSync } from '../../../../utils/github-sync'
 import { invalidateVaultIndex } from '../../../../vault/service'
+import { invalidateBootstrap } from '../../../../vault/sync'
 
 export default defineEventHandler(async (event) => {
   await requireAdminInstance(event)
@@ -18,5 +19,6 @@ export default defineEventHandler(async (event) => {
 
   const state = await unlinkWorkspaceGithubSync(id)
   invalidateVaultIndex(id)
+  invalidateBootstrap(id)
   return state
 })

@@ -64,7 +64,9 @@ function logSyncWarnings(status: SyncStatus, branch: string): void {
 
 /**
  * Ensures the Git working copy exists for a workspace before indexing.
- * Idempotent — cached per workspace id.
+ * Idempotent — the resolved promise is cached per workspace id. A *failed* bootstrap is
+ * evicted from the cache so the next call retries instead of replaying the rejection
+ * forever (a transient clone/network failure must not brick the workspace).
  */
 export function bootstrapWorkspace(workspaceId = 'default'): Promise<SyncStatus | null> {
   if (!isAuthEnabled() && workspaceId !== 'default') {
@@ -93,8 +95,24 @@ export function bootstrapWorkspace(workspaceId = 'default'): Promise<SyncStatus 
     return status
   })()
 
+  // Evict on failure so a later call can retry from scratch.
+  promise.catch(() => {
+    if (bootstrapPromises.get(workspaceId) === promise) {
+      bootstrapPromises.delete(workspaceId)
+    }
+  })
+
   bootstrapPromises.set(workspaceId, promise)
   return promise
+}
+
+/**
+ * Drop the cached bootstrap for a workspace so the next {@link bootstrapWorkspace} call
+ * re-clones/re-adopts the working copy. Call after the workspace's Git remote changes
+ * (link/unlink/relink) or after a hard reset that rewrites the working copy.
+ */
+export function invalidateBootstrap(workspaceId = 'default'): void {
+  bootstrapPromises.delete(workspaceId)
 }
 
 /** Fresh sync status for API visibility — always re-reads from git. */

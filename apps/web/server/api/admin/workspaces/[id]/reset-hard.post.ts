@@ -7,6 +7,7 @@ import { assertConfirmSlug } from '../../../../utils/admin-workspaces'
 import { readJsonBody } from '../../../../utils/read-json-body'
 import { rethrowVaultMutationError } from '../../../../utils/vault-mutation-error'
 import { invalidateVaultIndex } from '../../../../vault/service'
+import { invalidateBootstrap } from '../../../../vault/sync'
 import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from '../../../../vault/workspace'
 import { withWorkspaceWriteLock } from '../../../../vault/write'
 
@@ -38,6 +39,7 @@ export default defineEventHandler(async (event) => {
       const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
       await resetHardToRemote(git, { branch: config.branch, accessToken: network.accessToken })
       invalidateVaultIndex(id)
+      invalidateBootstrap(id)
     })
   }
   catch (error) {

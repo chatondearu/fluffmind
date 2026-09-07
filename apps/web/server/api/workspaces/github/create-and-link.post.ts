@@ -16,6 +16,7 @@ import type { ContentRootsUpdate } from '../../../utils/content-roots-config'
 import { getWorkspaceGitHubSyncState } from '../../../utils/github-sync'
 import { readJsonBody } from '../../../utils/read-json-body'
 import { InvalidContentRootError } from '../../../vault/content-roots'
+import { invalidateBootstrap } from '../../../vault/sync'
 import { resolveActiveWorkspaceId } from '../../../vault/workspace'
 
 interface CreateAndLinkGithubRepoBody extends CreateGithubRepoBody {
@@ -106,6 +107,9 @@ export default defineEventHandler(async (event) => {
 
   if (!github.ok)
     return { github }
+
+  // A repo was just created and linked — re-adopt the working copy against it.
+  invalidateBootstrap(workspaceId)
 
   return {
     github,

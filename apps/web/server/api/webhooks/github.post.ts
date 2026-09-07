@@ -13,6 +13,8 @@ import {
   type GithubInstallationRepositoriesPayload,
   type GithubPushPayload,
 } from '../../utils/github-webhook'
+import { isAuthEnabled } from '../../utils/auth'
+import { resolveWorkspaceIdsForRepo } from '../../utils/github-sync'
 import { pullWorkspaceChanges } from '../../vault/pull'
 import { workspaceConfigFromEnv } from '../../vault/workspace'
 
@@ -26,6 +28,7 @@ function parsePayload<T>(rawBody: string): T {
 
 async function handlePush(rawBody: string) {
   const payload = parsePayload<GithubPushPayload>(rawBody)
+  const repository = payload.repository?.full_name ?? null
 
   const config = workspaceConfigFromEnv()
   const branch = config?.branch ?? process.env.GIT_BRANCH ?? 'main'
@@ -33,13 +36,26 @@ async function handlePush(rawBody: string) {
     return { ok: true, ignored: true, reason: `ref:${payload.ref ?? 'unknown'}` }
   }
 
-  const result = await pullWorkspaceChanges()
-  return {
-    ok: true,
-    pulled: result.updated,
-    behindBefore: result.behindBefore,
-    repository: payload.repository?.full_name ?? null,
+  // Solo/no-auth: a single env-configured workspace. Multi-tenant: route the push to
+  // the workspace(s) whose linked repository matches the payload, so a webhook never
+  // pulls the wrong vault (or silently no-ops on the `default` workspace).
+  if (!isAuthEnabled()) {
+    const result = await pullWorkspaceChanges()
+    return { ok: true, pulled: result.updated, behindBefore: result.behindBefore, repository }
   }
+
+  const workspaceIds = repository ? await resolveWorkspaceIdsForRepo(repository) : []
+  if (workspaceIds.length === 0) {
+    return { ok: true, ignored: true, reason: `repo-unlinked:${repository ?? 'unknown'}` }
+  }
+
+  const pulls = await Promise.all(
+    workspaceIds.map(async (workspaceId) => {
+      const result = await pullWorkspaceChanges(workspaceId)
+      return { workspaceId, pulled: result.updated, behindBefore: result.behindBefore }
+    }),
+  )
+  return { ok: true, repository, workspaces: pulls }
 }
 
 async function handleInstallation(rawBody: string) {

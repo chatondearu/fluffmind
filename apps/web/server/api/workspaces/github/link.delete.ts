@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 
 import { requireSession } from '../../../utils/auth'
 import { unlinkWorkspaceGithubSync } from '../../../utils/github-sync'
+import { invalidateBootstrap } from '../../../vault/sync'
 import { resolveActiveWorkspaceId } from '../../../vault/workspace'
 
 async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<void> {
@@ -28,5 +29,7 @@ async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<vo
 export default defineEventHandler(async (event) => {
   const workspaceId = await resolveActiveWorkspaceId(event)
   await requireOwnerRole(event, workspaceId)
-  return unlinkWorkspaceGithubSync(workspaceId)
+  const state = await unlinkWorkspaceGithubSync(workspaceId)
+  invalidateBootstrap(workspaceId)
+  return state
 })

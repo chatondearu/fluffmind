@@ -62,6 +62,32 @@ export function parseRepoIdentifier(input: string): { owner: string, repo: strin
   }
 }
 
+/**
+ * Resolve which workspace(s) are linked to a GitHub repository (`owner/repo`), matching
+ * case-insensitively. Used to route a `push` webhook to the correct workspace vault in
+ * multi-tenant deployments. Returns `[]` for an unknown/malformed repository.
+ */
+export async function resolveWorkspaceIdsForRepo(fullName: string): Promise<string[]> {
+  const parsed = parseRepoIdentifier(fullName)
+  if (!parsed)
+    return []
+
+  const db = getDb()
+  const links = await db
+    .select({
+      organizationId: workspaceGithubLink.organizationId,
+      owner: workspaceGithubLink.owner,
+      repo: workspaceGithubLink.repo,
+    })
+    .from(workspaceGithubLink)
+
+  const owner = parsed.owner.toLowerCase()
+  const repo = parsed.repo.toLowerCase()
+  return links
+    .filter(link => link.owner.toLowerCase() === owner && link.repo.toLowerCase() === repo)
+    .map(link => link.organizationId)
+}
+
 async function getLocalOverrides(organizationId: string): Promise<Record<string, boolean>> {
   const db = getDb()
   const rows = await db

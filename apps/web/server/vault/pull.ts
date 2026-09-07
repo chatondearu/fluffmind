@@ -1,6 +1,7 @@
 import { ensureWorkingCopy, GitAuthError, GitConflictError, pullFromRemote } from '@fluffmind/integrations'
 import type { PullFromRemoteResult } from '@fluffmind/integrations'
 
+import { withWorkspaceSyncLock } from './lock'
 import { invalidateVaultIndex } from './service'
 import { bootstrapWorkspace } from './sync'
 import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
@@ -18,39 +19,46 @@ export async function pullWorkspaceChanges(workspaceId = 'default'): Promise<Pul
     })
   }
 
+  // Bootstrap (clone/adopt) stays outside the lock: it is idempotent, cached, and
+  // must not take the lock itself (the lock is not reentrant).
   await bootstrapWorkspace(workspaceId)
-  const network = await resolveWorkspaceGitNetwork(workspaceId)
-  const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
 
-  let result: PullFromRemoteResult
-  try {
-    result = await pullFromRemote(git, {
-      branch: config.branch,
-      remoteConfigured: true,
-      accessToken: network.accessToken,
-    })
-  }
-  catch (error) {
-    if (error instanceof GitConflictError) {
-      throw createError({
-        statusCode: 409,
-        statusMessage: 'Conflict',
-        message: error.message,
+  // Serialize the pull/rebase against writes on the same workspace. Uses the sync lock
+  // (not the write lock) so a read-only instance can still pull remote changes.
+  return withWorkspaceSyncLock(workspaceId, async () => {
+    const network = await resolveWorkspaceGitNetwork(workspaceId)
+    const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
+
+    let result: PullFromRemoteResult
+    try {
+      result = await pullFromRemote(git, {
+        branch: config.branch,
+        remoteConfigured: true,
+        accessToken: network.accessToken,
       })
     }
-    if (error instanceof GitAuthError) {
-      throw createError({
-        statusCode: 502,
-        statusMessage: 'Git authentication failed',
-        message: 'Could not authenticate to the GitHub remote. Check App permissions or re-link sync in workspace settings.',
-      })
+    catch (error) {
+      if (error instanceof GitConflictError) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: 'Conflict',
+          message: error.message,
+        })
+      }
+      if (error instanceof GitAuthError) {
+        throw createError({
+          statusCode: 502,
+          statusMessage: 'Git authentication failed',
+          message: 'Could not authenticate to the GitHub remote. Check App permissions or re-link sync in workspace settings.',
+        })
+      }
+      throw error
     }
-    throw error
-  }
 
-  if (result.updated) {
-    invalidateVaultIndex(workspaceId)
-  }
+    if (result.updated) {
+      invalidateVaultIndex(workspaceId)
+    }
 
-  return result
+    return result
+  })
 }
