@@ -124,7 +124,13 @@ async function loadGithub() {
   }
 }
 
-await Promise.all([loadUsers(), loadWorkspaces(), loadGithub()])
+// Load client-side only: these admin endpoints require a session cookie, which a
+// top-level SSR `$fetch` does not forward — that produced a guaranteed 401 on the server
+// followed by a re-fetch on the client (double request + error flash). Loading refs
+// default to true, so SSR and the initial client render both show the loading state.
+onMounted(() => {
+  void Promise.all([loadUsers(), loadWorkspaces(), loadGithub()])
+})
 
 async function promoteOrDemote(user: AdminUser) {
   const nextRole = user.role === 'admin' ? 'owner' : 'admin'

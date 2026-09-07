@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { describe, expect, it } from 'vitest'
-import { domToInlines, writeInlinesToDom } from './inline-dom'
+import { domToInlines, sanitizeLinkUrl, writeInlinesToDom } from './inline-dom'
 import { inlinesToMarkdown } from './inlines'
 import type { InlineNode } from './types'
 
@@ -81,5 +81,42 @@ describe('inline-dom', () => {
 
     expect(domToInlines(root)).toEqual([{ type: 'text', value: 'label' }])
     expect(inlinesToMarkdown(domToInlines(root))).toBe('label')
+  })
+
+  it('renders a safe href for allowed schemes and relative URLs', () => {
+    const root = document.createElement('div')
+    writeInlinesToDom(root, [
+      { type: 'link', value: 'x', url: 'https://example.com', children: [{ type: 'text', value: 'x' }] },
+    ])
+    expect(root.querySelector('a')?.getAttribute('href')).toBe('https://example.com')
+  })
+
+  describe('sanitizeLinkUrl', () => {
+    it('keeps safe schemes and relative/anchor URLs', () => {
+      expect(sanitizeLinkUrl('https://example.com')).toBe('https://example.com')
+      expect(sanitizeLinkUrl('http://example.com')).toBe('http://example.com')
+      expect(sanitizeLinkUrl('mailto:a@b.com')).toBe('mailto:a@b.com')
+      expect(sanitizeLinkUrl('/notes/foo')).toBe('/notes/foo')
+      expect(sanitizeLinkUrl('#section')).toBe('#section')
+      expect(sanitizeLinkUrl('foo/bar?q=1')).toBe('foo/bar?q=1')
+    })
+
+    it('drops dangerous schemes, including obfuscated ones', () => {
+      expect(sanitizeLinkUrl('javascript:alert(1)')).toBe('')
+      expect(sanitizeLinkUrl('JavaScript:alert(1)')).toBe('')
+      expect(sanitizeLinkUrl('  javascript:alert(1)')).toBe('')
+      expect(sanitizeLinkUrl('java\tscript:alert(1)')).toBe('')
+      expect(sanitizeLinkUrl('data:text/html,<script>alert(1)</script>')).toBe('')
+      expect(sanitizeLinkUrl('vbscript:msgbox(1)')).toBe('')
+      expect(sanitizeLinkUrl(undefined)).toBe('')
+    })
+
+    it('neutralizes a javascript: link at render time', () => {
+      const root = document.createElement('div')
+      writeInlinesToDom(root, [
+        { type: 'link', value: 'x', url: 'javascript:alert(1)', children: [{ type: 'text', value: 'x' }] },
+      ])
+      expect(root.querySelector('a')?.getAttribute('href')).toBe('')
+    })
   })
 })
