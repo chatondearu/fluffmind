@@ -35,23 +35,25 @@ owner, without membership, and without weakening owner isolation for non-admins.
    **or** an `owner` member of `workspaceId`. It returns the resolved `workspaceId`
    and an `actor` discriminator (`'admin' | 'owner'`) for auditing.
 
-2. **Explicit workspace targeting** — management handlers accept an explicit
-   `workspaceId` (path/body) instead of only the active-cookie workspace. Owners may
-   only target a workspace they own; admins may target any. The existing owner UX
-   (act on the active workspace) is preserved by passing the active id.
+2. **Uniform explicit targeting** — management handlers accept an explicit `workspaceId`
+   (path/body) for **all** callers; the active-cookie workspace is no longer implicit
+   authority. Owners may only target a workspace they own; admins may target any. The
+   owner UI passes its active workspace id explicitly, so behavior is unchanged for them.
 
 3. **Consolidate the rule** — replace the duplicated local `requireOwnerRole` helpers
    with the shared guard. Better Auth's `workspace:manage` permission stays the
    owner-side source of truth; the admin branch is an explicit instance-level override
    layered on top, not a new Better Auth role.
 
-4. **UI** — surface per-workspace management (members, GitHub sync, content roots,
-   tokens) inside the admin console on `/settings/admin`, reusing the owner settings
-   components, and replace destructive-action `window.prompt(slug)` confirmations with
-   an accessible confirmation modal. Owner `/settings/workspace` is unchanged.
+4. **UI** — per-workspace management lives on a dedicated admin route
+   `/settings/admin/workspaces/[id]` (members, GitHub sync, content roots, tokens +
+   danger zone), reusing the owner settings components, with an accessible confirmation
+   modal replacing `window.prompt(slug)`. An instance-wide "workspace → members" view
+   ships **read-only** first. Owner `/settings/workspace` is unchanged.
 
-5. **Audit** — admin-as-owner mutations are logged with the acting admin's user id and
-   the `actor='admin'` discriminator so cross-workspace actions are traceable.
+5. **Audit** — admin cross-workspace mutations are recorded in a dedicated `admin_audit`
+   table (actor user id, `actor='admin'`, action, target workspace id, timestamp), not
+   only console logs.
 
 ## Alternatives considered
 
