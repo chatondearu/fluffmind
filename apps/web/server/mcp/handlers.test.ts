@@ -3,10 +3,6 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../utils/mcp-tokens', () => ({
-  getWorkspaceIdentity: vi.fn().mockResolvedValue(null),
-}))
-
 import { ContentRootViolationError } from '../vault/content-roots'
 import { invalidateVaultIndex } from '../vault/service'
 import { DEFAULT_MCP_WORKSPACE_ID } from './context'
@@ -20,6 +16,10 @@ import {
   searchNotes,
   writeNoteContent,
 } from './handlers'
+
+vi.mock('../utils/mcp-tokens', () => ({
+  getWorkspaceIdentity: vi.fn().mockResolvedValue(null),
+}))
 
 const ctx = { workspaceId: DEFAULT_MCP_WORKSPACE_ID, scope: 'write' as const }
 let vaultPath = ''

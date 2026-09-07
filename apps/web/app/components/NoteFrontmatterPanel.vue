@@ -104,8 +104,7 @@ function addCustomField() {
 }
 
 function updateCustomField(oldKey: string, nextKey: string, value: string) {
-  const next = { ...frontmatter.value }
-  delete next[oldKey]
+  const { [oldKey]: _removed, ...next } = frontmatter.value
   const trimmedKey = nextKey.trim()
   if (trimmedKey) {
     next[trimmedKey] = parseFieldValue(value)
@@ -114,8 +113,7 @@ function updateCustomField(oldKey: string, nextKey: string, value: string) {
 }
 
 function removeCustomField(key: string) {
-  const next = { ...frontmatter.value }
-  delete next[key]
+  const { [key]: _removed, ...next } = frontmatter.value
   frontmatter.value = next
 }
 </script>

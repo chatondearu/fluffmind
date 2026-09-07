@@ -27,10 +27,6 @@ const isFolderExpanded = computed(() =>
   props.node.kind === 'folder' && props.isExpanded(props.node.path),
 )
 
-const folderPathForActions = computed<string | null>(() =>
-  props.node.kind === 'folder' ? (props.node.path || null) : null,
-)
-
 function onFolderClick() {
   if (props.node.kind === 'folder') {
     emit('toggle', props.node.path)

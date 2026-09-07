@@ -20,25 +20,18 @@ export async function repairWorkspaceSession(options: {
   const orgRows = await db.select({ id: organization.id }).from(organization)
   const orgIds = orgRows.map(row => row.id)
 
-  let clearedStale = false
-  if (orgIds.length === 0) {
-    const cleared = await db.update(session)
-      .set({ activeOrganizationId: null })
-      .where(and(eq(session.userId, userId), isNotNull(session.activeOrganizationId)))
-      .returning({ id: session.id })
-    clearedStale = cleared.length > 0
-  }
-  else {
-    const cleared = await db.update(session)
-      .set({ activeOrganizationId: null })
-      .where(and(
+  const staleWhere = orgIds.length === 0
+    ? and(eq(session.userId, userId), isNotNull(session.activeOrganizationId))
+    : and(
         eq(session.userId, userId),
         isNotNull(session.activeOrganizationId),
         notInArray(session.activeOrganizationId, orgIds),
-      ))
-      .returning({ id: session.id })
-    clearedStale = cleared.length > 0
-  }
+      )
+  const cleared = await db.update(session)
+    .set({ activeOrganizationId: null })
+    .where(staleWhere)
+    .returning({ id: session.id })
+  const clearedStale = cleared.length > 0
 
   const [current] = await db
     .select({
