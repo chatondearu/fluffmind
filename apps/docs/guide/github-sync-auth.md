@@ -69,5 +69,12 @@ To switch modes, **unlink** the current sync first
 (`DELETE /api/workspaces/github/link?workspaceId=<id>`),
 then choose App or PAT again. Linking while another mode is active returns **409**.
 
-Workspace creation may still create-and-link a GitHub repo in one step (new workspace =
-local until that succeeds).
+### At workspace creation
+
+When the GitHub App is installed, the “New workspace” dialog offers:
+
+- **Create a GitHub repository** — creates `fluff-<slug>` (or a custom name) via the App and links it
+- **Link an existing repository** — pick a repo from an App installation; the new empty vault clones that remote on first use
+- **Local only** — no GitHub binding (you can link later from workspace settings)
+
+If GitHub creation or linking fails, the workspace is still created; the app shows a warning banner so you can retry from workspace settings.
