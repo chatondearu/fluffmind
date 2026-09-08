@@ -1,8 +1,8 @@
 # PLAN-041 — Admin workspace management console
 
-- **Status**: draft
-- **PRD**: [[../prd/PRD-041-admin-workspace-management|PRD-041]]
-- **ADR**: [[../foam/decisions/ADR-015-instance-admin-workspace-authority|ADR-015]] (proposed)
+- **Status**: done
+- **PRD**: [[../prd/PRD-041-admin-workspace-management|PRD-041]] (shipped 2026-09-08)
+- **ADR**: [[../foam/decisions/ADR-015-instance-admin-workspace-authority|ADR-015]] (accepted)
 - **Date**: 2026-09-07
 
 ## Summary
@@ -71,18 +71,18 @@ members overview. New `ConfirmActionDialog` (name echo, not free-text slug promp
 
 ## Tasks
 
-- [ ] `admin_audit` schema + migration + `insertAdminAudit` (packages/db)
-- [ ] `requireWorkspaceManageAuthority` + `auditAdminAction` helpers + unit tests
-- [ ] Migrate GitHub workspace endpoints to id-targeting + shared guard + audit
-- [ ] Migrate agent/MCP token endpoints
-- [ ] Migrate invitations + member role/remove endpoints
-- [ ] Migrate content-roots endpoint(s)
-- [ ] Remove duplicated `requireOwnerRole` helpers
-- [ ] Extract owner settings sections into `workspaceId`-parameterized components
-- [ ] `pages/settings/admin/workspaces/[id].vue` (management + danger zone)
-- [ ] `ConfirmActionDialog` replacing `window.prompt` in admin surface
-- [ ] Read-only instance-wide members overview on `/settings/admin`
-- [ ] Docs: update `apps/docs` admin guide + `README`/`AGENTS.md` if env/behavior shifts
+- [x] `admin_audit` schema + migration + `insertAdminAudit` (packages/db)
+- [x] `requireWorkspaceManageAuthority` + `auditAdminAction` helpers + unit tests
+- [x] Migrate GitHub workspace endpoints to id-targeting + shared guard + audit
+- [x] Migrate agent/MCP token endpoints
+- [x] Migrate invitations + member role/remove endpoints
+- [x] Migrate content-roots endpoint(s)
+- [x] Remove duplicated `requireOwnerRole` helpers
+- [x] Extract owner settings sections into `workspaceId`-parameterized components
+- [x] `pages/settings/admin/workspaces/[id].vue` (management + danger zone)
+- [x] `ConfirmActionDialog` replacing `window.prompt` in admin surface
+- [x] Read-only instance-wide members overview on `/settings/admin`
+- [x] Docs: update `apps/docs` admin guide + `README`/`AGENTS.md` if env/behavior shifts
 
 ## Risks & mitigations
 
@@ -95,14 +95,14 @@ members overview. New `ConfirmActionDialog` (name echo, not free-text slug promp
 
 ## Test plan
 
-- [ ] Guard: admin passes for any id; owner passes only for owned id; others 403
-- [ ] Each migrated endpoint: owner (own ws) ok, admin (foreign ws) ok, non-member 403
-- [ ] `admin_audit` row written on admin mutation, not on owner mutation
-- [ ] Read-only members overview lists members across workspaces for admin only
-- [ ] Component tests for the extracted owner sections (first Vue component tests)
+- [x] Guard: admin passes for any id; owner passes only for owned id; others 403
+- [x] Each migrated endpoint: owner (own ws) ok, admin (foreign ws) ok, non-member 403
+- [x] `admin_audit` row written on admin mutation, not on owner mutation
+- [x] Read-only members overview lists members across workspaces for admin only
+- [x] Component tests for the extracted owner sections (first Vue component tests)
 
 ## Verification
 
-- [ ] Lint / typecheck / test / build green (new CI pipeline)
+- [x] Lint / typecheck / test / build green (new CI pipeline)
 - [ ] Manual: admin links GitHub + invites a member on a workspace they don't belong to
-- [ ] Update foam / ADR-015 → accepted once implemented
+- [x] Update foam / ADR-015 → accepted once implemented

@@ -109,7 +109,10 @@ const {
   deleteWorkspace,
   rebindOrphan,
 } = useAdminWorkspaceDanger({
-  onAfterMutation: () => loadWorkspaces(),
+  onAfterMutation: () => {
+    void loadWorkspaces()
+    void loadMembers()
+  },
 })
 
 type GithubPendingAction =

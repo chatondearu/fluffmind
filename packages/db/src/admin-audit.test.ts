@@ -14,7 +14,6 @@ vi.mock('./client.ts', () => ({
 mocks.insert.mockReturnValue({ values: mocks.values })
 mocks.values.mockResolvedValue(undefined)
 
-// eslint-disable-next-line import/first
 import { insertAdminAudit } from './admin-audit.ts'
 
 describe('insertAdminAudit', () => {

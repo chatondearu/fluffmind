@@ -1,10 +1,11 @@
 # PRD-041 — Admin workspace management console
 
-- **Status**: draft
+- **Status**: shipped
+- **Shipped**: 2026-09-08
 - **Date**: 2026-09-07
 - **Tags**: #product #admin #workspaces #authz
 - **Depends on**: [[PRD-039-admin-dangerous-workspace-ops|PRD-039]], [[PRD-040-admin-github-panel|PRD-040]], [[PRD-035-auth-production-ready|PRD-035]]
-- **ADR**: [[../foam/decisions/ADR-015-instance-admin-workspace-authority|ADR-015]] (proposed)
+- **ADR**: [[../foam/decisions/ADR-015-instance-admin-workspace-authority|ADR-015]] (accepted)
 
 ## Problem
 
@@ -20,13 +21,13 @@ can access workspace X?" or to administer a workspace the admin doesn't belong t
 
 ## Goals
 
-- [ ] An instance admin can fully manage **any** workspace without being a member
+- [x] An instance admin can fully manage **any** workspace without being a member
       (authority model: [[../foam/decisions/ADR-015-instance-admin-workspace-authority|ADR-015]])
-- [ ] A unified admin console: per-workspace **Members**, **GitHub sync**, **Content
+- [x] A unified admin console: per-workspace **Members**, **GitHub sync**, **Content
       roots**, **Tokens**, and existing danger-zone ops, reachable from one place
-- [ ] Management endpoints target a workspace by **id** (not only the active one)
-- [ ] Replace `window.prompt(slug)` destructive confirmations with an accessible modal
-- [ ] A single shared `requireWorkspaceManageAuthority` guard replaces the duplicated
+- [x] Management endpoints target a workspace by **id** (not only the active one)
+- [x] Replace `window.prompt(slug)` destructive confirmations with an accessible modal
+- [x] A single shared `requireWorkspaceManageAuthority` guard replaces the duplicated
       `requireOwnerRole` helpers, with admin cross-workspace writes audit-logged
 
 ## Non-goals
@@ -51,24 +52,24 @@ can access workspace X?" or to administer a workspace the admin doesn't belong t
 
 ### Functional
 
-- [ ] `requireWorkspaceManageAuthority(event, workspaceId)` → passes for instance admin
+- [x] `requireWorkspaceManageAuthority(event, workspaceId)` → passes for instance admin
       OR owner-of-workspace; returns `{ workspaceId, actor: 'admin' | 'owner' }`
-- [ ] Migrate `api/workspaces/**` management endpoints to accept an explicit
+- [x] Migrate `api/workspaces/**` management endpoints to accept an explicit
       `workspaceId` (uniform for owners and admins) and use the shared guard (members,
       invitations, GitHub link/unlink/sync, content roots, agent/MCP tokens, agent enable)
-- [ ] Admin console route `/settings/admin/workspaces/[id]` reusing the owner settings
+- [x] Admin console route `/settings/admin/workspaces/[id]` reusing the owner settings
       components (Members, GitHub sync, Content roots, Tokens) + danger zone
-- [ ] New `admin_audit` table + write on every admin cross-workspace mutation
-- [ ] Accessible confirmation modal for reset-hard / delete / unlink (replaces
+- [x] New `admin_audit` table + write on every admin cross-workspace mutation
+- [x] Accessible confirmation modal for reset-hard / delete / unlink (replaces
       `window.prompt`), showing workspace name + impact
-- [ ] Instance-wide "workspace → members" **read-only** view for admins
+- [x] Instance-wide "workspace → members" **read-only** view for admins
 
 ### Non-functional
 
-- [ ] Non-admin, non-owner callers still receive 403 on every migrated endpoint
-- [ ] Admin cross-workspace mutations are audit-logged (actor id + `actor='admin'`)
-- [ ] ASCII `statusMessage` on errors; paths cannot escape `WORKSPACES_ROOT`
-- [ ] No regression in owner `/settings/workspace` behavior or in existing tests
+- [x] Non-admin, non-owner callers still receive 403 on every migrated endpoint
+- [x] Admin cross-workspace mutations are audit-logged (actor id + `actor='admin'`)
+- [x] ASCII `statusMessage` on errors; paths cannot escape `WORKSPACES_ROOT`
+- [x] No regression in owner `/settings/workspace` behavior or in existing tests
 
 ## Related project memory
 

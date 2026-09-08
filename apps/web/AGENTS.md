@@ -34,8 +34,12 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
 - `server/utils/admin-workspaces.ts` — instance-admin workspace inventory and dangerous
   ops (reset-hard, invalidate index, force unlink, delete, rebind orphan). Routes under
   `/api/admin/workspaces/*`; gated by `requireAdminInstance` (`server/utils/admin.ts`).
-  Destructive actions require slug confirmation; paths must stay within `WORKSPACES_ROOT`.
-  See ADR-013.
+  Destructive actions require name confirmation via `ConfirmActionDialog`; paths must
+  stay within `WORKSPACES_ROOT`. See ADR-013.
+- `server/utils/workspace-manage-authority.ts` — `requireWorkspaceManageAuthority` lets
+  instance admins manage any workspace (members, GitHub, tokens, content roots) without
+  membership; owners only their own. Admin writes go to `admin_audit`. Console:
+  `/settings/admin/workspaces/[id]`. See ADR-015.
 - `server/utils/admin-github.ts` — instance-admin GitHub App status and installation
   recovery (list, resync, unlink-all workspaces, remove from DB). Routes under
   `/api/admin/github/*`; gated by `requireAdminInstance`. Destructive actions require

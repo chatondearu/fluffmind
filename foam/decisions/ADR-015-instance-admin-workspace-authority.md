@@ -1,6 +1,6 @@
 # ADR-015 — Instance-admin authority over any workspace
 
-- **Status**: proposed
+- **Status**: accepted
 - **Date**: 2026-09-07
 - **Tags**: #architecture #admin #workspaces #authz
 

@@ -28,7 +28,9 @@ Set the GitHub OAuth App callback URL to:
 ```
 
 The first signup on an empty instance becomes an admin and can create the first
-workspace.
+workspace. Admins manage any workspace from `/settings/admin` (and
+`/settings/admin/workspaces/[id]`) without joining it — members, GitHub sync,
+tokens, and danger-zone ops — per ADR-015.
 
 ## GitHub App (optional)
 
