@@ -10,12 +10,18 @@ import { listGitHubInviteCandidates } from '@fluffmind/integrations'
 import { and, eq, gt } from 'drizzle-orm'
 
 import { resolveWorkspaceGitHubCredentials } from '../../../utils/github-credentials'
-import { requireWorkspaceManage } from '../../../utils/workspace-membership'
+import {
+  parseWorkspaceId,
+  requireWorkspaceManageAuthority,
+} from '../../../utils/workspace-manage-authority'
 import { filterGitHubInviteCandidates } from '../../../utils/workspace-invitation-api'
 
 export default defineEventHandler(async (event) => {
-  const workspaceId = await requireWorkspaceManage(event)
-  const credentials = await resolveWorkspaceGitHubCredentials(workspaceId)
+  const query = getQuery(event)
+  const workspaceId = parseWorkspaceId(query.workspaceId)
+  const authority = await requireWorkspaceManageAuthority(event, workspaceId)
+
+  const credentials = await resolveWorkspaceGitHubCredentials(authority.workspaceId)
   if (!credentials)
     return { candidates: [], source: null }
 
@@ -30,7 +36,7 @@ export default defineEventHandler(async (event) => {
       githubAppInstallation,
       eq(githubAppInstallation.installationId, workspaceGithubLink.installationId),
     )
-    .where(eq(workspaceGithubLink.organizationId, workspaceId))
+    .where(eq(workspaceGithubLink.organizationId, authority.workspaceId))
     .limit(1)
 
   const installationAccountType = installation?.accountType ?? 'User'
@@ -47,14 +53,14 @@ export default defineEventHandler(async (event) => {
       .from(member)
       .innerJoin(account, eq(account.userId, member.userId))
       .where(and(
-        eq(member.organizationId, workspaceId),
+        eq(member.organizationId, authority.workspaceId),
         eq(account.providerId, 'github'),
       )),
     db
       .select({ githubLogin: githubInvitation.githubLogin })
       .from(githubInvitation)
       .where(and(
-        eq(githubInvitation.organizationId, workspaceId),
+        eq(githubInvitation.organizationId, authority.workspaceId),
         eq(githubInvitation.status, 'pending'),
         gt(githubInvitation.expiresAt, new Date()),
       )),

@@ -1,8 +1,6 @@
-import { getDb, member, workspaceConfig, workspaceGithubLink } from '@fluffmind/db'
+import { getDb, workspaceConfig, workspaceGithubLink } from '@fluffmind/db'
 import { buildGitHubHttpsRemoteUrl, createInstallationToken, fetchCollaborators } from '@fluffmind/integrations'
-import type { H3Event } from 'h3'
-import { and, eq } from 'drizzle-orm'
-import { requireSession } from '../../../utils/auth'
+import { eq } from 'drizzle-orm'
 import { getGitHubAppCredentials, isGitHubAppConfigured } from '../../../utils/github-credentials'
 import {
   ContentRootsImmutableError,
@@ -13,11 +11,16 @@ import type { ContentRootsUpdate } from '../../../utils/content-roots-config'
 import { encryptSyncToken } from '../../../utils/github-token-crypto'
 import { getWorkspaceGitHubSyncState, assertWorkspaceGithubLinkAbsent, parseRepoIdentifier } from '../../../utils/github-sync'
 import { readJsonBody } from '../../../utils/read-json-body'
+import {
+  auditAdminAction,
+  parseWorkspaceId,
+  requireWorkspaceManageAuthority,
+} from '../../../utils/workspace-manage-authority'
 import { InvalidContentRootError } from '../../../vault/content-roots'
 import { invalidateBootstrap } from '../../../vault/sync'
-import { resolveActiveWorkspaceId } from '../../../vault/workspace'
 
 interface LinkWorkspaceGitHubBody {
+  workspaceId?: unknown
   repository?: string
   mode?: 'app' | 'pat'
   syncToken?: string
@@ -25,30 +28,11 @@ interface LinkWorkspaceGitHubBody {
   contentRoots?: string[]
 }
 
-async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<void> {
-  const session = await requireSession(event)
-  const db = getDb()
-
-  const [workspaceMember] = await db
-    .select({ role: member.role })
-    .from(member)
-    .where(and(eq(member.organizationId, workspaceId), eq(member.userId, session.user.id)))
-    .limit(1)
-
-  if (!workspaceMember || workspaceMember.role !== 'owner') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Forbidden',
-      message: 'GitHub linking requires owner role.',
-    })
-  }
-}
-
 export default defineEventHandler(async (event) => {
-  const workspaceId = await resolveActiveWorkspaceId(event)
-  await requireOwnerRole(event, workspaceId)
-
   const body = await readJsonBody<LinkWorkspaceGitHubBody>(event)
+  const workspaceId = parseWorkspaceId(body.workspaceId)
+  const authority = await requireWorkspaceManageAuthority(event, workspaceId)
+
   const repository = typeof body.repository === 'string' ? body.repository.trim() : ''
   const mode = body.mode ?? 'pat'
   const syncToken = typeof body.syncToken === 'string' ? body.syncToken.trim() : ''
@@ -104,11 +88,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  await assertWorkspaceGithubLinkAbsent(workspaceId)
+  await assertWorkspaceGithubLinkAbsent(authority.workspaceId)
   let contentRootsUpdate: ContentRootsUpdate | undefined
   if (body.contentRoots !== undefined) {
     try {
-      contentRootsUpdate = await validateWorkspaceContentRootsUpdate(workspaceId, body.contentRoots)
+      contentRootsUpdate = await validateWorkspaceContentRootsUpdate(authority.workspaceId, body.contentRoots)
     }
     catch (error) {
       if (error instanceof InvalidContentRootError) {
@@ -147,7 +131,7 @@ export default defineEventHandler(async (event) => {
   await db
     .insert(workspaceGithubLink)
     .values({
-      organizationId: workspaceId,
+      organizationId: authority.workspaceId,
       owner: parsedRepository.owner,
       repo: parsedRepository.repo,
       authMode: mode,
@@ -159,14 +143,16 @@ export default defineEventHandler(async (event) => {
   await db
     .update(workspaceConfig)
     .set({ gitRemoteUrl: buildGitHubHttpsRemoteUrl(parsedRepository.owner, parsedRepository.repo) })
-    .where(eq(workspaceConfig.organizationId, workspaceId))
+    .where(eq(workspaceConfig.organizationId, authority.workspaceId))
 
   if (body.contentRoots !== undefined)
-    await setWorkspaceContentRootsIfAllowed(workspaceId, body.contentRoots, contentRootsUpdate)
+    await setWorkspaceContentRootsIfAllowed(authority.workspaceId, body.contentRoots, contentRootsUpdate)
 
   // The Git remote just changed — drop the cached bootstrap so the working copy is
   // re-adopted against the newly linked repository on the next access.
-  invalidateBootstrap(workspaceId)
+  invalidateBootstrap(authority.workspaceId)
 
-  return getWorkspaceGitHubSyncState(workspaceId)
+  await auditAdminAction(authority, 'workspace.github.link', { repository })
+
+  return getWorkspaceGitHubSyncState(authority.workspaceId)
 })

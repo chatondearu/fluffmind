@@ -1,7 +1,5 @@
-import { getDb, member, organization } from '@fluffmind/db'
-import { and, eq } from 'drizzle-orm'
-import type { H3Event } from 'h3'
-import { requireSession } from '../../../utils/auth'
+import { getDb, organization } from '@fluffmind/db'
+import { eq } from 'drizzle-orm'
 import {
   createAndLinkGithubRepo,
   parseCreateGithubRepoBody,
@@ -15,38 +13,24 @@ import {
 import type { ContentRootsUpdate } from '../../../utils/content-roots-config'
 import { getWorkspaceGitHubSyncState } from '../../../utils/github-sync'
 import { readJsonBody } from '../../../utils/read-json-body'
+import {
+  auditAdminAction,
+  parseWorkspaceId,
+  requireWorkspaceManageAuthority,
+} from '../../../utils/workspace-manage-authority'
 import { InvalidContentRootError } from '../../../vault/content-roots'
 import { invalidateBootstrap } from '../../../vault/sync'
-import { resolveActiveWorkspaceId } from '../../../vault/workspace'
 
 interface CreateAndLinkGithubRepoBody extends CreateGithubRepoBody {
+  workspaceId?: unknown
   contentRoots?: string[]
 }
 
-async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<void> {
-  const session = await requireSession(event)
-  const db = getDb()
-
-  const [workspaceMember] = await db
-    .select({ role: member.role })
-    .from(member)
-    .where(and(eq(member.organizationId, workspaceId), eq(member.userId, session.user.id)))
-    .limit(1)
-
-  if (!workspaceMember || workspaceMember.role !== 'owner') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Forbidden',
-      message: 'GitHub repository creation requires owner role.',
-    })
-  }
-}
-
 export default defineEventHandler(async (event) => {
-  const workspaceId = await resolveActiveWorkspaceId(event)
-  await requireOwnerRole(event, workspaceId)
-
   const body = await readJsonBody<CreateAndLinkGithubRepoBody>(event)
+  const workspaceId = parseWorkspaceId(body.workspaceId)
+  const authority = await requireWorkspaceManageAuthority(event, workspaceId)
+
   const input = parseCreateGithubRepoBody(body)
   if (!input) {
     throw createError({
@@ -60,7 +44,7 @@ export default defineEventHandler(async (event) => {
   const [workspace] = await db
     .select({ slug: organization.slug })
     .from(organization)
-    .where(eq(organization.id, workspaceId))
+    .where(eq(organization.id, authority.workspaceId))
     .limit(1)
 
   if (!workspace) {
@@ -74,7 +58,7 @@ export default defineEventHandler(async (event) => {
   let contentRootsUpdate: ContentRootsUpdate | undefined
   if (body.contentRoots !== undefined) {
     try {
-      contentRootsUpdate = await validateWorkspaceContentRootsUpdate(workspaceId, body.contentRoots)
+      contentRootsUpdate = await validateWorkspaceContentRootsUpdate(authority.workspaceId, body.contentRoots)
     }
     catch (error) {
       if (error instanceof InvalidContentRootError) {
@@ -96,23 +80,27 @@ export default defineEventHandler(async (event) => {
   }
 
   const github = await createAndLinkGithubRepo({
-    workspaceId,
+    workspaceId: authority.workspaceId,
     workspaceSlug: workspace.slug,
     input,
     refuseIfLinked: true,
   })
 
   if (body.contentRoots !== undefined)
-    await setWorkspaceContentRootsIfAllowed(workspaceId, body.contentRoots, contentRootsUpdate)
+    await setWorkspaceContentRootsIfAllowed(authority.workspaceId, body.contentRoots, contentRootsUpdate)
 
   if (!github.ok)
     return { github }
 
   // A repo was just created and linked — re-adopt the working copy against it.
-  invalidateBootstrap(workspaceId)
+  invalidateBootstrap(authority.workspaceId)
+
+  await auditAdminAction(authority, 'workspace.github.create_and_link', {
+    repository: `${github.owner}/${github.repo}`,
+  })
 
   return {
     github,
-    ...(await getWorkspaceGitHubSyncState(workspaceId)),
+    ...(await getWorkspaceGitHubSyncState(authority.workspaceId)),
   }
 })

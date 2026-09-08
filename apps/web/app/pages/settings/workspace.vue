@@ -73,6 +73,7 @@ interface GitHubInstallationRepository {
 }
 
 interface ActiveWorkspaceResponse {
+  workspaceId?: string
   member?: { role?: string | null } | null
   config?: { contentRoots?: string[] } | null
 }
@@ -85,6 +86,7 @@ const roleOptions: Array<{ value: WorkspaceRole, label: string }> = [
 
 const organizationName = ref('Workspace')
 const organizationSlug = ref('')
+const activeWorkspaceId = ref('')
 const members = ref<WorkspaceMember[]>([])
 const invitations = ref<WorkspaceInvitation[]>([])
 const loading = ref(true)
@@ -351,6 +353,7 @@ async function unlinkGitHubSync(): Promise<void> {
   try {
     const response = await $fetch<GitHubSyncState>('/api/workspaces/github/link', {
       method: 'DELETE',
+      body: { workspaceId: activeWorkspaceId.value },
     })
     applyGitHubState(response)
     githubSetupChoice.value = null
@@ -372,7 +375,7 @@ async function loadGitHubState(): Promise<void> {
     const [syncState, appStatus] = await Promise.all([
       $fetch<GitHubSyncState>('/api/workspaces/github/sync', {
         method: 'POST',
-        body: { run: false },
+        body: { run: false, workspaceId: activeWorkspaceId.value },
       }),
       $fetch<{ configured: boolean }>('/api/github/app/status'),
     ])
@@ -452,6 +455,7 @@ async function linkGitHubAppRepository(): Promise<void> {
     const response = await $fetch<GitHubSyncState>('/api/workspaces/github/link', {
       method: 'POST',
       body: {
+        workspaceId: activeWorkspaceId.value,
         mode: 'app',
         repository,
         installationId,
@@ -494,6 +498,7 @@ async function linkGitHubRepository() {
     const response = await $fetch<GitHubSyncState>('/api/workspaces/github/link', {
       method: 'POST',
       body: {
+        workspaceId: activeWorkspaceId.value,
         mode: 'pat',
         repository,
         syncToken,
@@ -525,6 +530,7 @@ async function createGithubRepositoryForWorkspace(): Promise<void> {
     }>('/api/workspaces/github/create-and-link', {
       method: 'POST',
       body: {
+        workspaceId: activeWorkspaceId.value,
         installationId: githubInstallationId.value,
         name: createRepoName.value.trim() || undefined,
         private: createRepoPrivate.value,
@@ -574,6 +580,7 @@ async function syncNowFromGitHub() {
     const response = await $fetch<GitHubSyncState & { result: Record<string, number> }>('/api/workspaces/github/sync', {
       method: 'POST',
       body: {
+        workspaceId: activeWorkspaceId.value,
         run: true,
         localOverrides: Object.entries(localOverrides.value).map(([memberId, localOverride]) => ({
           memberId,
@@ -801,6 +808,8 @@ async function loadWorkspaceData(isManualReload = false) {
     const fullOrganization = asRecord(extractData(fullOrganizationResponse))
     organizationName.value = asString(fullOrganization.name, 'Workspace')
     organizationSlug.value = asString(fullOrganization.slug)
+    activeWorkspaceId.value = asString(activeWorkspace.workspaceId)
+      || asString(fullOrganization.id)
     workspaceRole.value = asString(activeWorkspace.member?.role, 'read')
     workspaceContentRoots.value = Array.isArray(activeWorkspace.config?.contentRoots)
       ? activeWorkspace.config.contentRoots
@@ -816,7 +825,9 @@ async function loadWorkspaceData(isManualReload = false) {
       const [pendingInvitations, candidates] = await Promise.all([
         $fetch<unknown[]>('/api/workspaces/invitations'),
         loadGithubInviteCandidates(() =>
-          $fetch<{ candidates?: Array<{ login?: string }> }>('/api/workspaces/github/invite-candidates'),
+          $fetch<{ candidates?: Array<{ login?: string }> }>('/api/workspaces/github/invite-candidates', {
+            query: { workspaceId: activeWorkspaceId.value },
+          }),
         ),
       ])
       invitations.value = normalizeInvitations(pendingInvitations)

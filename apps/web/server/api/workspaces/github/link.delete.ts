@@ -1,35 +1,25 @@
-import { getDb, member } from '@fluffmind/db'
-import type { H3Event } from 'h3'
-import { and, eq } from 'drizzle-orm'
-
-import { requireSession } from '../../../utils/auth'
 import { unlinkWorkspaceGithubSync } from '../../../utils/github-sync'
+import { readJsonBody } from '../../../utils/read-json-body'
+import {
+  auditAdminAction,
+  parseWorkspaceId,
+  requireWorkspaceManageAuthority,
+} from '../../../utils/workspace-manage-authority'
 import { invalidateBootstrap } from '../../../vault/sync'
-import { resolveActiveWorkspaceId } from '../../../vault/workspace'
 
-async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<void> {
-  const session = await requireSession(event)
-  const db = getDb()
-
-  const [workspaceMember] = await db
-    .select({ role: member.role })
-    .from(member)
-    .where(and(eq(member.organizationId, workspaceId), eq(member.userId, session.user.id)))
-    .limit(1)
-
-  if (!workspaceMember || workspaceMember.role !== 'owner') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Forbidden',
-      message: 'Unlinking GitHub sync requires owner role.',
-    })
-  }
+interface UnlinkWorkspaceGitHubBody {
+  workspaceId?: unknown
 }
 
 export default defineEventHandler(async (event) => {
-  const workspaceId = await resolveActiveWorkspaceId(event)
-  await requireOwnerRole(event, workspaceId)
-  const state = await unlinkWorkspaceGithubSync(workspaceId)
-  invalidateBootstrap(workspaceId)
+  const body = await readJsonBody<UnlinkWorkspaceGitHubBody>(event)
+  const workspaceId = parseWorkspaceId(body.workspaceId)
+  const authority = await requireWorkspaceManageAuthority(event, workspaceId)
+
+  const state = await unlinkWorkspaceGithubSync(authority.workspaceId)
+  invalidateBootstrap(authority.workspaceId)
+
+  await auditAdminAction(authority, 'workspace.github.unlink')
+
   return state
 })

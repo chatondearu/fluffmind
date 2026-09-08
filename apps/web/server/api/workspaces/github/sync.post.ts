@@ -1,40 +1,22 @@
-import { getDb, member } from '@fluffmind/db'
-import type { H3Event } from 'h3'
-import { and, eq } from 'drizzle-orm'
-import { requireSession } from '../../../utils/auth'
 import {
   type LocalOverrideInput,
   getWorkspaceGitHubSyncState,
   syncWorkspaceMembersForOrganization,
 } from '../../../utils/github-sync'
 import { readJsonBody } from '../../../utils/read-json-body'
-import { resolveActiveWorkspaceId } from '../../../vault/workspace'
+import {
+  auditAdminAction,
+  parseWorkspaceId,
+  requireWorkspaceManageAuthority,
+} from '../../../utils/workspace-manage-authority'
 
 interface SyncWorkspaceGitHubBody {
+  workspaceId?: unknown
   run?: boolean
   localOverrides?: Array<{
     memberId?: string
     localOverride?: boolean
   }>
-}
-
-async function requireOwnerRole(event: H3Event, workspaceId: string): Promise<void> {
-  const session = await requireSession(event)
-  const db = getDb()
-
-  const [workspaceMember] = await db
-    .select({ role: member.role })
-    .from(member)
-    .where(and(eq(member.organizationId, workspaceId), eq(member.userId, session.user.id)))
-    .limit(1)
-
-  if (!workspaceMember || workspaceMember.role !== 'owner') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Forbidden',
-      message: 'GitHub sync requires owner role.',
-    })
-  }
 }
 
 function normalizeLocalOverrides(input: SyncWorkspaceGitHubBody['localOverrides']): LocalOverrideInput[] {
@@ -53,18 +35,20 @@ function normalizeLocalOverrides(input: SyncWorkspaceGitHubBody['localOverrides'
 }
 
 export default defineEventHandler(async (event) => {
-  const workspaceId = await resolveActiveWorkspaceId(event)
-  await requireOwnerRole(event, workspaceId)
-
   const body = await readJsonBody<SyncWorkspaceGitHubBody>(event)
+  const workspaceId = parseWorkspaceId(body.workspaceId)
+  const authority = await requireWorkspaceManageAuthority(event, workspaceId)
+
   const run = body.run !== false
   const localOverrides = normalizeLocalOverrides(body.localOverrides)
 
   if (!run)
-    return getWorkspaceGitHubSyncState(workspaceId)
+    return getWorkspaceGitHubSyncState(authority.workspaceId)
 
   try {
-    return await syncWorkspaceMembersForOrganization(workspaceId, localOverrides)
+    const result = await syncWorkspaceMembersForOrganization(authority.workspaceId, localOverrides)
+    await auditAdminAction(authority, 'workspace.github.sync')
+    return result
   } catch (error) {
     const message = error instanceof Error ? error.message : 'GitHub sync failed.'
     throw createError({
