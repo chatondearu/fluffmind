@@ -1,11 +1,11 @@
 import {
   findGithubAppInstallation,
   listInstallationRepositories,
-  requireAnyOwnerMembership,
+  requireGithubAppListAccess,
 } from '../../../../utils/github-installations'
 
 export default defineEventHandler(async (event) => {
-  await requireAnyOwnerMembership(event)
+  await requireGithubAppListAccess(event)
 
   const installationId = getRouterParam(event, 'installationId')
   if (!installationId) {
@@ -24,7 +24,8 @@ export default defineEventHandler(async (event) => {
   try {
     const repositories = await listInstallationRepositories(installationId)
     return { repositories }
-  } catch (error) {
+  }
+  catch (error) {
     const details = error instanceof Error ? error.message : 'GitHub API call failed.'
     throw createError({
       statusCode: 502,

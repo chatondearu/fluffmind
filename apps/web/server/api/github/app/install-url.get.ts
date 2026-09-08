@@ -1,7 +1,7 @@
-import { requireAnyOwnerMembership } from '../../../utils/github-installations'
+import { requireGithubAppListAccess } from '../../../utils/github-installations'
 
 export default defineEventHandler(async (event) => {
-  await requireAnyOwnerMembership(event)
+  await requireGithubAppListAccess(event)
 
   const slug = process.env.GITHUB_APP_SLUG?.trim()
   if (!slug) {

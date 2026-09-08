@@ -24,6 +24,20 @@ export function parseWorkspaceId(raw: unknown): string {
   return raw.trim()
 }
 
+/**
+ * Prefer query `workspaceId`, then JSON body field (for clients that still send a body).
+ */
+export function resolveWorkspaceIdFromQueryOrBody(
+  queryWorkspaceId: unknown,
+  bodyWorkspaceId: unknown,
+): string {
+  return parseWorkspaceId(
+    typeof queryWorkspaceId === 'string' && queryWorkspaceId.trim()
+      ? queryWorkspaceId
+      : bodyWorkspaceId,
+  )
+}
+
 export async function requireWorkspaceManageAuthority(
   event: H3Event,
   workspaceId: string,
@@ -56,6 +70,41 @@ export async function requireWorkspaceManageAuthority(
   }
 
   return { workspaceId, actor: 'owner', session }
+}
+
+/** Instance admin or any member of the workspace (read access). */
+export async function requireWorkspaceMembership(
+  event: H3Event,
+  workspaceId: string,
+): Promise<{ workspaceId: string, session: Awaited<ReturnType<typeof requireSession>> }> {
+  const session = await requireSession(event)
+
+  try {
+    await requireAdminInstance(event)
+    return { workspaceId, session }
+  }
+  catch (error) {
+    const statusCode = (error as { statusCode?: number })?.statusCode
+    if (statusCode !== 403)
+      throw error
+  }
+
+  const db = getDb()
+  const [workspaceMember] = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(and(eq(member.organizationId, workspaceId), eq(member.userId, session.user.id)))
+    .limit(1)
+
+  if (!workspaceMember) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Forbidden',
+      message: 'Workspace membership required.',
+    })
+  }
+
+  return { workspaceId, session }
 }
 
 export async function auditAdminAction(

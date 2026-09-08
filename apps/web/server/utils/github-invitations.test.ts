@@ -1,7 +1,64 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+const authMocks = vi.hoisted(() => ({
+  createInvitation: vi.fn(),
+  getDb: vi.fn(),
+  resolveWorkspaceGitHubCredentials: vi.fn(),
+  resolveGitHubUser: vi.fn(),
+}))
+
+vi.mock('@fluffmind/db', () => ({
+  account: { userId: 'userId', providerId: 'providerId', accountId: 'accountId' },
+  getAuth: () => ({ api: { createInvitation: authMocks.createInvitation } }),
+  getDb: authMocks.getDb,
+  githubInvitation: {
+    id: 'id',
+    organizationId: 'organizationId',
+    githubLogin: 'githubLogin',
+    status: 'status',
+    expiresAt: 'expiresAt',
+    betterAuthInvitationId: 'betterAuthInvitationId',
+  },
+  invitation: {
+    id: 'id',
+    organizationId: 'organizationId',
+    email: 'email',
+    status: 'status',
+    expiresAt: 'expiresAt',
+  },
+  member: {
+    id: 'id',
+    organizationId: 'organizationId',
+    userId: 'userId',
+  },
+  user: { id: 'id', email: 'email' },
+}))
+
+vi.mock('@fluffmind/integrations', () => ({
+  normalizeGitHubLogin: (login: string) => login.replace(/^@/, '').toLowerCase() || null,
+  resolveGitHubUser: authMocks.resolveGitHubUser,
+}))
+
+vi.mock('./github-credentials', () => ({
+  resolveWorkspaceGitHubCredentials: authMocks.resolveWorkspaceGitHubCredentials,
+}))
+
+vi.mock('./github-identity', () => ({
+  resolveUserIdByGithubIdentity: vi.fn(),
+}))
+
+vi.mock('drizzle-orm', () => ({
+  and: (...conditions: unknown[]) => ({ __op: 'and', conditions }),
+  eq: (column: unknown, value: unknown) => ({ __op: 'eq', column, value }),
+  gt: (column: unknown, value: unknown) => ({ __op: 'gt', column, value }),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
+}))
+
+// eslint-disable-next-line import/first
 import {
   chooseInvitationEmail,
+  createBetterAuthInvitationRecord,
+  createWorkspaceInvitation,
   createWorkspaceInvitationWithDeps,
   matchesGithubInvitationIdentity,
   normalizeWorkspaceInvitationInput,
@@ -200,5 +257,117 @@ describe('createWorkspaceInvitationWithDeps', () => {
       githubLogin: 'octocat',
       headers: new Headers(),
     }, deps)).rejects.toMatchObject({ statusCode: 409 })
+  })
+
+  it('supports admin-without-membership via injected inviteMember (no BA session membership)', async () => {
+    stubCreateError()
+    const inviteMember = vi.fn().mockResolvedValue({
+      id: 'inv_admin_direct',
+      expiresAt: new Date('2026-08-01T12:00:00Z'),
+    })
+    const deps = createDeps({
+      inviteMember,
+      resolveCredentials: vi.fn().mockResolvedValue(null),
+    })
+
+    // Email-only invite: no GitHub credentials needed; inviteMember is the direct-insert path.
+    const result = await createWorkspaceInvitationWithDeps({
+      organizationId: 'org_foreign',
+      inviterId: 'admin_1',
+      role: 'write',
+      email: 'new@example.com',
+      headers: new Headers(),
+      bypassMembership: true,
+    }, deps)
+
+    expect(result.invitationId).toBe('inv_admin_direct')
+    expect(inviteMember).toHaveBeenCalledWith({
+      headers: expect.any(Headers),
+      body: {
+        email: 'new@example.com',
+        role: 'write',
+        organizationId: 'org_foreign',
+      },
+    })
+  })
+})
+
+describe('createBetterAuthInvitationRecord / admin bypassMembership', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('inserts a Better Auth invitation row without calling createInvitation', async () => {
+    stubCreateError()
+    const insert = vi.fn().mockResolvedValue(undefined)
+    authMocks.getDb.mockReturnValue({
+      select: () => ({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              limit: async () => [],
+            }),
+          }),
+        }),
+      }),
+      insert: () => ({ values: insert }),
+    })
+
+    const result = await createBetterAuthInvitationRecord({
+      organizationId: 'org_foreign',
+      email: 'Invitee@Example.com',
+      role: 'read',
+      inviterId: 'admin_non_member',
+    })
+
+    expect(result.id).toEqual(expect.any(String))
+    expect(result.expiresAt.getTime()).toBeGreaterThan(Date.now())
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({
+      organizationId: 'org_foreign',
+      email: 'invitee@example.com',
+      role: 'read',
+      status: 'pending',
+      inviterId: 'admin_non_member',
+    }))
+    expect(authMocks.createInvitation).not.toHaveBeenCalled()
+  })
+
+  it('createWorkspaceInvitation with bypassMembership skips BA createInvitation', async () => {
+    stubCreateError()
+    const insert = vi.fn().mockResolvedValue(undefined)
+    authMocks.getDb.mockReturnValue({
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [],
+          }),
+          innerJoin: () => ({
+            where: () => ({
+              limit: async () => [],
+            }),
+          }),
+        }),
+      }),
+      insert: () => ({ values: insert }),
+    })
+
+    const result = await createWorkspaceInvitation({
+      organizationId: 'org_foreign',
+      inviterId: 'admin_non_member',
+      role: 'write',
+      email: 'peer@example.com',
+      headers: new Headers(),
+      bypassMembership: true,
+    })
+
+    expect(result.invitationId).toEqual(expect.any(String))
+    expect(authMocks.createInvitation).not.toHaveBeenCalled()
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({
+      organizationId: 'org_foreign',
+      email: 'peer@example.com',
+      inviterId: 'admin_non_member',
+      status: 'pending',
+    }))
   })
 })

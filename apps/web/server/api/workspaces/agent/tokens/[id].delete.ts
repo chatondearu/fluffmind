@@ -2,8 +2,8 @@ import { revokeWorkspaceAgentToken } from '../../../../utils/agent-tokens'
 import { readJsonBody } from '../../../../utils/read-json-body'
 import {
   auditAdminAction,
-  parseWorkspaceId,
   requireWorkspaceManageAuthority,
+  resolveWorkspaceIdFromQueryOrBody,
 } from '../../../../utils/workspace-manage-authority'
 
 interface RevokeAgentTokenBody {
@@ -11,8 +11,9 @@ interface RevokeAgentTokenBody {
 }
 
 export default defineEventHandler(async (event) => {
+  const query = getQuery(event)
   const body = await readJsonBody<RevokeAgentTokenBody>(event)
-  const workspaceId = parseWorkspaceId(body.workspaceId)
+  const workspaceId = resolveWorkspaceIdFromQueryOrBody(query.workspaceId, body.workspaceId)
   const authority = await requireWorkspaceManageAuthority(event, workspaceId)
 
   const tokenId = getRouterParam(event, 'id')

@@ -75,7 +75,7 @@ members overview. New `ConfirmActionDialog` (name echo, not free-text slug promp
 - [x] `requireWorkspaceManageAuthority` + `auditAdminAction` helpers + unit tests
 - [x] Migrate GitHub workspace endpoints to id-targeting + shared guard + audit
 - [x] Migrate agent/MCP token endpoints
-- [x] Migrate invitations + member role/remove endpoints
+- [x] Migrate invitations endpoints (member role/remove not in scope — read + invite only)
 - [x] Migrate content-roots endpoint(s)
 - [x] Remove duplicated `requireOwnerRole` helpers
 - [x] Extract owner settings sections into `workspaceId`-parameterized components
@@ -96,10 +96,10 @@ members overview. New `ConfirmActionDialog` (name echo, not free-text slug promp
 ## Test plan
 
 - [x] Guard: admin passes for any id; owner passes only for owned id; others 403
-- [x] Each migrated endpoint: owner (own ws) ok, admin (foreign ws) ok, non-member 403
+- [ ] ~~Each migrated endpoint: owner/admin/non-member~~ — covered at shared-guard unit level only (not per-endpoint)
 - [x] `admin_audit` row written on admin mutation, not on owner mutation
 - [x] Read-only members overview lists members across workspaces for admin only
-- [x] Component tests for the extracted owner sections (first Vue component tests)
+- [ ] Vue component tests for extracted owner sections (none exist; not required)
 
 ## Verification
 

@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 404,
       statusMessage: 'Workspace not found',
-      message: 'The active workspace no longer exists.',
+      message: 'Workspace no longer exists.',
     })
   }
 

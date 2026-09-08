@@ -65,7 +65,8 @@ Each workspace has **one** active sync mode at a time:
 | **PAT** | Linked with a personal access token |
 | **Local only** | No `workspace_github_link` and no `gitRemoteUrl` |
 
-To switch modes, **unlink** the current sync first (`DELETE /api/workspaces/github/link`),
+To switch modes, **unlink** the current sync first
+(`DELETE /api/workspaces/github/link?workspaceId=<id>`),
 then choose App or PAT again. Linking while another mode is active returns **409**.
 
 Workspace creation may still create-and-link a GitHub repo in one step (new workspace =

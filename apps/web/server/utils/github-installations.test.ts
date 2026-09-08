@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   fetchInstallationAccount,
   removeGithubAppInstallation,
+  requireGithubAppListAccess,
   unlinkWorkspacesForRemovedRepositories,
 } from './github-installations'
 
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
   createAppJwt: vi.fn(),
   createInstallationToken: vi.fn(),
+  requireSession: vi.fn(),
 }))
 
 vi.mock('@fluffmind/db', () => ({
@@ -37,6 +39,14 @@ vi.mock('@fluffmind/db', () => ({
 vi.mock('@fluffmind/integrations', () => ({
   createAppJwt: mocks.createAppJwt,
   createInstallationToken: mocks.createInstallationToken,
+}))
+
+vi.mock('./auth', () => ({
+  requireSession: mocks.requireSession,
+}))
+
+vi.mock('./admin', () => ({
+  INSTANCE_ADMIN_ROLE: 'admin',
 }))
 
 // Replace drizzle-orm's real SQL builders with plain, inspectable objects so tests can
@@ -194,5 +204,50 @@ describe('fetchInstallationAccount', () => {
 
   it('rejects when the GitHub App is not configured', async () => {
     await expect(fetchInstallationAccount('456')).rejects.toThrow('GitHub App credentials are not configured.')
+  })
+})
+
+describe('requireGithubAppListAccess', () => {
+  it('allows instance admin without owner membership', async () => {
+    vi.stubGlobal('createError', (o: object) => Object.assign(new Error('x'), o))
+    const session = { user: { id: 'a1', role: 'admin' } }
+    mocks.requireSession.mockResolvedValue(session)
+
+    await expect(requireGithubAppListAccess({} as never)).resolves.toBe(session)
+    expect(mocks.getDb).not.toHaveBeenCalled()
+  })
+
+  it('allows a workspace owner', async () => {
+    vi.stubGlobal('createError', (o: object) => Object.assign(new Error('x'), o))
+    const session = { user: { id: 'u1', role: 'user' } }
+    mocks.requireSession.mockResolvedValue(session)
+    mocks.getDb.mockReturnValue({
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ organizationId: 'org_1' }],
+          }),
+        }),
+      }),
+    })
+
+    await expect(requireGithubAppListAccess({} as never)).resolves.toBe(session)
+  })
+
+  it('rejects non-admin non-owner', async () => {
+    vi.stubGlobal('createError', (o: object) => Object.assign(new Error('x'), o))
+    const session = { user: { id: 'u2', role: 'user' } }
+    mocks.requireSession.mockResolvedValue(session)
+    mocks.getDb.mockReturnValue({
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [],
+          }),
+        }),
+      }),
+    })
+
+    await expect(requireGithubAppListAccess({} as never)).rejects.toMatchObject({ statusCode: 403 })
   })
 })

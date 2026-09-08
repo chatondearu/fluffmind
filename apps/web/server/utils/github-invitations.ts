@@ -6,6 +6,7 @@ import {
   githubInvitation,
   invitation as betterAuthInvitation,
   member,
+  user,
 } from '@fluffmind/db'
 import {
   normalizeGitHubLogin,
@@ -25,6 +26,12 @@ export interface CreateWorkspaceInvitationInput {
   email?: string | null
   githubLogin?: string | null
   headers: Headers
+  /**
+   * When true, insert the Better Auth `invitation` row directly instead of calling
+   * `createInvitation` (which requires the inviter to already be an org member).
+   * Used for instance admins acting on foreign workspaces (ADR-015).
+   */
+  bypassMembership?: boolean
 }
 
 export interface CreateWorkspaceInvitationResult {
@@ -241,29 +248,89 @@ function getInviteMemberResult(response: unknown): InvitationMemberResult {
   return { id, expiresAt }
 }
 
-const defaultDeps: CreateWorkspaceInvitationDeps = {
-  async resolveCredentials(organizationId) {
-    return resolveWorkspaceGitHubCredentials(organizationId)
-  },
-  resolveUser: resolveGitHubUser,
-  isAlreadyMember: isExistingWorkspaceMember,
-  findPendingInvitation: findPendingWorkspaceInvitation,
-  async inviteMember(input) {
-    const response = await getAuth().api.createInvitation(input)
-    return getInviteMemberResult(response)
-  },
-  async insertGithubInvitation(input) {
-    await getDb().insert(githubInvitation).values(input)
-  },
-  async cancelInvitation(invitationId) {
-    await getDb()
-      .update(betterAuthInvitation)
-      .set({ status: 'canceled' })
-      .where(and(
-        eq(betterAuthInvitation.id, invitationId),
-        eq(betterAuthInvitation.status, 'pending'),
-      ))
-  },
+/** Better Auth organization default: 48 hours (`invitationExpiresIn`). */
+export const BETTER_AUTH_INVITATION_TTL_MS = 48 * 60 * 60 * 1000
+
+/**
+ * Insert a Better Auth invitation row without requiring inviter membership.
+ * Mirrors what `organization/invite-member` persists so accept-invitation still works.
+ */
+export async function createBetterAuthInvitationRecord(input: {
+  organizationId: string
+  email: string
+  role: CreateWorkspaceInvitationInput['role']
+  inviterId: string
+}): Promise<InvitationMemberResult> {
+  const db = getDb()
+  const email = input.email.trim().toLowerCase()
+
+  const [existingMember] = await db
+    .select({ id: member.id })
+    .from(member)
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(and(
+      eq(member.organizationId, input.organizationId),
+      sql`lower(${user.email}) = ${email}`,
+    ))
+    .limit(1)
+
+  if (existingMember) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Already a member',
+      message: 'This user is already a member of the workspace.',
+    })
+  }
+
+  const id = randomUUID()
+  const expiresAt = new Date(Date.now() + BETTER_AUTH_INVITATION_TTL_MS)
+
+  await db.insert(betterAuthInvitation).values({
+    id,
+    organizationId: input.organizationId,
+    email,
+    role: input.role,
+    status: 'pending',
+    expiresAt,
+    inviterId: input.inviterId,
+  })
+
+  return { id, expiresAt }
+}
+
+function buildDefaultDeps(options: { bypassMembership: boolean, inviterId: string }): CreateWorkspaceInvitationDeps {
+  return {
+    async resolveCredentials(organizationId) {
+      return resolveWorkspaceGitHubCredentials(organizationId)
+    },
+    resolveUser: resolveGitHubUser,
+    isAlreadyMember: isExistingWorkspaceMember,
+    findPendingInvitation: findPendingWorkspaceInvitation,
+    async inviteMember(input) {
+      if (options.bypassMembership) {
+        return createBetterAuthInvitationRecord({
+          organizationId: input.body.organizationId,
+          email: input.body.email,
+          role: input.body.role,
+          inviterId: options.inviterId,
+        })
+      }
+      const response = await getAuth().api.createInvitation(input)
+      return getInviteMemberResult(response)
+    },
+    async insertGithubInvitation(input) {
+      await getDb().insert(githubInvitation).values(input)
+    },
+    async cancelInvitation(invitationId) {
+      await getDb()
+        .update(betterAuthInvitation)
+        .set({ status: 'canceled' })
+        .where(and(
+          eq(betterAuthInvitation.id, invitationId),
+          eq(betterAuthInvitation.status, 'pending'),
+        ))
+    },
+  }
 }
 
 export async function createWorkspaceInvitationWithDeps(
@@ -357,7 +424,13 @@ export async function createWorkspaceInvitationWithDeps(
 export async function createWorkspaceInvitation(
   input: CreateWorkspaceInvitationInput,
 ): Promise<CreateWorkspaceInvitationResult> {
-  return createWorkspaceInvitationWithDeps(input, defaultDeps)
+  return createWorkspaceInvitationWithDeps(
+    input,
+    buildDefaultDeps({
+      bypassMembership: Boolean(input.bypassMembership),
+      inviterId: input.inviterId,
+    }),
+  )
 }
 
 export async function userMatchesGithubInvitation(

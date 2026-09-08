@@ -177,7 +177,7 @@ async function revokeAgentToken(tokenId: string): Promise<void> {
   try {
     await $fetch(`/api/workspaces/agent/tokens/${tokenId}`, {
       method: 'DELETE',
-      body: { workspaceId: props.workspaceId },
+      query: { workspaceId: props.workspaceId },
     })
     agentSuccess.value = 'Token révoqué.'
     await loadAgentState()

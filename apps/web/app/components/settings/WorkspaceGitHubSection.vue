@@ -250,7 +250,7 @@ async function unlinkGitHubSync(): Promise<void> {
   try {
     const response = await $fetch<GitHubSyncState>('/api/workspaces/github/link', {
       method: 'DELETE',
-      body: { workspaceId: props.workspaceId },
+      query: { workspaceId: props.workspaceId },
     })
     applyGitHubState(response)
     githubSetupChoice.value = null

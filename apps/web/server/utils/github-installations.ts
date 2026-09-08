@@ -4,6 +4,7 @@ import { createAppJwt, createInstallationToken } from '@fluffmind/integrations'
 import type { H3Event } from 'h3'
 import { and, eq } from 'drizzle-orm'
 
+import { INSTANCE_ADMIN_ROLE } from './admin'
 import { requireSession } from './auth'
 import { getGitHubAppCredentials } from './github-credentials'
 import { parseRepoIdentifier } from './github-sync'
@@ -57,6 +58,20 @@ export async function requireAnyOwnerMembership(event: H3Event) {
   }
 
   return session
+}
+
+/**
+ * Read/list GitHub App install helpers used by workspace settings and the admin console.
+ * Instance admins may call these without owning any workspace; non-admins still need
+ * owner membership in at least one workspace.
+ */
+export async function requireGithubAppListAccess(event: H3Event) {
+  const session = await requireSession(event)
+  const role = (session as { user?: { role?: unknown } })?.user?.role
+  if (role === INSTANCE_ADMIN_ROLE)
+    return session
+
+  return requireAnyOwnerMembership(event)
 }
 
 export interface UpsertGithubAppInstallationInput {

@@ -21,6 +21,8 @@ import {
   auditAdminAction,
   parseWorkspaceId,
   requireWorkspaceManageAuthority,
+  requireWorkspaceMembership,
+  resolveWorkspaceIdFromQueryOrBody,
 } from './workspace-manage-authority'
 
 const event = { headers: new Headers() } as unknown as H3Event
@@ -37,6 +39,28 @@ describe('parseWorkspaceId', () => {
 
   it('rejects empty', () => {
     expect(() => parseWorkspaceId('')).toThrow()
+  })
+})
+
+describe('resolveWorkspaceIdFromQueryOrBody', () => {
+  beforeEach(() => {
+    vi.stubGlobal('createError', (o: object) => Object.assign(new Error('x'), o))
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('prefers query over body', () => {
+    expect(resolveWorkspaceIdFromQueryOrBody(' from-query ', 'from-body')).toBe('from-query')
+  })
+
+  it('falls back to body when query is empty', () => {
+    expect(resolveWorkspaceIdFromQueryOrBody('', ' body-id ')).toBe('body-id')
+    expect(resolveWorkspaceIdFromQueryOrBody(undefined, 'body-id')).toBe('body-id')
+  })
+
+  it('returns 400 when both missing', () => {
+    expect(() => resolveWorkspaceIdFromQueryOrBody(undefined, undefined)).toThrow(
+      expect.objectContaining({ statusCode: 400 }),
+    )
   })
 })
 
@@ -99,6 +123,68 @@ describe('requireWorkspaceManageAuthority', () => {
     })
 
     await expect(requireWorkspaceManageAuthority(event, 'ws-1')).rejects.toMatchObject({
+      statusCode: 403,
+    })
+  })
+})
+
+describe('requireWorkspaceMembership', () => {
+  beforeEach(() => {
+    vi.stubGlobal('createError', (o: object) => Object.assign(new Error('x'), o))
+  })
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('allows instance admin without membership', async () => {
+    const session = { user: { id: 'a1', role: 'admin' } }
+    mocks.requireSession.mockResolvedValue(session)
+    mocks.requireAdminInstance.mockResolvedValue(session)
+
+    await expect(requireWorkspaceMembership(event, 'ws-foreign')).resolves.toMatchObject({
+      workspaceId: 'ws-foreign',
+    })
+  })
+
+  it('allows any workspace member role', async () => {
+    const session = { user: { id: 'u1', role: 'user' } }
+    mocks.requireSession.mockResolvedValue(session)
+    mocks.requireAdminInstance.mockRejectedValue(
+      Object.assign(new Error('Admin instance required.'), { statusCode: 403 }),
+    )
+    mocks.getDb.mockReturnValue({
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ id: 'm1' }],
+          }),
+        }),
+      }),
+    })
+
+    await expect(requireWorkspaceMembership(event, 'ws-1')).resolves.toMatchObject({
+      workspaceId: 'ws-1',
+    })
+  })
+
+  it('rejects non-member non-admin with 403', async () => {
+    const session = { user: { id: 'u2', role: 'user' } }
+    mocks.requireSession.mockResolvedValue(session)
+    mocks.requireAdminInstance.mockRejectedValue(
+      Object.assign(new Error('Admin instance required.'), { statusCode: 403 }),
+    )
+    mocks.getDb.mockReturnValue({
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [],
+          }),
+        }),
+      }),
+    })
+
+    await expect(requireWorkspaceMembership(event, 'ws-1')).rejects.toMatchObject({
       statusCode: 403,
     })
   })

@@ -20,6 +20,8 @@ export default defineEventHandler(async (event) => {
     email: parsed.email,
     githubLogin: parsed.githubLogin,
     headers: event.headers,
+    // Admins are often not org members; BA createInvitation would throw MEMBER_NOT_FOUND.
+    bypassMembership: authority.actor === 'admin',
   })
 
   await auditAdminAction(authority, 'workspace.invitation.create', { role: parsed.role })

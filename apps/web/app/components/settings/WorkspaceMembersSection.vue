@@ -135,19 +135,17 @@ async function loadMembersData(): Promise<void> {
   sectionError.value = null
   inviteSuccess.value = null
 
-  if (!props.canManage) {
-    members.value = []
-    invitations.value = []
-    githubInviteCandidates.value = []
-    loading.value = false
-    return
-  }
-
   try {
     const membersResponse = await $fetch<{ members: unknown[] }>('/api/workspaces/members', {
       query: { workspaceId: props.workspaceId },
     })
     members.value = normalizeMembers(membersResponse.members)
+
+    if (!props.canManage) {
+      invitations.value = []
+      githubInviteCandidates.value = []
+      return
+    }
 
     const [pendingInvitations, candidates] = await Promise.all([
       $fetch<unknown[]>('/api/workspaces/invitations', {
@@ -328,41 +326,36 @@ watch(() => props.workspaceId, () => {
       <h2 class="mb-4 md3-title-md">
         Membres
       </h2>
-      <p v-if="!canManage" class="md3-body-md text-on-surface-variant">
-        Seuls les propriétaires peuvent consulter et gérer les membres du workspace.
+      <p v-if="sectionError" class="mb-4 md3-body-md text-error">
+        {{ sectionError }}
       </p>
-      <template v-else>
-        <p v-if="sectionError" class="mb-4 md3-body-md text-error">
-          {{ sectionError }}
-        </p>
-        <div v-if="loading" class="md3-body-md text-on-surface-variant">
-          Chargement des membres…
-        </div>
-        <ul v-else class="divide-y divide-outline-variant">
-          <li
-            v-for="workspaceMember in members"
-            :key="workspaceMember.id"
-            class="flex flex-wrap items-center justify-between gap-2 py-3"
-          >
-            <div>
-              <p class="md3-title-sm">
-                {{ workspaceMember.name }}
-              </p>
-              <p class="md3-body-md text-on-surface-variant">
-                {{ workspaceMember.email }}
-              </p>
-            </div>
-            <div class="text-right md3-body-md text-on-surface-variant">
-              <FluffmindChip class="uppercase">
-                {{ workspaceMember.role }}
-              </FluffmindChip>
-            </div>
-          </li>
-        </ul>
-        <p v-if="!loading && members.length === 0" class="md3-body-md text-on-surface-variant">
-          Aucun membre trouvé.
-        </p>
-      </template>
+      <div v-if="loading" class="md3-body-md text-on-surface-variant">
+        Chargement des membres…
+      </div>
+      <ul v-else class="divide-y divide-outline-variant">
+        <li
+          v-for="workspaceMember in members"
+          :key="workspaceMember.id"
+          class="flex flex-wrap items-center justify-between gap-2 py-3"
+        >
+          <div>
+            <p class="md3-title-sm">
+              {{ workspaceMember.name }}
+            </p>
+            <p class="md3-body-md text-on-surface-variant">
+              {{ workspaceMember.email }}
+            </p>
+          </div>
+          <div class="text-right md3-body-md text-on-surface-variant">
+            <FluffmindChip class="uppercase">
+              {{ workspaceMember.role }}
+            </FluffmindChip>
+          </div>
+        </li>
+      </ul>
+      <p v-if="!loading && members.length === 0" class="md3-body-md text-on-surface-variant">
+        Aucun membre trouvé.
+      </p>
     </FluffmindCard>
 
     <FluffmindCard v-if="canManage" padding="lg" class="mb-6">
