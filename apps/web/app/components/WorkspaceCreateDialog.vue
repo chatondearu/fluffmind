@@ -39,6 +39,7 @@ const repoPrivate = ref(true)
 const linkedRepository = ref('')
 const repositories = ref<Array<{ value: string, label: string }>>([])
 const loadingRepositories = ref(false)
+const repositoriesLoadGeneration = ref(0)
 const repositoriesError = ref<string | null>(null)
 const contentRootsText = ref('')
 const githubAvailable = ref(false)
@@ -58,12 +59,16 @@ const installationOptions = computed(() => installations.value.map(installation 
   label: `${installation.accountLogin} (${installation.accountType === 'Organization' ? 'organisation' : 'compte personnel'})`,
 })))
 
-const canSubmit = computed(() => canSubmitWorkspaceCreate({
-  name: name.value,
-  mode: githubMode.value,
-  installationId: installationId.value,
-  repository: linkedRepository.value,
-}))
+const canSubmit = computed(() => {
+  if (githubMode.value === 'link' && loadingRepositories.value)
+    return false
+  return canSubmitWorkspaceCreate({
+    name: name.value,
+    mode: githubMode.value,
+    installationId: installationId.value,
+    repository: linkedRepository.value,
+  })
+})
 
 function slugify(name: string): string {
   return name
@@ -83,6 +88,7 @@ function resetForm(): void {
   repoPrivate.value = true
   linkedRepository.value = ''
   repositories.value = []
+  repositoriesLoadGeneration.value += 1
   loadingRepositories.value = false
   repositoriesError.value = null
   contentRootsText.value = ''
@@ -92,6 +98,7 @@ function resetForm(): void {
 }
 
 async function loadRepositoriesForInstallation(id: string): Promise<void> {
+  const generation = ++repositoriesLoadGeneration.value
   linkedRepository.value = ''
   repositories.value = []
   repositoriesError.value = null
@@ -103,6 +110,8 @@ async function loadRepositoriesForInstallation(id: string): Promise<void> {
     const response = await $fetch<{ repositories?: Array<{ fullName?: string }> }>(
       `/api/github/installations/${id}/repos`,
     )
+    if (generation !== repositoriesLoadGeneration.value)
+      return
     const rows = Array.isArray(response.repositories) ? response.repositories : []
     repositories.value = rows
       .map(repo => (typeof repo.fullName === 'string' ? repo.fullName.trim() : ''))
@@ -110,11 +119,14 @@ async function loadRepositoriesForInstallation(id: string): Promise<void> {
       .map(fullName => ({ value: fullName, label: fullName }))
   }
   catch (requestError) {
+    if (generation !== repositoriesLoadGeneration.value)
+      return
     const asRecord = requestError as { data?: { message?: string }, message?: string }
     repositoriesError.value = asRecord.data?.message || asRecord.message || 'Impossible de charger les dépôts.'
   }
   finally {
-    loadingRepositories.value = false
+    if (generation === repositoriesLoadGeneration.value)
+      loadingRepositories.value = false
   }
 }
 
@@ -147,6 +159,8 @@ function close(): void {
 
 async function submit(): Promise<void> {
   const trimmedName = name.value.trim()
+  if (githubMode.value === 'link' && loadingRepositories.value)
+    return
   if (!canSubmitWorkspaceCreate({
     name: trimmedName,
     mode: githubMode.value,
