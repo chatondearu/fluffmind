@@ -5,10 +5,14 @@ import {
 } from '@fluffmind/db'
 import { and, eq, gt } from 'drizzle-orm'
 
-import { requireWorkspaceManage } from '../../../utils/workspace-membership'
+import {
+  parseWorkspaceId,
+  requireWorkspaceManageAuthority,
+} from '../../../utils/workspace-manage-authority'
 
 export default defineEventHandler(async (event) => {
-  const workspaceId = await requireWorkspaceManage(event)
+  const workspaceId = parseWorkspaceId(getQuery(event).workspaceId)
+  await requireWorkspaceManageAuthority(event, workspaceId)
 
   return getDb()
     .select({

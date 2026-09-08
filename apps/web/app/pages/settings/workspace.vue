@@ -829,7 +829,9 @@ async function loadWorkspaceData(isManualReload = false) {
 
     if (canManageGitHub.value) {
       const [pendingInvitations, candidates] = await Promise.all([
-        $fetch<unknown[]>('/api/workspaces/invitations'),
+        $fetch<unknown[]>('/api/workspaces/invitations', {
+          query: { workspaceId: activeWorkspaceId.value },
+        }),
         loadGithubInviteCandidates(() =>
           $fetch<{ candidates?: Array<{ login?: string }> }>('/api/workspaces/github/invite-candidates', {
             query: { workspaceId: activeWorkspaceId.value },
@@ -880,7 +882,10 @@ async function inviteMember() {
   try {
     const response = await $fetch<WorkspaceInvitationResponse>('/api/workspaces/invitations', {
       method: 'POST',
-      body: payload,
+      body: {
+        ...payload,
+        workspaceId: activeWorkspaceId.value,
+      },
     })
 
     const invitationId = extractInvitationIdFromInviteMemberResponse(response)
