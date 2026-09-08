@@ -220,7 +220,7 @@ async function handleWorkspaceCreated({
   await setActiveWorkspace(organizationId)
 
   if (githubWarning)
-    workspaceError.value = `Workspace créé, mais le dépôt GitHub n’a pas pu être créé : ${githubWarning}`
+    workspaceError.value = `Workspace créé, mais le dépôt GitHub n’a pas pu être créé ou lié : ${githubWarning}`
 }
 
 watch(
