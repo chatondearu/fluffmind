@@ -1,38 +1,22 @@
-import { getDb, member } from '@fluffmind/db'
-import type { H3Event } from 'h3'
-import { and, eq } from 'drizzle-orm'
-
-import { requireSession } from '../../../utils/auth'
 import { createWorkspaceAgentToken } from '../../../utils/agent-tokens'
 import { readJsonBody } from '../../../utils/read-json-body'
-import { resolveActiveWorkspaceId } from '../../../vault/workspace'
+import {
+  auditAdminAction,
+  parseWorkspaceId,
+  requireWorkspaceManageAuthority,
+} from '../../../utils/workspace-manage-authority'
 
-async function requireOwnerSession(event: H3Event, workspaceId: string) {
-  const session = await requireSession(event)
-  const db = getDb()
-
-  const [workspaceMember] = await db
-    .select({ role: member.role })
-    .from(member)
-    .where(and(eq(member.organizationId, workspaceId), eq(member.userId, session.user.id)))
-    .limit(1)
-
-  if (!workspaceMember || workspaceMember.role !== 'owner') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Forbidden',
-      message: 'Creating agent tokens requires owner role.',
-    })
-  }
-
-  return session
+interface CreateAgentTokenBody {
+  workspaceId?: unknown
+  name?: string
+  scope?: string
 }
 
 export default defineEventHandler(async (event) => {
-  const workspaceId = await resolveActiveWorkspaceId(event)
-  const session = await requireOwnerSession(event, workspaceId)
+  const body = await readJsonBody<CreateAgentTokenBody>(event)
+  const workspaceId = parseWorkspaceId(body.workspaceId)
+  const authority = await requireWorkspaceManageAuthority(event, workspaceId)
 
-  const body = await readJsonBody<{ name?: string, scope?: string }>(event)
   const name = typeof body.name === 'string' ? body.name : ''
   const scope = body.scope === 'read' || body.scope === 'write' ? body.scope : null
   if (!scope) {
@@ -43,10 +27,17 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return createWorkspaceAgentToken({
-    organizationId: workspaceId,
+  const token = await createWorkspaceAgentToken({
+    organizationId: authority.workspaceId,
     name,
     scope,
-    createdByUserId: session.user.id,
+    createdByUserId: authority.session.user.id,
   })
+
+  await auditAdminAction(authority, 'workspace.agent.token.create', {
+    tokenId: token.id,
+    scope,
+  })
+
+  return token
 })

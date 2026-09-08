@@ -614,7 +614,9 @@ async function loadAgentState(): Promise<void> {
   agentLoading.value = true
   agentError.value = null
   try {
-    const response = await $fetch<{ agentEnabled: boolean, tokens: AgentTokenRow[] }>('/api/workspaces/agent')
+    const response = await $fetch<{ agentEnabled: boolean, tokens: AgentTokenRow[] }>('/api/workspaces/agent', {
+      query: { workspaceId: activeWorkspaceId.value },
+    })
     agentEnabled.value = Boolean(response.agentEnabled)
     agentTokens.value = Array.isArray(response.tokens) ? response.tokens : []
   }
@@ -637,7 +639,7 @@ async function toggleAgentEnabled(next: boolean): Promise<void> {
   try {
     const response = await $fetch<{ agentEnabled: boolean, tokens: AgentTokenRow[] }>('/api/workspaces/agent', {
       method: 'PATCH',
-      body: { agentEnabled: next },
+      body: { agentEnabled: next, workspaceId: activeWorkspaceId.value },
     })
     agentEnabled.value = Boolean(response.agentEnabled)
     agentTokens.value = Array.isArray(response.tokens) ? response.tokens : []
@@ -666,6 +668,7 @@ async function createAgentToken(): Promise<void> {
       body: {
         name: agentNewName.value.trim(),
         scope: agentNewScope.value,
+        workspaceId: activeWorkspaceId.value,
       },
     })
     agentCreatedSecret.value = response.token
@@ -690,7 +693,10 @@ async function revokeAgentToken(tokenId: string): Promise<void> {
   agentError.value = null
   agentSuccess.value = null
   try {
-    await $fetch(`/api/workspaces/agent/tokens/${tokenId}`, { method: 'DELETE' })
+    await $fetch(`/api/workspaces/agent/tokens/${tokenId}`, {
+      method: 'DELETE',
+      body: { workspaceId: activeWorkspaceId.value },
+    })
     agentSuccess.value = 'Token révoqué.'
     await loadAgentState()
   }
