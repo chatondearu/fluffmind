@@ -4,6 +4,7 @@ import {
   fetchInstallationAccount,
   removeGithubAppInstallation,
   requireGithubAppListAccess,
+  resolveGithubAppSetupRedirectPath,
   unlinkWorkspacesForRemovedRepositories,
 } from './github-installations'
 
@@ -249,5 +250,15 @@ describe('requireGithubAppListAccess', () => {
     })
 
     await expect(requireGithubAppListAccess({} as never)).rejects.toMatchObject({ statusCode: 403 })
+  })
+})
+
+describe('resolveGithubAppSetupRedirectPath', () => {
+  it('sends instance admins to the admin settings page', () => {
+    expect(resolveGithubAppSetupRedirectPath({ user: { role: 'admin' } })).toBe('/settings/admin')
+  })
+
+  it('sends owners to workspace settings', () => {
+    expect(resolveGithubAppSetupRedirectPath({ user: { role: 'user' } })).toBe('/settings/workspace')
   })
 })

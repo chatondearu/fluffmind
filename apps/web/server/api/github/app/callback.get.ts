@@ -1,7 +1,8 @@
 import { getGitHubAppCredentials } from '../../../utils/github-credentials'
 import {
   fetchInstallationAccount,
-  requireAnyOwnerMembership,
+  requireGithubAppListAccess,
+  resolveGithubAppSetupRedirectPath,
   upsertGithubAppInstallation,
 } from '../../../utils/github-installations'
 
@@ -12,14 +13,17 @@ function firstQueryValue(value: unknown): string {
 }
 
 /**
- * GitHub redirects the owner's browser here after installing/updating the App
- * ("Setup URL"). Records the installation eagerly (using authoritative account info
- * fetched via App-level JWT auth) so self-hosted instances without a public webhook
- * endpoint still get a usable installation — the `installation` webhook (when
- * configured) keeps account details fresh afterwards.
+ * GitHub redirects here after installing/updating the App ("Setup URL").
+ * Records the installation eagerly (using authoritative account info fetched via
+ * App-level JWT auth) so self-hosted instances without a public webhook endpoint
+ * still get a usable installation — the `installation` webhook (when configured)
+ * keeps account details fresh afterwards.
+ *
+ * Authz matches install-url / installations list: instance admin OR owner of at
+ * least one workspace (so a pure admin can complete App setup).
  */
 export default defineEventHandler(async (event) => {
-  await requireAnyOwnerMembership(event)
+  const session = await requireGithubAppListAccess(event)
 
   if (!getGitHubAppCredentials()) {
     throw createError({
@@ -52,5 +56,6 @@ export default defineEventHandler(async (event) => {
   if (setupAction)
     redirectQuery.set('setupAction', setupAction)
 
-  return sendRedirect(event, `/settings/workspace?${redirectQuery.toString()}`)
+  const redirectPath = resolveGithubAppSetupRedirectPath(session)
+  return sendRedirect(event, `${redirectPath}?${redirectQuery.toString()}`)
 })

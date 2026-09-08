@@ -61,9 +61,9 @@ export async function requireAnyOwnerMembership(event: H3Event) {
 }
 
 /**
- * Read/list GitHub App install helpers used by workspace settings and the admin console.
- * Instance admins may call these without owning any workspace; non-admins still need
- * owner membership in at least one workspace.
+ * GitHub App install/list/callback helpers used by workspace settings and the admin
+ * console. Instance admins may call these without owning any workspace; non-admins
+ * still need owner membership in at least one workspace.
  */
 export async function requireGithubAppListAccess(event: H3Event) {
   const session = await requireSession(event)
@@ -72,6 +72,15 @@ export async function requireGithubAppListAccess(event: H3Event) {
     return session
 
   return requireAnyOwnerMembership(event)
+}
+
+/** Post-setup redirect: admin console for instance admins, owner settings otherwise. */
+export function resolveGithubAppSetupRedirectPath(session: {
+  user?: { role?: unknown }
+}): string {
+  return session.user?.role === INSTANCE_ADMIN_ROLE
+    ? '/settings/admin'
+    : '/settings/workspace'
 }
 
 export interface UpsertGithubAppInstallationInput {
