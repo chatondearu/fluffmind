@@ -7,6 +7,13 @@ import {
   FluffmindTextArea,
   FluffmindTextField,
 } from '@fluffmind/design-system/src/components'
+import {
+  type WorkspaceCreateGithubMode,
+  buildWorkspaceCreatePostBody,
+  buildWorkspaceGithubLinkBody,
+  canSubmitWorkspaceCreate,
+  defaultGithubModeWhenAvailable,
+} from '../utils/workspace-create-github'
 
 interface GitHubAppInstallation {
   installationId: string
@@ -24,11 +31,15 @@ const emit = defineEmits<{
 }>()
 
 const name = ref('')
-const createGithub = ref(false)
+const githubMode = ref<WorkspaceCreateGithubMode>('none')
 const installationId = ref('')
 const repoName = ref('')
 const autoRepoName = ref('')
 const repoPrivate = ref(true)
+const linkedRepository = ref('')
+const repositories = ref<Array<{ value: string, label: string }>>([])
+const loadingRepositories = ref(false)
+const repositoriesError = ref<string | null>(null)
 const contentRootsText = ref('')
 const githubAvailable = ref(false)
 const installations = ref<GitHubAppInstallation[]>([])
@@ -36,10 +47,23 @@ const loadingGitHub = ref(false)
 const submitting = ref(false)
 const error = ref<string | null>(null)
 
+const githubModeOptions = [
+  { value: 'create', label: 'Créer un dépôt GitHub' },
+  { value: 'link', label: 'Lier un dépôt existant' },
+  { value: 'none', label: 'Sans GitHub (local)' },
+]
+
 const installationOptions = computed(() => installations.value.map(installation => ({
   value: installation.installationId,
   label: `${installation.accountLogin} (${installation.accountType === 'Organization' ? 'organisation' : 'compte personnel'})`,
 })))
+
+const canSubmit = computed(() => canSubmitWorkspaceCreate({
+  name: name.value,
+  mode: githubMode.value,
+  installationId: installationId.value,
+  repository: linkedRepository.value,
+}))
 
 function slugify(name: string): string {
   return name
@@ -52,15 +76,46 @@ function slugify(name: string): string {
 
 function resetForm(): void {
   name.value = ''
-  createGithub.value = false
+  githubMode.value = 'none'
   installationId.value = ''
   repoName.value = ''
   autoRepoName.value = ''
   repoPrivate.value = true
+  linkedRepository.value = ''
+  repositories.value = []
+  loadingRepositories.value = false
+  repositoriesError.value = null
   contentRootsText.value = ''
   githubAvailable.value = false
   installations.value = []
   error.value = null
+}
+
+async function loadRepositoriesForInstallation(id: string): Promise<void> {
+  linkedRepository.value = ''
+  repositories.value = []
+  repositoriesError.value = null
+  if (!id || githubMode.value !== 'link')
+    return
+
+  loadingRepositories.value = true
+  try {
+    const response = await $fetch<{ repositories?: Array<{ fullName?: string }> }>(
+      `/api/github/installations/${id}/repos`,
+    )
+    const rows = Array.isArray(response.repositories) ? response.repositories : []
+    repositories.value = rows
+      .map(repo => (typeof repo.fullName === 'string' ? repo.fullName.trim() : ''))
+      .filter(Boolean)
+      .map(fullName => ({ value: fullName, label: fullName }))
+  }
+  catch (requestError) {
+    const asRecord = requestError as { data?: { message?: string }, message?: string }
+    repositoriesError.value = asRecord.data?.message || asRecord.message || 'Impossible de charger les dépôts.'
+  }
+  finally {
+    loadingRepositories.value = false
+  }
 }
 
 async function loadGitHubOptions(): Promise<void> {
@@ -68,17 +123,20 @@ async function loadGitHubOptions(): Promise<void> {
 
   try {
     const status = await $fetch<{ configured: boolean }>('/api/github/app/status')
-    if (!status.configured) return
+    if (!status.configured)
+      return
 
     const response = await $fetch<{ installations: GitHubAppInstallation[] }>('/api/github/installations')
     installations.value = Array.isArray(response.installations) ? response.installations : []
     githubAvailable.value = installations.value.length > 0
     installationId.value = installations.value[0]?.installationId ?? ''
-    createGithub.value = githubAvailable.value
-  } catch {
+    githubMode.value = defaultGithubModeWhenAvailable(githubAvailable.value)
+  }
+  catch {
     // GitHub remains an optional part of workspace creation.
-    createGithub.value = false
-  } finally {
+    githubMode.value = 'none'
+  }
+  finally {
     loadingGitHub.value = false
   }
 }
@@ -89,42 +147,73 @@ function close(): void {
 
 async function submit(): Promise<void> {
   const trimmedName = name.value.trim()
-  if (!trimmedName) return
+  if (!canSubmitWorkspaceCreate({
+    name: trimmedName,
+    mode: githubMode.value,
+    installationId: installationId.value,
+    repository: linkedRepository.value,
+  })) return
 
   error.value = null
   submitting.value = true
 
   try {
-    const body: Record<string, unknown> = { name: trimmedName }
     const contentRoots = contentRootsText.value
       .split(/[\n,]/)
       .map(root => root.trim())
       .filter(Boolean)
-    if (contentRoots.length)
-      body.contentRoots = contentRoots
 
-    if (createGithub.value && installationId.value) {
-      body.createGithubRepo = {
+    const body = buildWorkspaceCreatePostBody({
+      name: trimmedName,
+      contentRoots,
+      mode: githubMode.value,
+      create: {
         installationId: installationId.value,
-        name: repoName.value.trim() || undefined,
-        private: repoPrivate.value,
-      }
-    }
+        repoName: repoName.value,
+        repoPrivate: repoPrivate.value,
+      },
+    })
 
     const response = await $fetch<{
       organization: { id: string }
       github?: { ok: true } | { ok: false, message: string }
     }>('/api/workspaces', { method: 'POST', body })
 
+    let githubWarning = response.github && !response.github.ok
+      ? response.github.message
+      : undefined
+
+    if (githubMode.value === 'link' && !githubWarning) {
+      try {
+        await $fetch('/api/workspaces/github/link', {
+          method: 'POST',
+          body: buildWorkspaceGithubLinkBody({
+            workspaceId: response.organization.id,
+            contentRoots,
+            link: {
+              installationId: installationId.value,
+              repository: linkedRepository.value,
+            },
+          }),
+        })
+      }
+      catch (linkError) {
+        const asRecord = linkError as { data?: { message?: string }, message?: string }
+        githubWarning = asRecord.data?.message || asRecord.message || 'Impossible de lier le dépôt GitHub.'
+      }
+    }
+
     emit('created', {
       organizationId: response.organization.id,
-      githubWarning: response.github && !response.github.ok ? response.github.message : undefined,
+      githubWarning,
     })
     close()
-  } catch (requestError) {
+  }
+  catch (requestError) {
     const asRecord = requestError as { data?: { message?: string }, message?: string }
     error.value = asRecord.data?.message || asRecord.message || 'Impossible de créer le workspace.'
-  } finally {
+  }
+  finally {
     submitting.value = false
   }
 }
@@ -141,8 +230,24 @@ watch(name, (value) => {
   autoRepoName.value = nextAuto
 })
 
+watch(installationId, (id) => {
+  if (githubMode.value === 'link')
+    void loadRepositoriesForInstallation(id)
+})
+
+watch(githubMode, (mode) => {
+  if (mode === 'link')
+    void loadRepositoriesForInstallation(installationId.value)
+  else {
+    linkedRepository.value = ''
+    repositories.value = []
+    repositoriesError.value = null
+  }
+})
+
 watch(() => props.open, (isOpen) => {
-  if (!isOpen) return
+  if (!isOpen)
+    return
 
   resetForm()
   void loadGitHubOptions()
@@ -179,15 +284,16 @@ watch(() => props.open, (isOpen) => {
       </label>
 
       <section v-if="githubAvailable" class="rounded-xl bg-surface-container-low p-4">
-        <FluffmindCheckbox
-          :model-value="createGithub"
-          :disabled="loadingGitHub || submitting"
-          @update:model-value="createGithub = $event"
-        >
-          Créer un dépôt GitHub
-        </FluffmindCheckbox>
+        <label class="block">
+          <span class="mb-2 block md3-label-lg">GitHub</span>
+          <FluffmindSelect
+            v-model="githubMode"
+            :options="githubModeOptions"
+            :disabled="loadingGitHub || submitting"
+          />
+        </label>
 
-        <div v-if="createGithub" class="mt-4 grid gap-4">
+        <div v-if="githubMode === 'create'" class="mt-4 grid gap-4">
           <label class="block">
             <span class="mb-2 block md3-label-lg">Installation GitHub App</span>
             <FluffmindSelect
@@ -213,6 +319,36 @@ watch(() => props.open, (isOpen) => {
             Dépôt privé
           </FluffmindCheckbox>
         </div>
+
+        <div v-else-if="githubMode === 'link'" class="mt-4 grid gap-4">
+          <label class="block">
+            <span class="mb-2 block md3-label-lg">Installation GitHub App</span>
+            <FluffmindSelect
+              v-model="installationId"
+              :options="installationOptions"
+              placeholder="Choisir une installation"
+              :disabled="loadingGitHub || submitting"
+            />
+          </label>
+          <label class="block">
+            <span class="mb-2 block md3-label-lg">Dépôt existant</span>
+            <FluffmindSelect
+              v-model="linkedRepository"
+              :options="repositories"
+              placeholder="Choisir un dépôt"
+              :disabled="loadingRepositories || submitting || !installationId"
+            />
+            <span v-if="loadingRepositories" class="mt-2 block md3-body-sm text-on-surface-variant">
+              Chargement des dépôts…
+            </span>
+            <span v-else-if="repositoriesError" class="mt-2 block md3-body-sm text-error">
+              {{ repositoriesError }}
+            </span>
+            <span v-else-if="installationId && !repositories.length" class="mt-2 block md3-body-sm text-on-surface-variant">
+              Aucun dépôt accessible pour cette installation.
+            </span>
+          </label>
+        </div>
       </section>
 
       <p v-if="error" class="text-sm text-error">
@@ -223,7 +359,7 @@ watch(() => props.open, (isOpen) => {
         <FluffmindButton variant="text" type="button" :disabled="submitting" @click="close">
           Annuler
         </FluffmindButton>
-        <FluffmindButton type="submit" :disabled="submitting || !name.trim() || (createGithub && !installationId)">
+        <FluffmindButton type="submit" :disabled="submitting || !canSubmit">
           {{ submitting ? 'Création…' : 'Créer' }}
         </FluffmindButton>
       </div>
