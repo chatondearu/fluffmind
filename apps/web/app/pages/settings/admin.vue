@@ -4,6 +4,7 @@ import {
   FluffmindCard,
   FluffmindChip,
 } from '@fluffmind/design-system/src/components'
+import { useAdminWorkspaceDanger } from '../../composables/useAdminWorkspaceDanger'
 
 interface AdminUser {
   id: string
@@ -67,7 +68,6 @@ const githubLoading = ref(true)
 const usersError = ref<string | null>(null)
 const workspacesError = ref<string | null>(null)
 const githubError = ref<string | null>(null)
-const workspaceActionError = ref<string | null>(null)
 const githubActionError = ref<string | null>(null)
 const users = ref<AdminUser[]>([])
 const workspaces = ref<AdminWorkspaceRow[]>([])
@@ -78,6 +78,17 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   const asRecordError = error as { data?: { message?: string }, message?: string }
   return asRecordError.data?.message || asRecordError.message || fallback
 }
+
+const {
+  actionError: workspaceActionError,
+  resetHard,
+  invalidateIndex,
+  unlinkGithub,
+  deleteWorkspace,
+  rebindOrphan,
+} = useAdminWorkspaceDanger({
+  onAfterMutation: () => loadWorkspaces(),
+})
 
 async function loadUsers() {
   usersLoading.value = true
@@ -154,90 +165,6 @@ async function revokeSessions(user: AdminUser) {
     method: 'POST',
   })
   await loadUsers()
-}
-
-async function runWorkspaceMutation(
-  path: string,
-  options: { method: 'POST' | 'DELETE', body?: Record<string, unknown> },
-) {
-  workspaceActionError.value = null
-  try {
-    await $fetch(path, options)
-    await loadWorkspaces()
-  }
-  catch (error) {
-    workspaceActionError.value = extractErrorMessage(error, 'Action impossible.')
-  }
-}
-
-function promptConfirmSlug(workspace: AdminWorkspaceRow, label: string): string | null {
-  const typed = window.prompt(`${label}\n\nTapez « ${workspace.slug} » pour confirmer.`)
-  if (typed === null)
-    return null
-  if (typed.trim() !== workspace.slug) {
-    workspaceActionError.value = `Confirmation incorrecte : attendu « ${workspace.slug} ».`
-    return null
-  }
-  return typed.trim()
-}
-
-async function resetHard(workspace: AdminWorkspaceRow) {
-  const confirmSlug = promptConfirmSlug(workspace, 'Réinitialiser le workspace sur origin ?')
-  if (!confirmSlug)
-    return
-  await runWorkspaceMutation(
-    `/api/admin/workspaces/${workspace.organizationId}/reset-hard`,
-    { method: 'POST', body: { confirmSlug } },
-  )
-}
-
-async function invalidateIndex(workspace: AdminWorkspaceRow) {
-  await runWorkspaceMutation(
-    `/api/admin/workspaces/${workspace.organizationId}/invalidate-index`,
-    { method: 'POST' },
-  )
-}
-
-async function unlinkGithub(workspace: AdminWorkspaceRow) {
-  await runWorkspaceMutation(
-    `/api/admin/workspaces/${workspace.organizationId}/unlink-github`,
-    { method: 'POST' },
-  )
-}
-
-async function deleteWorkspace(workspace: AdminWorkspaceRow) {
-  const confirmSlug = promptConfirmSlug(workspace, 'Supprimer définitivement ce workspace ?')
-  if (!confirmSlug)
-    return
-  await runWorkspaceMutation(
-    `/api/admin/workspaces/${workspace.organizationId}`,
-    { method: 'DELETE', body: { confirmSlug } },
-  )
-}
-
-async function rebindOrphan(folderName: string) {
-  const organizationId = window.prompt(
-    `Réassocier le dossier « ${folderName} » à une organisation.\n\nID de l'organisation cible :`,
-  )
-  if (!organizationId?.trim())
-    return
-
-  const typed = window.prompt(`Tapez « ${folderName} » pour confirmer la réassociation.`)
-  if (typed === null)
-    return
-  if (typed.trim() !== folderName) {
-    workspaceActionError.value = `Confirmation incorrecte : attendu « ${folderName} ».`
-    return
-  }
-
-  await runWorkspaceMutation('/api/admin/workspaces/rebind', {
-    method: 'POST',
-    body: {
-      organizationId: organizationId.trim(),
-      folderName,
-      confirmSlug: typed.trim(),
-    },
-  })
 }
 
 async function runGithubMutation(
@@ -411,8 +338,13 @@ async function removeInstallationFromDb(installation: AdminGithubInstallationRow
             <div class="flex flex-wrap items-start justify-between gap-4">
               <div class="min-w-0 flex-1">
                 <p class="md3-title-sm">
-                  {{ workspace.name }}
-                  <span class="text-on-surface-variant">({{ workspace.slug }})</span>
+                  <NuxtLink
+                    :to="`/settings/admin/workspaces/${workspace.organizationId}`"
+                    class="text-primary underline"
+                  >
+                    {{ workspace.name }}
+                    <span class="text-on-surface-variant">({{ workspace.slug }})</span>
+                  </NuxtLink>
                 </p>
                 <p class="md3-body-md text-on-surface-variant break-all">
                   {{ workspace.organizationId }}
