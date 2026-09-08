@@ -30,6 +30,21 @@ interface AdminWorkspaceRow {
   behind: number | null
 }
 
+interface WorkspaceMemberRow {
+  memberId: string
+  userId: string
+  email: string
+  name: string
+  role: string
+}
+
+interface AdminWorkspaceMembersGroup {
+  organizationId: string
+  name: string
+  slug: string
+  members: WorkspaceMemberRow[]
+}
+
 interface AdminGithubLinkedWorkspace {
   organizationId: string
   name: string
@@ -64,13 +79,16 @@ interface AdminGithubBundle {
 
 const usersLoading = ref(true)
 const workspacesLoading = ref(true)
+const membersLoading = ref(true)
 const githubLoading = ref(true)
 const usersError = ref<string | null>(null)
 const workspacesError = ref<string | null>(null)
+const membersError = ref<string | null>(null)
 const githubError = ref<string | null>(null)
 const githubActionError = ref<string | null>(null)
 const users = ref<AdminUser[]>([])
 const workspaces = ref<AdminWorkspaceRow[]>([])
+const memberGroups = ref<AdminWorkspaceMembersGroup[]>([])
 const orphans = ref<string[]>([])
 const githubBundle = ref<AdminGithubBundle | null>(null)
 
@@ -165,6 +183,21 @@ async function loadWorkspaces() {
   }
 }
 
+async function loadMembers() {
+  membersLoading.value = true
+  membersError.value = null
+  try {
+    const response = await $fetch<{ workspaces: AdminWorkspaceMembersGroup[] }>('/api/admin/workspace-members')
+    memberGroups.value = response.workspaces
+  }
+  catch (error) {
+    membersError.value = extractErrorMessage(error, 'Impossible de charger les membres des workspaces.')
+  }
+  finally {
+    membersLoading.value = false
+  }
+}
+
 async function loadGithub() {
   githubLoading.value = true
   githubError.value = null
@@ -184,7 +217,7 @@ async function loadGithub() {
 // followed by a re-fetch on the client (double request + error flash). Loading refs
 // default to true, so SSR and the initial client render both show the loading state.
 onMounted(() => {
-  void Promise.all([loadUsers(), loadWorkspaces(), loadGithub()])
+  void Promise.all([loadUsers(), loadWorkspaces(), loadMembers(), loadGithub()])
 })
 
 async function promoteOrDemote(user: AdminUser) {
@@ -276,6 +309,79 @@ async function onGithubConfirmAction() {
         </p>
       </div>
     </header>
+
+    <FluffmindCard padding="lg" variant="outlined" class="mb-6">
+      <h2 class="md3-title-md mb-1">
+        Membres des workspaces
+      </h2>
+      <p class="mb-4 md3-body-md text-on-surface-variant">
+        Vue d'ensemble en lecture seule. Pour inviter, modifier ou retirer des membres, ouvrez la console du workspace.
+      </p>
+
+      <FluffmindCard v-if="membersError" padding="md" variant="outlined" class="mb-4">
+        <p class="md3-body-md text-error">
+          {{ membersError }}
+        </p>
+      </FluffmindCard>
+
+      <template v-if="membersLoading">
+        <p class="md3-body-md text-on-surface-variant">
+          Chargement des membres…
+        </p>
+      </template>
+
+      <template v-else-if="!membersError">
+        <p
+          v-if="!memberGroups.length"
+          class="md3-body-md text-on-surface-variant"
+        >
+          Aucun workspace.
+        </p>
+
+        <ul v-else class="divide-y divide-outline-variant">
+          <li
+            v-for="group in memberGroups"
+            :key="group.organizationId"
+            class="py-4"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div class="min-w-0 flex-1">
+                <p class="md3-title-sm">
+                  {{ group.name }}
+                  <span class="text-on-surface-variant">({{ group.slug }})</span>
+                </p>
+
+                <p
+                  v-if="!group.members.length"
+                  class="mt-2 md3-body-sm text-on-surface-variant"
+                >
+                  Aucun membre.
+                </p>
+                <ul v-else class="mt-2 space-y-1">
+                  <li
+                    v-for="member in group.members"
+                    :key="member.memberId"
+                    class="md3-body-md"
+                  >
+                    {{ member.email }}
+                    <FluffmindChip class="ml-2 uppercase">
+                      {{ member.role }}
+                    </FluffmindChip>
+                  </li>
+                </ul>
+              </div>
+
+              <NuxtLink
+                :to="`/settings/admin/workspaces/${group.organizationId}`"
+                class="md3-body-md text-primary underline"
+              >
+                Gérer dans la console
+              </NuxtLink>
+            </div>
+          </li>
+        </ul>
+      </template>
+    </FluffmindCard>
 
     <FluffmindCard padding="lg" class="mb-6">
       <h2 class="md3-title-md mb-4">
