@@ -25,9 +25,17 @@ const repairingSession = ref(false)
 const workspaceRole = ref<string>('read')
 const workspaceContentRoots = ref<string[]>([])
 const sectionsReloadKey = ref(0)
+const membersReloadKey = ref(0)
 
 const canManage = computed(() => workspaceRole.value === 'owner')
 const sectionsKey = computed(() => `${activeWorkspaceId.value}:${sectionsReloadKey.value}`)
+const membersSectionKey = computed(
+  () => `${activeWorkspaceId.value}:${sectionsReloadKey.value}:${membersReloadKey.value}`,
+)
+
+function onMembersChanged(): void {
+  membersReloadKey.value += 1
+}
 
 function extractErrorMessage(response: unknown, fallback: string): string | null {
   const error = (response as { error?: { message?: string | null } | null })?.error
@@ -193,7 +201,7 @@ await loadWorkspaceMeta()
 
     <template v-else-if="activeWorkspaceId">
       <WorkspaceMembersSection
-        :key="`members-${sectionsKey}`"
+        :key="`members-${membersSectionKey}`"
         :workspace-id="activeWorkspaceId"
         :can-manage="canManage"
       />
@@ -208,6 +216,7 @@ await loadWorkspaceMeta()
         :can-manage="canManage"
         :workspace-slug="organizationSlug"
         :content-roots="workspaceContentRoots"
+        @members-changed="onMembersChanged"
       />
     </template>
   </main>

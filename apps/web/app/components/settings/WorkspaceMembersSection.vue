@@ -60,7 +60,6 @@ const roleOptions: Array<{ value: WorkspaceRole, label: string }> = [
 const members = ref<WorkspaceMember[]>([])
 const invitations = ref<WorkspaceInvitation[]>([])
 const loading = ref(true)
-const reloading = ref(false)
 const submittingInvitation = ref(false)
 const inviteEmail = ref('')
 const inviteGithubLogin = ref('')
@@ -131,14 +130,18 @@ function normalizeInvitations(input: unknown): WorkspaceInvitation[] {
   })
 }
 
-async function loadMembersData(isManualReload = false): Promise<void> {
-  if (isManualReload)
-    reloading.value = true
-  else
-    loading.value = true
-
+async function loadMembersData(): Promise<void> {
+  loading.value = true
   sectionError.value = null
   inviteSuccess.value = null
+
+  if (!props.canManage) {
+    members.value = []
+    invitations.value = []
+    githubInviteCandidates.value = []
+    loading.value = false
+    return
+  }
 
   try {
     const membersResponse = await $fetch<{ members: unknown[] }>('/api/workspaces/members', {
@@ -146,24 +149,18 @@ async function loadMembersData(isManualReload = false): Promise<void> {
     })
     members.value = normalizeMembers(membersResponse.members)
 
-    if (props.canManage) {
-      const [pendingInvitations, candidates] = await Promise.all([
-        $fetch<unknown[]>('/api/workspaces/invitations', {
+    const [pendingInvitations, candidates] = await Promise.all([
+      $fetch<unknown[]>('/api/workspaces/invitations', {
+        query: { workspaceId: props.workspaceId },
+      }),
+      loadGithubInviteCandidates(() =>
+        $fetch<{ candidates?: Array<{ login?: string }> }>('/api/workspaces/github/invite-candidates', {
           query: { workspaceId: props.workspaceId },
         }),
-        loadGithubInviteCandidates(() =>
-          $fetch<{ candidates?: Array<{ login?: string }> }>('/api/workspaces/github/invite-candidates', {
-            query: { workspaceId: props.workspaceId },
-          }),
-        ),
-      ])
-      invitations.value = normalizeInvitations(pendingInvitations)
-      githubInviteCandidates.value = candidates
-    }
-    else {
-      invitations.value = []
-      githubInviteCandidates.value = []
-    }
+      ),
+    ])
+    invitations.value = normalizeInvitations(pendingInvitations)
+    githubInviteCandidates.value = candidates
   }
   catch (error) {
     const asRecordError = error as { message?: string, data?: { message?: string }, statusMessage?: string }
@@ -174,7 +171,6 @@ async function loadMembersData(isManualReload = false): Promise<void> {
   }
   finally {
     loading.value = false
-    reloading.value = false
   }
 }
 
@@ -220,7 +216,7 @@ async function inviteMember(): Promise<void> {
     const successMessage = payload.githubLogin
       ? `Invitation pour @${payload.githubLogin} prête (lien copiable).`
       : 'Invitation prête (lien copiable).'
-    await loadMembersData(true)
+    await loadMembersData()
     inviteSuccess.value = successMessage
   }
   catch (error) {
@@ -332,36 +328,41 @@ watch(() => props.workspaceId, () => {
       <h2 class="mb-4 md3-title-md">
         Membres
       </h2>
-      <p v-if="sectionError" class="mb-4 md3-body-md text-error">
-        {{ sectionError }}
+      <p v-if="!canManage" class="md3-body-md text-on-surface-variant">
+        Seuls les propriétaires peuvent consulter et gérer les membres du workspace.
       </p>
-      <div v-if="loading" class="md3-body-md text-on-surface-variant">
-        Chargement des membres…
-      </div>
-      <ul v-else class="divide-y divide-outline-variant">
-        <li
-          v-for="workspaceMember in members"
-          :key="workspaceMember.id"
-          class="flex flex-wrap items-center justify-between gap-2 py-3"
-        >
-          <div>
-            <p class="md3-title-sm">
-              {{ workspaceMember.name }}
-            </p>
-            <p class="md3-body-md text-on-surface-variant">
-              {{ workspaceMember.email }}
-            </p>
-          </div>
-          <div class="text-right md3-body-md text-on-surface-variant">
-            <FluffmindChip class="uppercase">
-              {{ workspaceMember.role }}
-            </FluffmindChip>
-          </div>
-        </li>
-      </ul>
-      <p v-if="!loading && members.length === 0" class="md3-body-md text-on-surface-variant">
-        Aucun membre trouvé.
-      </p>
+      <template v-else>
+        <p v-if="sectionError" class="mb-4 md3-body-md text-error">
+          {{ sectionError }}
+        </p>
+        <div v-if="loading" class="md3-body-md text-on-surface-variant">
+          Chargement des membres…
+        </div>
+        <ul v-else class="divide-y divide-outline-variant">
+          <li
+            v-for="workspaceMember in members"
+            :key="workspaceMember.id"
+            class="flex flex-wrap items-center justify-between gap-2 py-3"
+          >
+            <div>
+              <p class="md3-title-sm">
+                {{ workspaceMember.name }}
+              </p>
+              <p class="md3-body-md text-on-surface-variant">
+                {{ workspaceMember.email }}
+              </p>
+            </div>
+            <div class="text-right md3-body-md text-on-surface-variant">
+              <FluffmindChip class="uppercase">
+                {{ workspaceMember.role }}
+              </FluffmindChip>
+            </div>
+          </li>
+        </ul>
+        <p v-if="!loading && members.length === 0" class="md3-body-md text-on-surface-variant">
+          Aucun membre trouvé.
+        </p>
+      </template>
     </FluffmindCard>
 
     <FluffmindCard v-if="canManage" padding="lg" class="mb-6">

@@ -50,6 +50,10 @@ const props = withDefaults(defineProps<{
   contentRoots: () => [],
 })
 
+const emit = defineEmits<{
+  'members-changed': []
+}>()
+
 const githubRepository = ref('')
 const githubToken = ref('')
 const githubLinked = ref(false)
@@ -488,6 +492,7 @@ async function syncNowFromGitHub(): Promise<void> {
       `${result.deleted} supprimé(s)`,
     ].join(' · ')
     await loadMembersForOverrides()
+    emit('members-changed')
   }
   catch (error) {
     const asRecordError = error as { data?: { message?: string }, message?: string }
