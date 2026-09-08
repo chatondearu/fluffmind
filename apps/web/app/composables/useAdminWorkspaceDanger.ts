@@ -1,7 +1,6 @@
 /**
  * Shared danger-zone mutations for instance-admin workspace ops.
- * Confirmation currently uses window.prompt; Task 9 will swap to ConfirmActionDialog
- * via requestSlugConfirmation / requestOrphanRebindConfirm without changing callers.
+ * Destructive confirms use ConfirmActionDialog (mounted by the caller).
  */
 
 export interface AdminWorkspaceDangerTarget {
@@ -19,6 +18,24 @@ export interface UseAdminWorkspaceDangerOptions {
   onDeleted?: (workspace: AdminWorkspaceDangerTarget) => void | Promise<void>
 }
 
+export interface AdminConfirmActionState {
+  open: boolean
+  title: string
+  description: string
+  confirmValue: string
+  confirmLabel: string
+  inputLabel: string
+}
+
+export interface AdminPromptDialogState {
+  open: boolean
+  title: string
+  description: string
+  placeholder: string
+  confirmLabel: string
+  initialValue: string
+}
+
 function extractErrorMessage(error: unknown, fallback: string): string {
   const asRecordError = error as { data?: { message?: string }, message?: string }
   return asRecordError.data?.message || asRecordError.message || fallback
@@ -26,6 +43,109 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 
 export function useAdminWorkspaceDanger(options: UseAdminWorkspaceDangerOptions = {}) {
   const actionError = ref<string | null>(null)
+
+  const confirmAction = reactive<AdminConfirmActionState>({
+    open: false,
+    title: '',
+    description: '',
+    confirmValue: '',
+    confirmLabel: 'Confirmer',
+    inputLabel: '',
+  })
+
+  const promptDialog = reactive<AdminPromptDialogState>({
+    open: false,
+    title: '',
+    description: '',
+    placeholder: '',
+    confirmLabel: 'Valider',
+    initialValue: '',
+  })
+
+  let confirmResolve: ((value: string | null) => void) | null = null
+  let promptResolve: ((value: string | null) => void) | null = null
+
+  watch(() => confirmAction.open, (isOpen) => {
+    if (!isOpen && confirmResolve) {
+      const resolve = confirmResolve
+      confirmResolve = null
+      resolve(null)
+    }
+  })
+
+  watch(() => promptDialog.open, (isOpen) => {
+    if (!isOpen && promptResolve) {
+      const resolve = promptResolve
+      promptResolve = null
+      resolve(null)
+    }
+  })
+
+  function onConfirmAction(): void {
+    if (!confirmResolve)
+      return
+    const resolve = confirmResolve
+    confirmResolve = null
+    const value = confirmAction.confirmValue
+    confirmAction.open = false
+    resolve(value)
+  }
+
+  function onPromptConfirm(value: string): void {
+    if (!promptResolve)
+      return
+    const resolve = promptResolve
+    promptResolve = null
+    promptDialog.open = false
+    resolve(value.trim() || null)
+  }
+
+  /**
+   * Ask the operator to echo `slug` (or folder name). Returns trimmed value or null.
+   */
+  function requestSlugConfirmation(expected: string, label: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      confirmResolve = resolve
+      confirmAction.title = 'Confirmation requise'
+      confirmAction.description = `${label} Tapez « ${expected} » pour confirmer.`
+      confirmAction.confirmValue = expected
+      confirmAction.confirmLabel = 'Confirmer'
+      confirmAction.inputLabel = `Tapez « ${expected} »`
+      confirmAction.open = true
+    })
+  }
+
+  /**
+   * Collect org id + folder-name echo for orphan rebind.
+   */
+  async function requestOrphanRebindConfirm(folderName: string): Promise<{
+    organizationId: string
+    confirmSlug: string
+  } | null> {
+    const organizationId = await new Promise<string | null>((resolve) => {
+      promptResolve = resolve
+      promptDialog.title = 'Réassocier un dossier orphelin'
+      promptDialog.description = `Réassocier le dossier « ${folderName} » à une organisation.`
+      promptDialog.placeholder = 'ID de l\'organisation cible'
+      promptDialog.confirmLabel = 'Continuer'
+      promptDialog.initialValue = ''
+      promptDialog.open = true
+    })
+    if (!organizationId)
+      return null
+
+    const confirmSlug = await requestSlugConfirmation(
+      folderName,
+      'Confirmer la réassociation du dossier orphelin ?',
+    )
+    if (!confirmSlug)
+      return null
+
+    return {
+      organizationId,
+      confirmSlug,
+    }
+  }
 
   async function runMutation(
     path: string,
@@ -43,50 +163,8 @@ export function useAdminWorkspaceDanger(options: UseAdminWorkspaceDangerOptions 
     }
   }
 
-  /**
-   * Ask the operator to echo `slug` (or folder name). Returns trimmed value or null.
-   * Task 9: replace body with ConfirmActionDialog; keep this signature.
-   */
-  function requestSlugConfirmation(expected: string, label: string): string | null {
-    const typed = window.prompt(`${label}\n\nTapez « ${expected} » pour confirmer.`)
-    if (typed === null)
-      return null
-    if (typed.trim() !== expected) {
-      actionError.value = `Confirmation incorrecte : attendu « ${expected} ».`
-      return null
-    }
-    return typed.trim()
-  }
-
-  /**
-   * Collect org id + folder-name echo for orphan rebind.
-   * Task 9: replace prompts with dialogs; keep return shape.
-   */
-  function requestOrphanRebindConfirm(folderName: string): {
-    organizationId: string
-    confirmSlug: string
-  } | null {
-    const organizationId = window.prompt(
-      `Réassocier le dossier « ${folderName} » à une organisation.\n\nID de l'organisation cible :`,
-    )
-    if (!organizationId?.trim())
-      return null
-
-    const confirmSlug = requestSlugConfirmation(
-      folderName,
-      'Confirmer la réassociation du dossier orphelin ?',
-    )
-    if (!confirmSlug)
-      return null
-
-    return {
-      organizationId: organizationId.trim(),
-      confirmSlug,
-    }
-  }
-
   async function resetHard(workspace: AdminWorkspaceDangerTarget): Promise<void> {
-    const confirmSlug = requestSlugConfirmation(
+    const confirmSlug = await requestSlugConfirmation(
       workspace.slug,
       'Réinitialiser le workspace sur origin ?',
     )
@@ -113,7 +191,7 @@ export function useAdminWorkspaceDanger(options: UseAdminWorkspaceDangerOptions 
   }
 
   async function deleteWorkspace(workspace: AdminWorkspaceDangerTarget): Promise<void> {
-    const confirmSlug = requestSlugConfirmation(
+    const confirmSlug = await requestSlugConfirmation(
       workspace.slug,
       'Supprimer définitivement ce workspace ?',
     )
@@ -138,7 +216,7 @@ export function useAdminWorkspaceDanger(options: UseAdminWorkspaceDangerOptions 
   }
 
   async function rebindOrphan(folderName: string): Promise<void> {
-    const confirm = requestOrphanRebindConfirm(folderName)
+    const confirm = await requestOrphanRebindConfirm(folderName)
     if (!confirm)
       return
 
@@ -154,6 +232,10 @@ export function useAdminWorkspaceDanger(options: UseAdminWorkspaceDangerOptions 
 
   return {
     actionError,
+    confirmAction,
+    onConfirmAction,
+    promptDialog,
+    onPromptConfirm,
     resetHard,
     invalidateIndex,
     unlinkGithub,

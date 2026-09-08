@@ -71,6 +71,8 @@ async function loadWorkspace(): Promise<void> {
 
 const {
   actionError: workspaceActionError,
+  confirmAction,
+  onConfirmAction,
   resetHard,
   invalidateIndex,
   unlinkGithub,
@@ -206,5 +208,15 @@ onMounted(() => {
         </div>
       </FluffmindCard>
     </template>
+
+    <ConfirmActionDialog
+      v-model:open="confirmAction.open"
+      :title="confirmAction.title"
+      :description="confirmAction.description"
+      :confirm-value="confirmAction.confirmValue"
+      :confirm-label="confirmAction.confirmLabel"
+      :input-label="confirmAction.inputLabel"
+      @confirm="onConfirmAction"
+    />
   </main>
 </template>

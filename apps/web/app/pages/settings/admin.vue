@@ -81,6 +81,10 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 
 const {
   actionError: workspaceActionError,
+  confirmAction,
+  onConfirmAction,
+  promptDialog,
+  onPromptConfirm,
   resetHard,
   invalidateIndex,
   unlinkGithub,
@@ -88,6 +92,46 @@ const {
   rebindOrphan,
 } = useAdminWorkspaceDanger({
   onAfterMutation: () => loadWorkspaces(),
+})
+
+type GithubPendingAction =
+  | { kind: 'unlink-all', installation: AdminGithubInstallationRow }
+  | { kind: 'remove-db', installation: AdminGithubInstallationRow }
+
+const githubPendingAction = ref<GithubPendingAction | null>(null)
+const githubConfirmOpen = computed({
+  get: () => githubPendingAction.value !== null,
+  set: (open: boolean) => {
+    if (!open)
+      githubPendingAction.value = null
+  },
+})
+
+const githubConfirmValue = computed(
+  () => githubPendingAction.value?.installation.installationId ?? '',
+)
+
+const githubConfirmTitle = computed(() => {
+  if (!githubPendingAction.value)
+    return ''
+  return githubPendingAction.value.kind === 'unlink-all'
+    ? 'Unlink tous les workspaces'
+    : 'Retirer l\'installation de la DB'
+})
+
+const githubConfirmDescription = computed(() => {
+  const pending = githubPendingAction.value
+  if (!pending)
+    return ''
+  const label = pending.kind === 'unlink-all'
+    ? 'Unlink tous les workspaces de cette installation ?'
+    : 'Retirer cette installation de la base de données ?'
+  return `${label} Tapez « ${pending.installation.installationId} » pour confirmer.`
+})
+
+const githubConfirmInputLabel = computed(() => {
+  const id = githubConfirmValue.value
+  return id ? `Tapez « ${id} »` : ''
 })
 
 async function loadUsers() {
@@ -181,22 +225,6 @@ async function runGithubMutation(
   }
 }
 
-function promptConfirmInstallationId(
-  installation: AdminGithubInstallationRow,
-  label: string,
-): string | null {
-  const typed = window.prompt(
-    `${label}\n\nTapez « ${installation.installationId} » pour confirmer.`,
-  )
-  if (typed === null)
-    return null
-  if (typed.trim() !== installation.installationId) {
-    githubActionError.value = `Confirmation incorrecte : attendu « ${installation.installationId} ».`
-    return null
-  }
-  return typed.trim()
-}
-
 async function resyncInstallation(installation: AdminGithubInstallationRow) {
   await runGithubMutation(
     `/api/admin/github/installations/${installation.installationId}/resync`,
@@ -204,28 +232,33 @@ async function resyncInstallation(installation: AdminGithubInstallationRow) {
   )
 }
 
-async function unlinkAllWorkspaces(installation: AdminGithubInstallationRow) {
-  const confirmInstallationId = promptConfirmInstallationId(
-    installation,
-    'Unlink tous les workspaces de cette installation ?',
-  )
-  if (!confirmInstallationId)
-    return
-  await runGithubMutation(
-    `/api/admin/github/installations/${installation.installationId}/unlink-workspaces`,
-    { method: 'POST', body: { confirmInstallationId } },
-  )
+function unlinkAllWorkspaces(installation: AdminGithubInstallationRow) {
+  githubActionError.value = null
+  githubPendingAction.value = { kind: 'unlink-all', installation }
 }
 
-async function removeInstallationFromDb(installation: AdminGithubInstallationRow) {
-  const confirmInstallationId = promptConfirmInstallationId(
-    installation,
-    'Retirer cette installation de la base de données ?',
-  )
-  if (!confirmInstallationId)
+function removeInstallationFromDb(installation: AdminGithubInstallationRow) {
+  githubActionError.value = null
+  githubPendingAction.value = { kind: 'remove-db', installation }
+}
+
+async function onGithubConfirmAction() {
+  const pending = githubPendingAction.value
+  githubPendingAction.value = null
+  if (!pending)
     return
+
+  const confirmInstallationId = pending.installation.installationId
+  if (pending.kind === 'unlink-all') {
+    await runGithubMutation(
+      `/api/admin/github/installations/${pending.installation.installationId}/unlink-workspaces`,
+      { method: 'POST', body: { confirmInstallationId } },
+    )
+    return
+  }
+
   await runGithubMutation(
-    `/api/admin/github/installations/${installation.installationId}`,
+    `/api/admin/github/installations/${pending.installation.installationId}`,
     { method: 'DELETE', body: { confirmInstallationId } },
   )
 }
@@ -568,5 +601,34 @@ async function removeInstallationFromDb(installation: AdminGithubInstallationRow
         </section>
       </template>
     </FluffmindCard>
+
+    <ConfirmActionDialog
+      v-model:open="confirmAction.open"
+      :title="confirmAction.title"
+      :description="confirmAction.description"
+      :confirm-value="confirmAction.confirmValue"
+      :confirm-label="confirmAction.confirmLabel"
+      :input-label="confirmAction.inputLabel"
+      @confirm="onConfirmAction"
+    />
+
+    <PromptDialog
+      v-model:open="promptDialog.open"
+      :title="promptDialog.title"
+      :description="promptDialog.description"
+      :placeholder="promptDialog.placeholder"
+      :confirm-label="promptDialog.confirmLabel"
+      :initial-value="promptDialog.initialValue"
+      @confirm="onPromptConfirm"
+    />
+
+    <ConfirmActionDialog
+      v-model:open="githubConfirmOpen"
+      :title="githubConfirmTitle"
+      :description="githubConfirmDescription"
+      :confirm-value="githubConfirmValue"
+      :input-label="githubConfirmInputLabel"
+      @confirm="onGithubConfirmAction"
+    />
   </main>
 </template>
