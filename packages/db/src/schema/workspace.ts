@@ -85,3 +85,22 @@ export const githubInvitation = pgTable(
     index('github_invitation_betterAuthInvitationId_idx').on(table.betterAuthInvitationId),
   ],
 )
+
+export const adminAuditActor = pgEnum('admin_audit_actor', ['admin', 'owner'])
+
+export const adminAudit = pgTable(
+  'admin_audit',
+  {
+    id: text('id').primaryKey(),
+    actorUserId: text('actor_user_id').notNull(),
+    actor: adminAuditActor('actor').notNull(),
+    action: text('action').notNull(),
+    targetWorkspaceId: text('target_workspace_id').notNull(),
+    detail: text('detail'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('admin_audit_targetWorkspaceId_idx').on(table.targetWorkspaceId),
+    index('admin_audit_createdAt_idx').on(table.createdAt),
+  ],
+)

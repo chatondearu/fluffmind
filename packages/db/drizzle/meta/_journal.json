@@ -50,6 +50,13 @@
       "when": 1785423343235,
       "tag": "0006_aromatic_cerebro",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788876912724,
+      "tag": "0007_workable_iron_fist",
+      "breakpoints": true
     }
   ]
 }
