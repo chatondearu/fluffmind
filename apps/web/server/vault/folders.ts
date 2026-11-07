@@ -1,10 +1,11 @@
 import { access, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
+import { commitAndPush, ensureWorkingCopy } from '@fluffmind/integrations'
 import { assertWithinContentRoots } from './content-roots'
 import { InvalidNoteIdError } from './note-id'
 import { invalidateVaultIndex } from './service'
 import { withWorkspaceWriteLock } from './write'
-import { resolveWorkspaceConfig } from './workspace'
+import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
 
 export const FOLDER_MARKER = '.fluffmind-folder'
 
@@ -72,6 +73,16 @@ export async function createVaultFolder(workspaceId: string, folderPath: string)
 
     await mkdir(targetDir, { recursive: true })
     await writeFile(markerPath, '{}\n', 'utf-8')
+
+    // Same git commit path as mutations.commitMutation (no import — circular dep).
+    const network = await resolveWorkspaceGitNetwork(workspaceId)
+    const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
+    await commitAndPush(git, {
+      branch: config.branch,
+      message: `Create folder ${folderPath}`,
+      remoteConfigured: Boolean(config.remoteUrl),
+      accessToken: network.accessToken,
+    })
     invalidateVaultIndex(workspaceId)
   })
 }

@@ -12,7 +12,7 @@ import {
   type SyncWorkspaceMembersDeps,
   type WorkspaceMemberPermission,
 } from '@fluffmind/integrations'
-import { eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 
 import { isGitHubAppConfigured, resolveWorkspaceGitHubCredentials } from './github-credentials'
 import { resolveUserIdByGithubIdentity } from './github-identity'
@@ -72,20 +72,20 @@ export async function resolveWorkspaceIdsForRepo(fullName: string): Promise<stri
   if (!parsed)
     return []
 
+  const owner = parsed.owner.toLowerCase()
+  const repo = parsed.repo.toLowerCase()
   const db = getDb()
   const links = await db
     .select({
       organizationId: workspaceGithubLink.organizationId,
-      owner: workspaceGithubLink.owner,
-      repo: workspaceGithubLink.repo,
     })
     .from(workspaceGithubLink)
+    .where(and(
+      sql`lower(${workspaceGithubLink.owner}) = ${owner}`,
+      sql`lower(${workspaceGithubLink.repo}) = ${repo}`,
+    ))
 
-  const owner = parsed.owner.toLowerCase()
-  const repo = parsed.repo.toLowerCase()
-  return links
-    .filter(link => link.owner.toLowerCase() === owner && link.repo.toLowerCase() === repo)
-    .map(link => link.organizationId)
+  return links.map(link => link.organizationId)
 }
 
 async function getLocalOverrides(organizationId: string): Promise<Record<string, boolean>> {

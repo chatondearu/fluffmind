@@ -29,6 +29,14 @@ export function getLockWaitMs(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 45_000
 }
 
+/** Stale must exceed worst-case git (clone/push/rebase) so a live holder is not stolen. */
+export function getLockStaleMs(): number {
+  const raw = process.env.LOCK_STALE_MS
+  if (!raw) return 900_000
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 900_000
+}
+
 function sanitizeLockSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 180) || 'workspace'
 }
@@ -76,7 +84,7 @@ async function acquireFlock(lockPath: string, waitMs: number): Promise<(() => Pr
   const retries = Math.max(1, Math.ceil(waitMs / 50))
   try {
     return await lockfile.lock(lockPath, {
-      stale: 120_000,
+      stale: getLockStaleMs(),
       retries: {
         retries,
         factor: 1,

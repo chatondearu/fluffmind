@@ -2,6 +2,13 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 
 const TOKEN_PREFIX = 'enc:v1:'
 
+/** Mirror of isAuthEnabled without importing Nuxt/auth. */
+function isAuthEffectivelyOn(): boolean {
+  if (process.env.AUTH_DISABLED === 'true')
+    return false
+  return Boolean(process.env.DATABASE_URL)
+}
+
 function getTokenSecret(): string {
   // TODO(P6): use dedicated key management for secrets at rest.
   const secret = process.env.GITHUB_SYNC_TOKEN_SECRET?.trim()
@@ -9,9 +16,9 @@ function getTokenSecret(): string {
   if (secret)
     return secret
 
-  // Refuse the well-known dev fallback in production: encrypting PATs at rest with a
-  // public constant is no better than storing them in plaintext. Solo/dev keep it.
-  if (process.env.NODE_ENV === 'production') {
+  // Refuse the well-known dev fallback when auth is on or in production: encrypting
+  // PATs at rest with a public constant is no better than plaintext. Solo/dev keep it.
+  if (isAuthEffectivelyOn() || process.env.NODE_ENV === 'production') {
     throw new Error(
       'GITHUB_SYNC_TOKEN_SECRET (or NUXT_SESSION_PASSWORD) must be set to encrypt GitHub sync tokens at rest.',
     )

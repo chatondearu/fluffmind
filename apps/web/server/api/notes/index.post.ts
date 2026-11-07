@@ -2,7 +2,7 @@ import { access } from 'node:fs/promises'
 import { readJsonBody } from '../../utils/read-json-body'
 import { requireWorkspacePermission } from '../../utils/auth'
 import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
-import { writeToWorkspace } from '../../vault/write'
+import { ContentHashMismatchError, writeToWorkspace } from '../../vault/write'
 import { resolveNoteFilePath } from '../../vault/note-id'
 import { resolveWorkspaceConfig } from '../../vault/workspace'
 
@@ -11,7 +11,12 @@ import { resolveWorkspaceConfig } from '../../vault/workspace'
  * through PUT /api/notes/:id.
  */
 export default defineEventHandler(async (event) => {
-  const body = await readJsonBody<{ id?: string, content?: string, frontmatter?: Record<string, unknown> }>(event)
+  const body = await readJsonBody<{
+    id?: string
+    content?: string
+    frontmatter?: Record<string, unknown>
+    expectedContentHash?: string
+  }>(event)
   if (typeof body?.id !== 'string' || !body.id.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'Missing "id" in request body' })
   }
@@ -22,6 +27,11 @@ export default defineEventHandler(async (event) => {
     const fm = body.frontmatter
     if (typeof fm !== 'object' || fm === null || Array.isArray(fm)) {
       throw createError({ statusCode: 400, statusMessage: '"frontmatter" must be a plain object' })
+    }
+  }
+  if (body.expectedContentHash !== undefined) {
+    if (typeof body.expectedContentHash !== 'string' || !/^[a-f0-9]{64}$/i.test(body.expectedContentHash)) {
+      throw createError({ statusCode: 400, statusMessage: '"expectedContentHash" must be a sha256 hex digest' })
     }
   }
 
@@ -40,9 +50,17 @@ export default defineEventHandler(async (event) => {
     }
     return await writeToWorkspace(workspaceId, id, body.content, {
       frontmatter: body.frontmatter,
+      expectedContentHash: body.expectedContentHash,
     })
   }
   catch (error) {
+    if (error instanceof ContentHashMismatchError) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'Conflict',
+        message: error.message,
+      })
+    }
     rethrowVaultMutationError(error)
   }
 })

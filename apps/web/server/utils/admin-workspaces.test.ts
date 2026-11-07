@@ -178,7 +178,13 @@ describe('deleteAdminWorkspace', () => {
     const updateSet = vi.fn().mockReturnValue({ where: updateWhere })
     const update = vi.fn().mockReturnValue({ set: updateSet })
 
-    mocks.getDb.mockReturnValue({ select, delete: deleteFn, update })
+    const tx = { select, delete: deleteFn, update }
+    mocks.getDb.mockReturnValue({
+      select,
+      delete: deleteFn,
+      update,
+      transaction: vi.fn(async (run: (client: typeof tx) => Promise<void>) => run(tx)),
+    })
 
     await deleteAdminWorkspace(orgId)
 

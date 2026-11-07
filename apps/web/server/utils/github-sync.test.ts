@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   assertWorkspaceGithubLinkAbsent,
   getWorkspaceGitHubSyncState,
+  resolveWorkspaceIdsForRepo,
   unlinkWorkspaceGithubSync,
 } from './github-sync'
 
@@ -198,5 +199,69 @@ describe('unlinkWorkspaceGithubSync', () => {
 
     expect(del).toHaveBeenCalled()
     expect(updateSet).toHaveBeenCalledWith({ gitRemoteUrl: null })
+  })
+})
+
+describe('resolveWorkspaceIdsForRepo', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns organization ids for a matching repo', async () => {
+    const where = vi.fn().mockResolvedValue([
+      { organizationId: 'org_1' },
+      { organizationId: 'org_2' },
+    ])
+    mocks.getDb.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({ where }),
+      }),
+    })
+
+    await expect(resolveWorkspaceIdsForRepo('acme/vault')).resolves.toEqual(['org_1', 'org_2'])
+    expect(where).toHaveBeenCalled()
+  })
+
+  it('returns empty when no link matches', async () => {
+    mocks.getDb.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+        }),
+      }),
+    })
+
+    await expect(resolveWorkspaceIdsForRepo('acme/unknown')).resolves.toEqual([])
+  })
+
+  it('filters case-insensitively via lower() SQL', async () => {
+    const where = vi.fn().mockResolvedValue([{ organizationId: 'org_1' }])
+    mocks.getDb.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({ where }),
+      }),
+    })
+
+    await expect(resolveWorkspaceIdsForRepo('AcMe/VaUlT')).resolves.toEqual(['org_1'])
+
+    const condition = where.mock.calls[0]![0] as {
+      __op: string
+      conditions: Array<{ values: unknown[] }>
+    }
+    expect(condition.__op).toBe('and')
+    expect(condition.conditions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ values: expect.arrayContaining(['acme']) }),
+      expect.objectContaining({ values: expect.arrayContaining(['vault']) }),
+    ]))
+  })
+
+  it('returns empty for malformed full_name without querying', async () => {
+    const select = vi.fn()
+    mocks.getDb.mockReturnValue({ select })
+
+    await expect(resolveWorkspaceIdsForRepo('not-a-repo')).resolves.toEqual([])
+    await expect(resolveWorkspaceIdsForRepo('')).resolves.toEqual([])
+    await expect(resolveWorkspaceIdsForRepo('acme/')).resolves.toEqual([])
+    expect(select).not.toHaveBeenCalled()
   })
 })

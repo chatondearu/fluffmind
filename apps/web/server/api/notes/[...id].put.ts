@@ -1,7 +1,7 @@
 import { readJsonBody } from '../../utils/read-json-body'
 import { requireWorkspacePermission } from '../../utils/auth'
 import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
-import { writeToWorkspace } from '../../vault/write'
+import { ContentHashMismatchError, writeToWorkspace } from '../../vault/write'
 
 /**
  * Minimal, raw write endpoint for the P1 Git sync spike — not the real editor write
@@ -12,7 +12,11 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing note id' })
 
-  const body = await readJsonBody<{ content?: string, frontmatter?: Record<string, unknown> }>(event)
+  const body = await readJsonBody<{
+    content?: string
+    frontmatter?: Record<string, unknown>
+    expectedContentHash?: string
+  }>(event)
   if (typeof body?.content !== 'string') {
     throw createError({ statusCode: 400, statusMessage: 'Missing "content" in request body' })
   }
@@ -22,14 +26,27 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: '"frontmatter" must be a plain object' })
     }
   }
+  if (body.expectedContentHash !== undefined) {
+    if (typeof body.expectedContentHash !== 'string' || !/^[a-f0-9]{64}$/i.test(body.expectedContentHash)) {
+      throw createError({ statusCode: 400, statusMessage: '"expectedContentHash" must be a sha256 hex digest' })
+    }
+  }
   const workspaceId = await requireWorkspacePermission(event, 'note', 'write')
 
   try {
     return await writeToWorkspace(workspaceId, id, body.content, {
       frontmatter: body.frontmatter,
+      expectedContentHash: body.expectedContentHash,
     })
   }
   catch (error) {
+    if (error instanceof ContentHashMismatchError) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'Conflict',
+        message: error.message,
+      })
+    }
     rethrowVaultMutationError(error)
   }
 })

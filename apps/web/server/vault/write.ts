@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { ensureWorkingCopy, commitAndPush, GitConflictError } from '@fluffmind/integrations'
@@ -11,14 +12,30 @@ import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
 export { GitConflictError, InvalidNoteIdError }
 export { WorkspaceLockTimeoutError, withWorkspaceLock as withWorkspaceWriteLock } from './lock'
 
+/** Thrown when optional expectedContentHash does not match the on-disk file. */
+export class ContentHashMismatchError extends Error {
+  constructor(message = 'Content hash mismatch') {
+    super(message)
+    this.name = 'ContentHashMismatchError'
+  }
+}
+
 export interface WriteResult {
   committed: boolean
   pushed: boolean
+  /** sha256 hex of the file utf-8 bytes just written. */
+  contentHash: string
 }
 
 export interface WriteNoteOptions {
   /** When omitted on update, existing frontmatter is preserved from disk. */
   frontmatter?: Record<string, unknown>
+  /** Optional optimistic concurrency: sha256 hex of the prior file utf-8. */
+  expectedContentHash?: string
+}
+
+function sha256Hex(raw: string): string {
+  return createHash('sha256').update(raw, 'utf8').digest('hex')
 }
 
 async function resolveFrontmatterForWrite(
@@ -76,8 +93,16 @@ export async function writeToWorkspace(
       isCreate = true
     }
 
+    if (options?.expectedContentHash && !isCreate) {
+      const existing = await readFile(filePath, 'utf-8')
+      if (sha256Hex(existing) !== options.expectedContentHash) {
+        throw new ContentHashMismatchError()
+      }
+    }
+
     const frontmatter = await resolveFrontmatterForWrite(filePath, isCreate, options?.frontmatter)
     const raw = serializeNoteFile(content, frontmatter)
+    const contentHash = sha256Hex(raw)
 
     const network = await resolveWorkspaceGitNetwork(workspaceId)
     const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
@@ -89,6 +114,6 @@ export async function writeToWorkspace(
       accessToken: network.accessToken,
     })
     invalidateVaultIndex(workspaceId)
-    return result
+    return { ...result, contentHash }
   })
 }

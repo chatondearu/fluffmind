@@ -134,24 +134,26 @@ export async function deleteAdminWorkspace(organizationId: string): Promise<void
     })
   }
 
-  await db.delete(workspaceAgentToken).where(eq(workspaceAgentToken.organizationId, organizationId))
-  await db.delete(githubInvitation).where(eq(githubInvitation.organizationId, organizationId))
-  await db.delete(workspaceGithubLink).where(eq(workspaceGithubLink.organizationId, organizationId))
-  await db.delete(workspaceConfig).where(eq(workspaceConfig.organizationId, organizationId))
+  await db.transaction(async (tx) => {
+    await tx.delete(workspaceAgentToken).where(eq(workspaceAgentToken.organizationId, organizationId))
+    await tx.delete(githubInvitation).where(eq(githubInvitation.organizationId, organizationId))
+    await tx.delete(workspaceGithubLink).where(eq(workspaceGithubLink.organizationId, organizationId))
+    await tx.delete(workspaceConfig).where(eq(workspaceConfig.organizationId, organizationId))
 
-  const members = await db.select({ id: member.id }).from(member)
-    .where(eq(member.organizationId, organizationId))
-  for (const m of members) {
-    await db.delete(memberSyncMeta).where(eq(memberSyncMeta.memberId, m.id))
-  }
+    const members = await tx.select({ id: member.id }).from(member)
+      .where(eq(member.organizationId, organizationId))
+    for (const m of members) {
+      await tx.delete(memberSyncMeta).where(eq(memberSyncMeta.memberId, m.id))
+    }
 
-  // Stale activeOrganizationId makes Better Auth return "Organization not found"
-  // on getFullOrganization / listMembers until the client heals the session.
-  await db.update(session)
-    .set({ activeOrganizationId: null })
-    .where(eq(session.activeOrganizationId, organizationId))
+    // Stale activeOrganizationId makes Better Auth return "Organization not found"
+    // on getFullOrganization / listMembers until the client heals the session.
+    await tx.update(session)
+      .set({ activeOrganizationId: null })
+      .where(eq(session.activeOrganizationId, organizationId))
 
-  await db.delete(organization).where(eq(organization.id, organizationId))
+    await tx.delete(organization).where(eq(organization.id, organizationId))
+  })
 
   await rm(vaultPath, { recursive: true, force: true })
   invalidateVaultIndex(organizationId)

@@ -79,6 +79,8 @@ export function useNoteAutosave(options: {
   const status = ref<AutosaveStatus>('idle')
   const errorMessage = ref<string | null>(null)
   const lastSavedSnapshot = ref<string | null>(null)
+  /** sha256 of last successfully written file; sent as expectedContentHash on PUT. */
+  const lastSavedContentHash = ref<string | null>(null)
   let saveInFlight = false
   let saveQueued = false
 
@@ -126,7 +128,11 @@ export function useNoteAutosave(options: {
       options.frontmatter.value = payload.frontmatter
     }
 
-    const saveBody: { content: string, frontmatter?: Record<string, unknown> } = {
+    const saveBody: {
+      content: string
+      frontmatter?: Record<string, unknown>
+      expectedContentHash?: string
+    } = {
       content: payload.content,
     }
     if (options.frontmatter) {
@@ -149,13 +155,14 @@ export function useNoteAutosave(options: {
         const folder = options.folderPrefix?.value ?? null
         const documentBlocks = blocksWithTitle(options.title.value, options.blocks.value)
         let id = noteIdFromBlocks(documentBlocks, folder)
+        let created: { contentHash: string }
         try {
-          await $fetch('/api/notes', { method: 'POST', body: { id, ...saveBody } })
+          created = await $fetch<{ contentHash: string }>('/api/notes', { method: 'POST', body: { id, ...saveBody } })
         } catch (error) {
           const asRecord = error as { statusCode?: number }
           if (asRecord.statusCode === 409) {
             id = `${id}-${Date.now().toString(36).slice(-4)}`
-            await $fetch('/api/notes', { method: 'POST', body: { id, ...saveBody } })
+            created = await $fetch<{ contentHash: string }>('/api/notes', { method: 'POST', body: { id, ...saveBody } })
           } else {
             throw error
           }
@@ -163,11 +170,19 @@ export function useNoteAutosave(options: {
         options.isNew.value = false
         options.noteId.value = id
         lastSavedSnapshot.value = snapshot
+        lastSavedContentHash.value = created.contentHash
         await refreshVaultNotes()
         await options.onCreated(id)
       } else {
-        await $fetch(`/api/notes/${options.noteId.value}`, { method: 'PUT', body: saveBody })
+        if (lastSavedContentHash.value) {
+          saveBody.expectedContentHash = lastSavedContentHash.value
+        }
+        const updated = await $fetch<{ contentHash: string }>(
+          `/api/notes/${options.noteId.value}`,
+          { method: 'PUT', body: saveBody },
+        )
         lastSavedSnapshot.value = snapshot
+        lastSavedContentHash.value = updated.contentHash
         await refreshVaultNotes()
       }
 

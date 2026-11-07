@@ -16,7 +16,7 @@ import {
 import { isAuthEnabled } from '../../utils/auth'
 import { resolveWorkspaceIdsForRepo } from '../../utils/github-sync'
 import { pullWorkspaceChanges } from '../../vault/pull'
-import { workspaceConfigFromEnv } from '../../vault/workspace'
+import { resolveWorkspaceConfig, workspaceConfigFromEnv } from '../../vault/workspace'
 
 function parsePayload<T>(rawBody: string): T {
   try {
@@ -30,16 +30,14 @@ async function handlePush(rawBody: string) {
   const payload = parsePayload<GithubPushPayload>(rawBody)
   const repository = payload.repository?.full_name ?? null
 
-  const config = workspaceConfigFromEnv()
-  const branch = config?.branch ?? process.env.GIT_BRANCH ?? 'main'
-  if (!isPushToBranch(payload, branch)) {
-    return { ok: true, ignored: true, reason: `ref:${payload.ref ?? 'unknown'}` }
-  }
-
-  // Solo/no-auth: a single env-configured workspace. Multi-tenant: route the push to
-  // the workspace(s) whose linked repository matches the payload, so a webhook never
-  // pulls the wrong vault (or silently no-ops on the `default` workspace).
+  // Solo/no-auth: env branch filter + single workspace pull.
+  // Auth-on: per-workspace branch from resolveWorkspaceConfig (not GIT_BRANCH).
   if (!isAuthEnabled()) {
+    const config = workspaceConfigFromEnv()
+    const branch = config?.branch ?? process.env.GIT_BRANCH ?? 'main'
+    if (!isPushToBranch(payload, branch)) {
+      return { ok: true, ignored: true, reason: `ref:${payload.ref ?? 'unknown'}` }
+    }
     const result = await pullWorkspaceChanges()
     return { ok: true, pulled: result.updated, behindBefore: result.behindBefore, repository }
   }
@@ -49,13 +47,23 @@ async function handlePush(rawBody: string) {
     return { ok: true, ignored: true, reason: `repo-unlinked:${repository ?? 'unknown'}` }
   }
 
-  const pulls = await Promise.all(
+  const workspaces = await Promise.all(
     workspaceIds.map(async (workspaceId) => {
-      const result = await pullWorkspaceChanges(workspaceId)
-      return { workspaceId, pulled: result.updated, behindBefore: result.behindBefore }
+      try {
+        const { branch } = await resolveWorkspaceConfig(workspaceId)
+        if (!isPushToBranch(payload, branch)) {
+          return { workspaceId, ignored: true as const, reason: `ref:${payload.ref ?? 'unknown'}` }
+        }
+        const result = await pullWorkspaceChanges(workspaceId)
+        return { workspaceId, pulled: result.updated, behindBefore: result.behindBefore }
+      }
+      catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return { workspaceId, error: message }
+      }
     }),
   )
-  return { ok: true, repository, workspaces: pulls }
+  return { ok: true, repository, workspaces }
 }
 
 async function handleInstallation(rawBody: string) {

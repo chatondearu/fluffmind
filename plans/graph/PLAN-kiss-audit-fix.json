@@ -1,0 +1,75 @@
+{
+  "issue": 0,
+  "tasks": [
+    {
+      "id": "folder-commit",
+      "paths": ["apps/web/server/vault/folders.ts"],
+      "prompt": "KISS audit #1 Must: createVaultFolder must git-commit like rename/delete. After writing .fluffmind-folder marker, call ensureWorkingCopy + commitAndPush (same pattern as mutations.commitMutation) inside the existing withWorkspaceWriteLock. Message: `Create folder ${folderPath}`. Do NOT import mutations.ts (circular: mutations imports FOLDER_MARKER). Invalidate index after commit. Add/adjust a focused test if one exists for folders; otherwise skip new test file outside paths. Comments in English. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-folder-commit-result.json per worker-result schema (status ok|blocked, summary, files_changed)."
+    },
+    {
+      "id": "webhook-branch",
+      "paths": ["apps/web/server/api/webhooks/github.post.ts"],
+      "prompt": "KISS audit #2 Must + #7 Should: (1) Auth-on push must NOT filter solely on env/GIT_BRANCH. Resolve workspace ids via resolveWorkspaceIdsForRepo, then for each workspace load resolveWorkspaceConfig(id).branch and only pull when isPushToBranch(payload, thatBranch). Solo/no-auth keeps env branch filter. (2) Replace Promise.all with allSettled/per-id try-catch; return per-workspace {workspaceId, pulled?, behindBefore?, error?} without failing the whole webhook. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-webhook-branch-result.json."
+    },
+    {
+      "id": "note-id-test",
+      "paths": ["apps/web/server/vault/note-id.test.ts"],
+      "prompt": "KISS audit #4 Should: Create apps/web/server/vault/note-id.test.ts covering resolveNoteFilePath — reject empty, `..`, `.`, absolute, `.md` suffix, escape; accept nested id under vault root. Match sibling vitest style in vault/*.test.ts. Only create this test file. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-note-id-test-result.json."
+    },
+    {
+      "id": "lock-stale",
+      "paths": ["apps/web/server/vault/lock.ts"],
+      "prompt": "KISS audit #5 Should: Raise proper-lockfile stale well above worst-case git (e.g. 15–30 min, or LOCK_STALE_MS env with safe default ≥900_000). One-line comment why. Do not change Postgres path. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-lock-stale-result.json."
+    },
+    {
+      "id": "seed-lock",
+      "paths": ["apps/web/server/vault/sync.ts"],
+      "prompt": "KISS audit #6 Should: Run seedWelcomeNoteIfEmpty write+commitAndPush under withWorkspaceLock(workspaceId) so seed cannot race concurrent writes/replicas. Avoid nested lock with bootstrap callers — only wrap the seed body. Import withWorkspaceLock from ./lock. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-seed-lock-result.json."
+    },
+    {
+      "id": "token-crypto",
+      "paths": [
+        "apps/web/server/utils/github-token-crypto.ts",
+        "apps/web/server/utils/github-token-crypto.test.ts"
+      ],
+      "prompt": "KISS audit #8 Should: Refuse weak/dev PAT secret when auth is enabled, not only NODE_ENV=production. Treat auth-on as AUTH_DISABLED!=='true' AND DATABASE_URL set (same idea as isAuthEnabled) OR simply: refuse whenever neither GITHUB_SYNC_TOKEN_SECRET nor NUXT_SESSION_PASSWORD is set IF NODE_ENV=production OR AUTH_DISABLED==='false'. Prefer mirroring isAuthEnabled without importing Nuxt. Update tests. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-token-crypto-result.json."
+    },
+    {
+      "id": "github-sync-lookup",
+      "paths": [
+        "apps/web/server/utils/github-sync.ts",
+        "apps/web/server/utils/github-sync.test.ts"
+      ],
+      "prompt": "KISS audit #9 Should + #13 Nice: (1) resolveWorkspaceIdsForRepo — filter in SQL (eq/ilike or lower()) instead of loading all links. (2) Add unit tests: match, miss, case-insensitive, malformed full_name. Follow existing github-sync.test.ts mock style. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-github-sync-lookup-result.json."
+    },
+    {
+      "id": "note-concurrency",
+      "paths": [
+        "apps/web/server/vault/write.ts",
+        "apps/web/server/api/notes/[...id].put.ts",
+        "apps/web/server/api/notes/index.post.ts",
+        "apps/web/app/composables/useNoteAutosave.ts"
+      ],
+      "prompt": "KISS audit #3 Should KISS: Optimistic concurrency — optional expectedContentHash (sha256 of prior file utf-8) on PUT/write. If provided and file exists and hash mismatches → throw typed error mapped to HTTP 409. Autosave: keep lastSavedContentHash from last successful load/save and send it on PUT. Minimal change; no CRDT. Comments English. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-note-concurrency-result.json."
+    },
+    {
+      "id": "admin-delete-tx",
+      "paths": ["apps/web/server/utils/admin-workspaces.ts"],
+      "prompt": "KISS audit #10 Should: Wrap deleteAdminWorkspace SQL deletes/updates in one drizzle/pg transaction; only rm vault disk after commit. Keep path-within-root checks. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-admin-delete-tx-result.json."
+    },
+    {
+      "id": "index-set",
+      "paths": ["apps/web/server/vault/index.ts"],
+      "prompt": "KISS audit #11 Nice: In resolveTarget / buildVaultIndex, use Set for exact note id lookup instead of noteIds.includes. Minimal diff. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-index-set-result.json."
+    },
+    {
+      "id": "folder-routes",
+      "paths": [
+        "apps/web/server/api/folders/index.post.ts",
+        "apps/web/server/api/folders/[...path].patch.ts",
+        "apps/web/server/api/folders/[...path].delete.ts"
+      ],
+      "prompt": "KISS audit #12 Nice: When auth on, use only workspaceId from requireWorkspacePermission(event,'note','write'); drop redundant resolveActiveWorkspaceId. When auth off keep 'default'. Repo: /hdd/dev/chatondearu/fluffmind. Write .orch/task-folder-routes-result.json."
+    }
+  ]
+}

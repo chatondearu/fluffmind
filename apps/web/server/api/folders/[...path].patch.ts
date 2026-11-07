@@ -2,7 +2,6 @@ import { readJsonBody } from '../../utils/read-json-body'
 import { isAuthEnabled, requireWorkspacePermission } from '../../utils/auth'
 import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
 import { renameVaultFolder } from '../../vault/mutations'
-import { resolveActiveWorkspaceId } from '../../vault/workspace'
 
 export default defineEventHandler(async (event) => {
   const pathParam = getRouterParam(event, 'path')
@@ -18,12 +17,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const workspaceId = isAuthEnabled()
-    ? await resolveActiveWorkspaceId(event)
+    ? await requireWorkspacePermission(event, 'note', 'write')
     : 'default'
-
-  if (isAuthEnabled()) {
-    await requireWorkspacePermission(event, 'note', 'write')
-  }
 
   try {
     return await renameVaultFolder(workspaceId, oldPath, newPath)

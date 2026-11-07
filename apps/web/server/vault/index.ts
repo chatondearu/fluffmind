@@ -108,8 +108,8 @@ export async function vaultHasMarkdownNotes(
  * matching by basename when exactly one note has it (mirrors basic Foam/Obsidian
  * short-link behavior). Returns null (dead link) otherwise.
  */
-function resolveTarget(target: string, noteIds: string[], basenameIndex: Map<string, string[]>): string | null {
-  if (noteIds.includes(target)) return target
+function resolveTarget(target: string, noteIds: Set<string>, basenameIndex: Map<string, string[]>): string | null {
+  if (noteIds.has(target)) return target
   const basename = target.split('/').pop()!
   const candidates = basenameIndex.get(basename)
   return candidates?.length === 1 ? candidates[0]! : null
@@ -144,6 +144,7 @@ export async function buildVaultIndex(
   }
 
   const noteIds = [...notes.keys()]
+  const noteIdSet = new Set(noteIds)
   const basenameIndex = new Map<string, string[]>()
   for (const id of noteIds) {
     const basename = id.split('/').pop()!
@@ -156,7 +157,7 @@ export async function buildVaultIndex(
   for (const [id, rawLinks] of rawLinksByNote) {
     const resolved = rawLinks.map((link) => ({
       ...link,
-      resolvedId: resolveTarget(link.target, noteIds, basenameIndex)
+      resolvedId: resolveTarget(link.target, noteIdSet, basenameIndex)
     }))
     links.set(id, resolved)
     for (const link of resolved) {

@@ -5,6 +5,7 @@ import { commitAndPush, ensureWorkingCopy, getSyncStatus, type SyncStatus } from
 
 import { isAuthEnabled } from '../utils/auth'
 import { vaultHasMarkdownNotes } from './index'
+import { withWorkspaceLock } from './lock'
 import { invalidateVaultIndex } from './service'
 import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
 
@@ -29,23 +30,31 @@ async function seedWelcomeNoteIfEmpty(
   if (await vaultHasMarkdownNotes(vaultPath, contentRoots))
     return
 
-  const welcomeRel = contentRoots.length > 0
-    ? join(contentRoots[0]!, 'welcome.md')
-    : 'welcome.md'
-  const welcomePath = join(vaultPath, welcomeRel)
-  await mkdir(dirname(welcomePath), { recursive: true })
-  await writeFile(welcomePath, WELCOME_NOTE, 'utf-8')
+  // Lock only the seed write+commit — not all of bootstrapWorkspace. Callers must not
+  // invoke bootstrapWorkspace while already holding withWorkspaceLock for the same id
+  // (lock is not reentrant; see pull.ts).
+  await withWorkspaceLock(workspaceId, async () => {
+    if (await vaultHasMarkdownNotes(vaultPath, contentRoots))
+      return
 
-  const config = await resolveWorkspaceConfig(workspaceId)
-  const network = await resolveWorkspaceGitNetwork(workspaceId)
-  const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
-  await commitAndPush(git, {
-    branch,
-    message: 'Seed welcome note',
-    remoteConfigured,
-    accessToken: network.accessToken,
+    const welcomeRel = contentRoots.length > 0
+      ? join(contentRoots[0]!, 'welcome.md')
+      : 'welcome.md'
+    const welcomePath = join(vaultPath, welcomeRel)
+    await mkdir(dirname(welcomePath), { recursive: true })
+    await writeFile(welcomePath, WELCOME_NOTE, 'utf-8')
+
+    const config = await resolveWorkspaceConfig(workspaceId)
+    const network = await resolveWorkspaceGitNetwork(workspaceId)
+    const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
+    await commitAndPush(git, {
+      branch,
+      message: 'Seed welcome note',
+      remoteConfigured,
+      accessToken: network.accessToken,
+    })
+    invalidateVaultIndex(workspaceId)
   })
-  invalidateVaultIndex(workspaceId)
 }
 
 function logSyncWarnings(status: SyncStatus, branch: string): void {

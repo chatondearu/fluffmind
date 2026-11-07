@@ -2,16 +2,11 @@ import { isAuthEnabled, requireWorkspacePermission } from '../../utils/auth'
 import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
 import { createVaultFolder } from '../../vault/folders'
 import { InvalidNoteIdError } from '../../vault/note-id'
-import { resolveActiveWorkspaceId } from '../../vault/workspace'
 
 export default defineEventHandler(async (event) => {
   const workspaceId = isAuthEnabled()
-    ? await resolveActiveWorkspaceId(event)
+    ? await requireWorkspacePermission(event, 'note', 'write')
     : 'default'
-
-  if (isAuthEnabled()) {
-    await requireWorkspacePermission(event, 'note', 'write')
-  }
 
   const body = await readBody<{ path?: string }>(event)
   const folderPath = typeof body?.path === 'string' ? body.path.trim().replace(/^\/+|\/+$/g, '') : ''
