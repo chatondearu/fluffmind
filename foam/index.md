@@ -25,6 +25,7 @@ Map of Content (MOC). Start here before product or architecture decisions.
 
 - [[architecture/monorepo|Monorepo layout]]
 - [[architecture/vault-engine|Vault engine & Git sync]]
+- [[architecture/rethink-sync|Rethink: simplify sync (Rust + mesh)]] — idea, not decided
 - User-facing rationale: `DESIGN.md` (link, do not duplicate)
 
 ## Decisions (ADRs)
