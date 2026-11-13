@@ -34,6 +34,12 @@ There is deliberately **no separate `vault-engine` package**: that logic lives i
 it preemptively; do extract it the day a second consumer (e.g. a standalone MCP
 process) actually needs it.
 
+## Toolchain
+
+Prefer **host / Mise** (`mise.toml` pins Node 22 + pnpm) for day-to-day `node`/`pnpm`.
+Fall back to `nix develop` (or `nix develop -c …`) when Mise binaries fail (e.g. NixOS
+without nix-ld). Keep `.envrc` `use flake` as the hermetic shell; do not remove the flake.
+
 ## Commands
 
 From the repo root (Turborepo fans these out to every package):
