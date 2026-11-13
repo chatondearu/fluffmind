@@ -1,0 +1,12 @@
+# Optional language pins (ADR-013). Prefer `mise activate` or one outer
+# `mise run` / `mise exec` — not shim-primary PATH for agents.
+# Versions match flake.nix devShells.default (nodejs_22 / pnpm).
+
+[tools]
+node = "22.23.1"
+pnpm = "11.9.0"
+
+[settings]
+# Prefer prebuilt Node binaries. On NixOS enable nix-ld (or fall back to
+# `nix develop`); do not rely on Mise compiling Node from source.
+all_compile = false

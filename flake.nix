@@ -26,6 +26,7 @@
           inherit fluffmind-cli;
         };
 
+        # Daily Node/pnpm: prefer Mise (mise.toml). This flake remains the hermetic fallback.
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             nodejs_22
