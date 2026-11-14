@@ -2,6 +2,11 @@
 
 #architecture #data
 
+> **Dual-mode note (2026-11):** live path is no longer Git-only. See
+> [[sync-architecture|Sync architecture]] and [[../decisions/ADR-018-sync-transition-dual-mode|ADR-018]]
+> (`git-live` vs `mesh-live`). This page still describes the **git-live / legacy**
+> engine; mesh writers/publish/WS live under PRD-042.
+
 ## Read path (P0)
 
 - Parser, wikilink extraction, in-memory index, read-only Nitro routes.

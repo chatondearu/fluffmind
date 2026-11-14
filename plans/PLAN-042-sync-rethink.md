@@ -1,6 +1,7 @@
 # PLAN-042 — Sync rethink (mesh peers, path ownership)
 
-- **Status**: in-progress
+- **Status**: verify
+- **Handoff map**: [[../foam/architecture/sync-architecture|sync-architecture]] (2026-11-14)
 - **PRD**: [[../prd/PRD-042-sync-rethink|PRD-042]] (approved 2026-11-14)
 - **GitHub**: Explore map [#141](https://github.com/chatondearu/fluffmind/issues/141)
 - **Date**: 2026-11-14

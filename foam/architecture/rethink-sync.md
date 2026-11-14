@@ -9,11 +9,12 @@
 
 ## Progress (PLAN-042)
 
-- **Done (T1–T6):** sync mode seam (`git-live` | `mesh-live`); mesh-live note save
-  without live Git; writer prefix enforcement; canonical publish; hosted WS
-  invalidate; hosted writer = workspace member (`user:<id>`).
-- **Remaining (T7–T10):** portable daemon facade; transport spike / peer exchange;
-  dual-mode migrate UX; docs & foam (this note + vision/PRD ticks).
+- **Done (T1–T10)** on `main` (`b3b23aa`): sync mode, mesh-live writes, writers,
+  publish, WS invalidate, hosted writer, portable daemon, in-memory mesh stub,
+  sync-mode migrate API/UI, docs.
+- **Architecture map (diagrams + gaps):** [[sync-architecture|Sync architecture — portable vs hosted]]
+- **Remaining (product hardening):** UI↔daemon wire-up; real iroh transport;
+  folder mesh-live; operator smoke; ADR-002 supersede after real migrates.
 
 ## Locked so far
 
