@@ -26,6 +26,7 @@ export interface AdminWorkspaceRow {
   gitRemoteUrl: string | null
   gitBranch: string
   contentRoots: string[]
+  syncMode: 'git-live' | 'mesh-live'
   githubLinked: boolean
   githubOwner: string | null
   githubRepo: string | null
@@ -67,6 +68,7 @@ export async function listAdminWorkspaces(): Promise<{
       gitRemoteUrl: workspaceConfig.gitRemoteUrl,
       gitBranch: workspaceConfig.gitBranch,
       contentRoots: workspaceConfig.contentRoots,
+      syncMode: workspaceConfig.syncMode,
       githubOwner: workspaceGithubLink.owner,
       githubRepo: workspaceGithubLink.repo,
     })
@@ -95,6 +97,7 @@ export async function listAdminWorkspaces(): Promise<{
       gitRemoteUrl: row.gitRemoteUrl,
       gitBranch: row.gitBranch || 'main',
       contentRoots: Array.isArray(row.contentRoots) ? row.contentRoots : [],
+      syncMode: row.syncMode === 'mesh-live' ? 'mesh-live' : 'git-live',
       githubLinked: Boolean(row.githubOwner && row.githubRepo),
       githubOwner: row.githubOwner,
       githubRepo: row.githubRepo,

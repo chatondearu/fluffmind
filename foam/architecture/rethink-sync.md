@@ -2,9 +2,36 @@
 
 #architecture #data
 
-- **Status**: idea — to revisit when Fluffmind work resumes
-- **Date**: 2026-10-31
+- **Status**: implementing — [[../../prd/PRD-042-sync-rethink|PRD-042]] /
+  [[../../plans/PLAN-042-sync-rethink|PLAN-042]] (map [#141](https://github.com/chatondearu/fluffmind/issues/141))
+- **Date**: 2026-10-31 (charted 2026-11-13; implementing 2026-11-14)
 - **Origin**: owner note while designing a decentralized agent with shared memory
+
+## Progress (PLAN-042)
+
+- **Done (T1–T6):** sync mode seam (`git-live` | `mesh-live`); mesh-live note save
+  without live Git; writer prefix enforcement; canonical publish; hosted WS
+  invalidate; hosted writer = workspace member (`user:<id>`).
+- **Remaining (T7–T10):** portable daemon facade; transport spike / peer exchange;
+  dual-mode migrate UX; docs & foam (this note + vision/PRD ticks).
+
+## Locked so far
+
+- Destination: PRD for sync rethink (solo + hosted together) — **approved**
+- Git = history/backup/GitHub interop only
+- Runtime (Rust vs Node) deferred
+- One vault abstraction (Foam or agent memory); shared engine with agents = soft only
+- **Live transport:** [[../decisions/ADR-016-live-sync-transport|ADR-016]] — mesh peers +
+  relay; host = hub replica; portable daemon / hosted WS peer; whole-file LWW
+- **Path ownership:** [[../decisions/ADR-017-path-ownership-layout|ADR-017]] —
+  `writers/<device|agent|user>/` drafts; canonical at vault root via explicit merge;
+  ADR-012 content roots orthogonal
+- **Transition:** [[../decisions/ADR-018-sync-transition-dual-mode|ADR-018]] —
+  dual-mode (legacy Git-live vs mesh); no double live writer; ADR-007 kept for
+  non-live server jobs
+- **Hosted browsers:** [[../decisions/ADR-019-hosted-multi-browser-coherence|ADR-019]] —
+  writer = workspace member; canonical via merge; WS invalidate; no same-file
+  collab guarantee
 
 ## Why
 
@@ -26,14 +53,15 @@ stale index invalidation, session repair). Most recent work fixes sync, not the 
 4. **Mesh sync** for multi-device without a central server: [iroh](https://docs.iroh.computer/)
    (P2P QUIC, relay fallback) + a CRDT ([Loro](https://loro.dev/) or `iroh-docs`) for
    pages edited by several people. Prior art: [peervault](https://github.com/robcohen/peervault)
-   (Loro + iroh, Obsidian vaults).
+   (Loro + iroh, Obsidian vaults). First PRD uses whole-file LWW; CRDT stays a later option.
 5. Keep Git as **history/backup and GitHub interop**, not as the live sync protocol.
 
-## Open questions
+## Open questions (PRD / later)
 
-- Can the web UI stay a thin client over a local Rust daemon (portable solo mode)?
-- Which pages need real concurrent editing (CRDT) vs single-owner files?
-- Does multi-user auth/workspaces stay in scope, or move to a separate hosted layer?
+- Concrete mesh library + runtime (T8 spike)
+- Which pages, if any, later need CRDT (out of first PRD)
+- Migrate/opt-in UX details (T9; strategy in ADR-018)
 
-Related: the decentralized agent project (shared memory between a primary "brain" and
-local nodes) may share the same sync engine.
+Portable thin UI ↔ daemon and hosted multi-user are **in scope** (ADR-016, ADR-019).
+
+Related: the decentralized agent project may share the same sync engine (**soft** only).

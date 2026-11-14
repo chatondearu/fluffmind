@@ -35,6 +35,11 @@ export function useVaultTree(workspaceId = 'default', workspaceName: MaybeRef<st
     key: NOTES_FETCH_KEY,
   })
 
+  // Multi-browser mesh: refresh the tree when another peer writes (PRD-042 T5).
+  useVaultInvalidate(workspaceId, () => {
+    void refresh()
+  })
+
   const search = ref('')
   const expandedPaths = ref<Set<string>>(readExpanded(workspaceId))
   const workspaceLabel = computed(() => toValue(workspaceName).trim() || 'Workspace')

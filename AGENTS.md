@@ -65,6 +65,8 @@ P2 env vars are now part of the standard environment shape:
 
 - `AUTH_DISABLED` (optional, default `true` in examples) — force P1 no-auth behavior.
 - `VAULT_READONLY` (optional) — when exactly `true`, reject vault mutations (HTTP 403).
+- `SYNC_MODE` (optional, default `git-live`) — auth-off live path (`mesh-live` skips
+  Git commit/push on note save; PRD-042). Auth-on uses `workspace_config.sync_mode`.
 - `WORKSPACES_ROOT` (optional, default `/data/workspaces`) — per-workspace vault root.
 - `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` (required when auth is enabled).
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` (required for GitHub OAuth login).
@@ -115,7 +117,7 @@ P2 env vars are now part of the standard environment shape:
   `docker-compose.yml`, and `docker-compose.coolify.yml` aligned whenever auth or
   workspace-related env vars change (`AUTH_DISABLED`, `WORKSPACES_ROOT`,
   `BETTER_AUTH_*`, `GITHUB_CLIENT_*`, `GITHUB_SYNC_TOKEN_SECRET`, `GITHUB_APP_*`,
-  `GITHUB_WEBHOOK_SECRET`, `VAULT_READONLY`).
+  `GITHUB_WEBHOOK_SECRET`, `VAULT_READONLY`, `SYNC_MODE`).
 
 ## Project memory
 

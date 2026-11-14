@@ -2,7 +2,10 @@
 
 **The fluffy, open-source second brain.**
 
-Self-hostable, git-backed personal knowledge management — an open-source alternative to Obsidian. Your notes stay plain markdown + wikilinks in a Git repo (no lock-in). Fluffmind adds a modern web UI, server-side sync, and an MCP bridge for AI agents.
+Self-hostable personal knowledge management — an open-source alternative to Obsidian.
+Your notes stay plain markdown + wikilinks on disk (no lock-in). Fluffmind adds a
+modern web UI, sync (legacy Git-live or mesh-live — [PRD-042](./prd/PRD-042-sync-rethink.md)),
+and an MCP bridge for AI agents. Git remains history, backup, and GitHub interop.
 
 [Docs](https://chatondearu.github.io/fluffmind/) · [Project board](https://github.com/users/chatondearu/projects/3) · [Milestones](https://github.com/chatondearu/fluffmind/milestones) · [Releases](https://github.com/chatondearu/fluffmind/releases)
 
@@ -12,7 +15,9 @@ Self-hostable, git-backed personal knowledge management — an open-source alter
 
 - **Your files, forever** — markdown + frontmatter in Git are the only source of truth. Compatible with Foam/Obsidian vaults; walk away anytime.
 - **Block editor that feels modern** — Notion-style drag & drop, built from scratch (no third-party editor framework).
-- **Sync that just works** — Git/GitHub is orchestrated server-side, so multi-device doesn’t mean multi-writer chaos.
+- **Sync that just works** — dual-mode live path: legacy **Git-live** or **mesh-live**
+  (`SYNC_MODE` / workspace `sync_mode`; [PRD-042](./prd/PRD-042-sync-rethink.md)).
+  Mesh drafts use writer prefixes + explicit publish; Git stays backup/interop.
 - **Workspaces when you need them** — multi-account auth (Better Auth + Postgres), with permissions from GitHub collaborators or managed manually.
 - **AI-ready** — MCP server (stdio or HTTP) so agents can search, read, write, and traverse your vault.
 - **100% web** — same app locally or on a public server. Portable solo package: unzip and run, no Docker/Postgres.
@@ -97,6 +102,7 @@ optionally, deploy.
 | `BETTER_AUTH_URL` | yes | Public URL, e.g. `https://fluffmind.example.com` (no trailing slash) |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | for GitHub login | GitHub **OAuth App** (identity) |
 | `GITHUB_SYNC_TOKEN_SECRET` | recommended | Encrypts workspace PAT links at rest |
+| `SYNC_MODE` | optional | Solo / auth-off live path: `git-live` (default) or `mesh-live` ([PRD-042](./prd/PRD-042-sync-rethink.md)). Auth-on uses per-workspace `sync_mode`. |
 
 GitHub OAuth App callback URL: `{BETTER_AUTH_URL}/api/auth/callback/github`.  
 First signup on an empty instance becomes admin and can create the first workspace.
@@ -307,7 +313,7 @@ pnpm package:portable -- --target current
 
 ## Status & docs
 
-MVP + post-MVP UX are shipped, including distributed workspace lock (P7a) and portable solo packaging (P8a). Multi-disk scale-out and static publish remain deferred under epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
+MVP + post-MVP UX are shipped, including distributed workspace lock (P7a) and portable solo packaging (P8a). Sync rethink ([PRD-042](./prd/PRD-042-sync-rethink.md) / PLAN-042) is in progress: mesh-live mode, writer prefixes, publish, and hosted WS invalidate are landing; peer mesh transport and migrate UX follow. Multi-disk scale-out and static publish remain deferred under epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
 
 | Doc | Purpose |
 | --- | ------- |

@@ -2,7 +2,14 @@ import { GitAuthError, isGitAuthErrorMessage } from '@fluffmind/integrations'
 import { ContentRootViolationError } from '../vault/content-roots'
 import { VaultConflictError } from '../vault/mutations'
 import { VaultReadOnlyError } from '../vault/readonly'
-import { GitConflictError, InvalidNoteIdError, WorkspaceLockTimeoutError } from '../vault/write'
+import { PublishTargetError } from '../vault/publish'
+import {
+  GitConflictError,
+  InvalidNoteIdError,
+  InvalidWriterIdentityError,
+  WorkspaceLockTimeoutError,
+  WriterPrefixViolationError,
+} from '../vault/write'
 
 /**
  * Maps vault mutation errors to HTTP errors. Prefer this in note/folder write routes.
@@ -57,6 +64,27 @@ export function rethrowVaultMutationError(error: unknown): never {
     throw createError({
       statusCode: 400,
       statusMessage: error.message,
+    })
+  }
+  if (error instanceof InvalidWriterIdentityError) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid writer',
+      message: error.message,
+    })
+  }
+  if (error instanceof WriterPrefixViolationError) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Writer prefix violation',
+      message: error.message,
+    })
+  }
+  if (error instanceof PublishTargetError) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid publish target',
+      message: error.message,
     })
   }
   throw error

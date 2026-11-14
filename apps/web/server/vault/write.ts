@@ -7,10 +7,24 @@ import { withWorkspaceLock } from './lock'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { parseNote, serializeNoteFile } from './parser'
 import { invalidateVaultIndex } from './service'
+import { publishVaultInvalidate } from './vault-invalidate'
 import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
+import {
+  type WriterIdentity,
+  InvalidWriterIdentityError,
+  assertNoteIdWritableByWriter,
+  parseWriterIdentity,
+} from './writer-prefix'
 
 export { GitConflictError, InvalidNoteIdError }
 export { WorkspaceLockTimeoutError, withWorkspaceLock as withWorkspaceWriteLock } from './lock'
+export {
+  WriterPrefixViolationError,
+  InvalidWriterIdentityError,
+  parseWriterIdentity,
+  writerPathPrefix,
+  type WriterIdentity,
+} from './writer-prefix'
 
 /** Thrown when optional expectedContentHash does not match the on-disk file. */
 export class ContentHashMismatchError extends Error {
@@ -32,6 +46,11 @@ export interface WriteNoteOptions {
   frontmatter?: Record<string, unknown>
   /** Optional optimistic concurrency: sha256 hex of the prior file utf-8. */
   expectedContentHash?: string
+  /**
+   * Required when `syncMode=mesh-live`: writes only under `writers/<kind>/<id>/`.
+   * Accepts `WriterIdentity` or `kind:id` string.
+   */
+  writer?: WriterIdentity | string
 }
 
 function sha256Hex(raw: string): string {
@@ -65,9 +84,9 @@ async function resolveFrontmatterForWrite(
 
 /**
  * The single write path for the vault: acquire the workspace lock, apply the change to
- * the server's working copy, commit + push (rebasing automatically on a rejected
- * push), release the lock, invalidate the read index. Updates an existing note or
- * creates a new one when `id` is not yet in the index.
+ * the server's working copy, then either commit+push (`syncMode=git-live`) or skip Git
+ * (`syncMode=mesh-live`, PRD-042), invalidate the read index. Updates an existing note
+ * or creates a new one when `id` is not yet in the index.
  *
  * Assumes `VAULT_PATH` is set. The working copy is bootstrapped at server start (and
  * before the first index build) via `bootstrapWorkspace` — see `sync.ts` / #52.
@@ -81,6 +100,19 @@ export async function writeToWorkspace(
   return withWorkspaceLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
     assertWithinContentRoots(id, config.contentRoots)
+
+    if (config.syncMode === 'mesh-live') {
+      if (options?.writer === undefined) {
+        throw new InvalidWriterIdentityError(
+          'Writer identity is required when syncMode is mesh-live',
+        )
+      }
+      const writer = typeof options.writer === 'string'
+        ? parseWriterIdentity(options.writer)
+        : options.writer
+      assertNoteIdWritableByWriter(id, writer)
+    }
+
     const filePath = resolveNoteFilePath(config.path, id)
 
     let isCreate = false
@@ -104,9 +136,17 @@ export async function writeToWorkspace(
     const raw = serializeNoteFile(content, frontmatter)
     const contentHash = sha256Hex(raw)
 
+    await writeFile(filePath, raw, 'utf-8')
+
+    // Mesh-live: persist files only — Git is export/backup, not the live path (ADR-016/018).
+    if (config.syncMode === 'mesh-live') {
+      invalidateVaultIndex(workspaceId)
+      publishVaultInvalidate(workspaceId, { reason: 'note-write', noteId: id })
+      return { committed: false, pushed: false, contentHash }
+    }
+
     const network = await resolveWorkspaceGitNetwork(workspaceId)
     const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
-    await writeFile(filePath, raw, 'utf-8')
     const result = await commitAndPush(git, {
       branch: config.branch,
       message: isCreate ? `Create ${id}` : `Update ${id}`,
@@ -114,6 +154,7 @@ export async function writeToWorkspace(
       accessToken: network.accessToken,
     })
     invalidateVaultIndex(workspaceId)
+    publishVaultInvalidate(workspaceId, { reason: 'note-write', noteId: id })
     return { ...result, contentHash }
   })
 }

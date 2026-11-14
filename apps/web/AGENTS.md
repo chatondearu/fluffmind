@@ -27,8 +27,18 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   called by `write.ts` after a commit.
 - `sync.ts` — `bootstrapWorkspace()` (clone/init/fetch + sync warnings at boot) and
   `getWorkspaceSyncStatus()` for `GET /api/sync-status`.
-- `workspace.ts` — resolves `WorkspaceConfig` (path, remote, branch, `contentRoots`).
-  Auth-off / `VAULT_PATH` always uses `contentRoots: []` (full tree).
+- `workspace.ts` — resolves `WorkspaceConfig` (path, remote, branch, `contentRoots`,
+  `syncMode`). Auth-off / `VAULT_PATH` always uses `contentRoots: []` (full tree).
+  `syncMode` defaults to `git-live`; solo override via `SYNC_MODE` (PRD-042).
+- `sync-mode.ts` — parse `git-live` | `mesh-live` (ADR-016…018).
+- `writer-prefix.ts` — mesh-live path ownership: `writers/<kind>/<id>/` from
+  `device|agent|user:<id>` (ADR-017).
+- `publish.ts` — explicit draft → canonical publish (`POST /api/notes/publish`).
+- `hosted-writer.ts` / `mesh-write.ts` — session → `user:<id>`, agent →
+  `agent:<tokenId>`, solo → `device:solo` (`SYNC_WRITER_DEVICE`); mesh-live short
+  ids rewritten under the writer prefix.
+- `vault-invalidate.ts` + `/ws/vault` — fan-out after note write/publish; client
+  composable `useVaultInvalidate` (nitro `experimental.websocket`).
 - `content-roots.ts` — normalizes root paths and guards index/mutations; empty `[]` =
   whole repo. See ADR-012.
 - `server/utils/admin-workspaces.ts` — instance-admin workspace inventory and dangerous
@@ -95,6 +105,9 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   automatically), just never pushed. If set, `writeToWorkspace` pushes and rebases
   automatically on a rejected push.
 - `GIT_BRANCH` (optional, default `main`).
+- `SYNC_MODE` (optional, default `git-live`) — auth-off live path: `git-live` commits
+  via Git; `mesh-live` writes files only (no live commit/push). Per-workspace column
+  `workspace_config.sync_mode` when auth is on.
 - Import convention: **extensionless** relative imports (`./parser`, not
   `./parser.ts`) — this app's own generated tsconfig doesn't set
   `allowImportingTsExtensions` (unlike `packages/*`, see root `AGENTS.md`).

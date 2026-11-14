@@ -1,0 +1,29 @@
+{
+  "issue": 141,
+  "tasks": [
+    {
+      "id": "t7-daemon",
+      "paths": ["apps/web/server/daemon/", "scripts/"],
+      "tier": "medium",
+      "prompt": "PLAN-042 T7 — Portable daemon facade (thin slice). Repo /hdd/dev/chatondearu/fluffmind. Use mise exec -- for pnpm/vitest. Read plans/PLAN-042-sync-rethink.md T7, ADR-016/017. Implement a minimal local daemon process boundary that can apply writer-prefixed vault writes for a vault folder (mesh-live, no Git commit/push). Prefer HTTP on localhost talking to the same write semantics as writeToWorkspace mesh path, OR a small Node script under scripts/ + apps/web/server/daemon/. Stay inside paths: apps/web/server/daemon/, scripts/. Write .orch/task-t7-daemon-result.json (worker-result schema: issue 141, status, checks, files_touched, grounding). Tick T7 in PLAN-042 if done. Do not commit."
+    },
+    {
+      "id": "t8-transport",
+      "paths": ["packages/integrations/src/mesh/", "foam/decisions/ADR-016-live-sync-transport.md"],
+      "tier": "medium",
+      "prompt": "PLAN-042 T8 — Transport spike + interface. Repo /hdd/dev/chatondearu/fluffmind. Use mise exec --. Read PLAN-042 T8 and ADR-016. Add a thin mesh sync interface under packages/integrations/src/mesh/ with an in-memory/stub transport that lets two peers exchange at least one file update in a vitest. Record spike choice as a short addendum on foam/decisions/ADR-016-live-sync-transport.md (not a new ADR). Export from packages/integrations if needed. Stay in paths. Write .orch/task-t8-transport-result.json. Tick T8 in PLAN-042 only if you also may edit plans/ — if paths block PLAN, note tick for integrator. Do not commit."
+    },
+    {
+      "id": "t9-migrate",
+      "paths": ["apps/web/server/api/workspaces/", "apps/web/server/utils/", "apps/web/app/components/settings/", "apps/web/app/pages/settings/"],
+      "tier": "medium",
+      "prompt": "PLAN-042 T9 — Dual-mode migrate/opt-in. Repo /hdd/dev/chatondearu/fluffmind. Use mise exec --. workspace_config.sync_mode and SYNC_MODE already exist (T1). Add API (+ optional settings UI) for owner to set syncMode git-live|mesh-live on a workspace; reject enabling both live writers; document rollback. Reuse parseSyncMode. Stay in allowed paths. Tests with vitest. Write .orch/task-t9-migrate-result.json. Do not commit."
+    },
+    {
+      "id": "t10-docs",
+      "paths": ["foam/product/", "foam/architecture/", "foam/index.md", "prd/PRD-042-sync-rethink.md", "plans/PLAN-042-sync-rethink.md", "README.md", "AGENTS.md", "apps/web/AGENTS.md", ".env.example"],
+      "tier": "small",
+      "prompt": "PLAN-042 T10 — Docs & foam. Repo /hdd/dev/chatondearu/fluffmind. Update vision wording for mesh peers (not Git-live as destiny), foam/architecture/rethink-sync.md status, foam/index Next line, tick completed PRD-042 goals that T1–T6 already delivered, note T7–T9 pending if unmarked, .env.example already has SYNC_MODE — ensure README/AGENTS mention sync rethink briefly. Do NOT edit foam/decisions/ADR-016 (owned by t8). Write .orch/task-t10-docs-result.json. Do not commit."
+    }
+  ]
+}

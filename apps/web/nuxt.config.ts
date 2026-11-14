@@ -22,6 +22,12 @@ export default defineNuxtConfig({
       authPublicSignupEnabled: process.env.AUTH_PUBLIC_SIGNUP === 'true',
     },
   },
+  nitro: {
+    experimental: {
+      // Vault invalidate push for mesh-live multi-browser (PRD-042 T5).
+      websocket: true,
+    },
+  },
   typescript: {
     strict: true
   },

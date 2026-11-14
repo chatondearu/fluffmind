@@ -6,6 +6,7 @@ import {
 import WorkspaceAgentSection from '../../components/settings/WorkspaceAgentSection.vue'
 import WorkspaceGitHubSection from '../../components/settings/WorkspaceGitHubSection.vue'
 import WorkspaceMembersSection from '../../components/settings/WorkspaceMembersSection.vue'
+import WorkspaceSyncModeSection from '../../components/settings/WorkspaceSyncModeSection.vue'
 import { authClient } from '../../composables/useAuth'
 import { ensureWorkspaceOnboarding } from '../../composables/useOnboarding'
 
@@ -207,6 +208,11 @@ await loadWorkspaceMeta()
       />
       <WorkspaceAgentSection
         :key="`agent-${sectionsKey}`"
+        :workspace-id="activeWorkspaceId"
+        :can-manage="canManage"
+      />
+      <WorkspaceSyncModeSection
+        :key="`sync-${sectionsKey}`"
         :workspace-id="activeWorkspaceId"
         :can-manage="canManage"
       />

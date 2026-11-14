@@ -6,15 +6,20 @@ import { and, eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { isAuthEnabled, requireSession } from '../utils/auth'
 import { resolveWorkspaceGitHubCredentials } from '../utils/github-credentials'
+import { type SyncMode, parseSyncMode, syncModeFromEnv } from './sync-mode'
 
 const DEFAULT_WORKSPACES_ROOT = '/data/workspaces'
 export const ACTIVE_WORKSPACE_COOKIE = 'fluffmind-workspace-id'
+
+export type { SyncMode }
 
 export interface WorkspaceConfig {
   path: string
   remoteUrl?: string
   branch: string
   contentRoots: string[]
+  /** Live write path — default git-live (ADR-018 dual-mode). */
+  syncMode: SyncMode
 }
 
 function getWorkspacesRoot(): string {
@@ -75,6 +80,7 @@ export async function resolveWorkspaceConfig(workspaceId: string): Promise<Works
     remoteUrl: config.gitRemoteUrl || undefined,
     branch: config.gitBranch || 'main',
     contentRoots: Array.isArray(config.contentRoots) ? config.contentRoots : [],
+    syncMode: parseSyncMode(config.syncMode),
   }
 }
 
@@ -193,5 +199,6 @@ export function workspaceConfigFromEnv(): WorkspaceConfig | null {
     remoteUrl: process.env.GIT_REMOTE_URL || undefined,
     branch: process.env.GIT_BRANCH || 'main',
     contentRoots: [],
+    syncMode: syncModeFromEnv(),
   }
 }

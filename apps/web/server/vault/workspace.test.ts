@@ -41,12 +41,17 @@ const {
   resolveWorkspaceGitRemoteUrl,
 } = await import('./workspace')
 
-function mockWorkspaceConfig(remoteUrl?: string, contentRoots: string[] = []): void {
+function mockWorkspaceConfig(
+  remoteUrl?: string,
+  contentRoots: string[] = [],
+  syncMode: string = 'git-live',
+): void {
   const limit = vi.fn().mockResolvedValue([{
     vaultPath: '/tmp/fluffmind-workspace-test/org-1',
     gitRemoteUrl: remoteUrl ?? null,
     gitBranch: 'main',
     contentRoots,
+    syncMode,
   }])
   const where = vi.fn().mockReturnValue({ limit })
   const from = vi.fn().mockReturnValue({ where })
@@ -112,6 +117,15 @@ describe('resolveWorkspaceConfig', () => {
 
     await expect(resolveWorkspaceConfig('org-1')).resolves.toMatchObject({
       contentRoots: ['foam', 'docs'],
+      syncMode: 'git-live',
+    })
+  })
+
+  it('returns mesh-live when configured on workspace_config', async () => {
+    mockWorkspaceConfig(undefined, [], 'mesh-live')
+
+    await expect(resolveWorkspaceConfig('org-1')).resolves.toMatchObject({
+      syncMode: 'mesh-live',
     })
   })
 })

@@ -1,0 +1,2 @@
+CREATE TYPE "public"."workspace_sync_mode" AS ENUM('git-live', 'mesh-live');--> statement-breakpoint
+ALTER TABLE "workspace_config" ADD COLUMN "sync_mode" "workspace_sync_mode" DEFAULT 'git-live' NOT NULL;

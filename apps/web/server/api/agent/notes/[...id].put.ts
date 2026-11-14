@@ -1,4 +1,6 @@
-import { writeNoteContent } from '../../../mcp/handlers'
+import { writeToWorkspace } from '../../../vault/write'
+import { noteIdForMeshWriter, writerIdentityForAgent } from '../../../vault/hosted-writer'
+import { resolveWorkspaceConfig } from '../../../vault/workspace'
 import { assertAgentWriteScope, requireAgentBearer } from '../../../utils/agent-auth'
 import { readJsonBody } from '../../../utils/read-json-body'
 import { rethrowVaultMutationError } from '../../../utils/vault-mutation-error'
@@ -16,7 +18,15 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    return await writeNoteContent(auth, id, body.content)
+    const config = await resolveWorkspaceConfig(auth.workspaceId)
+    const writer = writerIdentityForAgent(auth.tokenId)
+    const noteId = config.syncMode === 'mesh-live' ? noteIdForMeshWriter(id, writer) : id
+    return await writeToWorkspace(
+      auth.workspaceId,
+      noteId,
+      body.content,
+      config.syncMode === 'mesh-live' ? { writer } : undefined,
+    )
   }
   catch (error) {
     rethrowVaultMutationError(error)

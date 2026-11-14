@@ -4,6 +4,9 @@ export const memberSyncSource = pgEnum('member_sync_source', ['github', 'manual'
 
 export const githubLinkAuthMode = pgEnum('github_link_auth_mode', ['app', 'pat'])
 
+/** Live write path: Git (legacy) vs mesh peers (PRD-042). */
+export const workspaceSyncMode = pgEnum('workspace_sync_mode', ['git-live', 'mesh-live'])
+
 export const githubAppInstallation = pgTable('github_app_installation', {
   id: text('id').primaryKey(),
   installationId: text('installation_id').notNull().unique(),
@@ -22,6 +25,7 @@ export const workspaceConfig = pgTable('workspace_config', {
   gitRemoteUrl: text('git_remote_url'),
   gitBranch: text('git_branch').notNull().default('main'),
   contentRoots: text('content_roots').array().notNull().default([]),
+  syncMode: workspaceSyncMode('sync_mode').notNull().default('git-live'),
   agentEnabled: boolean('agent_enabled').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })

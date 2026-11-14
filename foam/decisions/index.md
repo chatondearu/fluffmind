@@ -19,6 +19,10 @@
 | [[ADR-013-admin-dangerous-workspace-ops|ADR-013]] | Instance-admin dangerous workspace operations | accepted |
 | [[ADR-014-admin-github-panel|ADR-014]] | Instance-admin GitHub App panel | accepted |
 | [[ADR-015-instance-admin-workspace-authority|ADR-015]] | Instance-admin authority over any workspace | accepted |
+| [[ADR-016-live-sync-transport|ADR-016]] | Live sync transport (mesh peers, not Git) | accepted |
+| [[ADR-017-path-ownership-layout|ADR-017]] | Path ownership layout (writers + canonical root) | accepted |
+| [[ADR-018-sync-transition-dual-mode|ADR-018]] | Sync transition: dual-mode then supersede live Git | accepted |
+| [[ADR-019-hosted-multi-browser-coherence|ADR-019]] | Hosted multi-browser vault coherence | accepted |
 
 Template: [[ADR-template|ADR-template]]
 

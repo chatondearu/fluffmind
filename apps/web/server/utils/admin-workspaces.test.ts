@@ -116,6 +116,7 @@ describe('listAdminWorkspaces', () => {
       gitRemoteUrl: 'https://github.com/acme/alpha.git',
       gitBranch: 'main',
       contentRoots: [],
+      syncMode: 'git-live',
       githubOwner: 'acme',
       githubRepo: 'alpha',
     }]

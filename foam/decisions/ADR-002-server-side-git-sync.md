@@ -1,6 +1,7 @@
 # ADR-002 — Server-side Git sync (single writer per workspace)
 
-- **Status**: accepted
+- **Status**: accepted — *live path to be superseded after dual-mode migration*
+  ([[ADR-018-sync-transition-dual-mode|ADR-018]]; target live: [[ADR-016-live-sync-transport|ADR-016]])
 - **Date**: 2026-07-07
 - **Tags**: #architecture #data
 

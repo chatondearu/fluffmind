@@ -1,12 +1,12 @@
 import { readJsonBody } from '../../utils/read-json-body'
 import { requireWorkspacePermission } from '../../utils/auth'
 import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
+import { planMeshNoteWrite } from '../../vault/mesh-write'
 import { ContentHashMismatchError, writeToWorkspace } from '../../vault/write'
 
 /**
- * Minimal, raw write endpoint for the P1 Git sync spike — not the real editor write
- * path (that comes with the block editor in P3). Just enough surface to exercise
- * writeToWorkspace end to end. Creates the note when `id` does not exist yet.
+ * Create/update a note. On mesh-live, the session member is the writer and short
+ * ids are stored under `writers/user/<id>/` (ADR-019 / PRD-042).
  */
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -34,10 +34,11 @@ export default defineEventHandler(async (event) => {
   const workspaceId = await requireWorkspacePermission(event, 'note', 'write')
 
   try {
-    return await writeToWorkspace(workspaceId, id, body.content, {
+    const plan = await planMeshNoteWrite(event, workspaceId, id, {
       frontmatter: body.frontmatter,
       expectedContentHash: body.expectedContentHash,
     })
+    return await writeToWorkspace(workspaceId, plan.noteId, body.content, plan.options)
   }
   catch (error) {
     if (error instanceof ContentHashMismatchError) {

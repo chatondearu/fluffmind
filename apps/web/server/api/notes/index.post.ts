@@ -2,6 +2,7 @@ import { access } from 'node:fs/promises'
 import { readJsonBody } from '../../utils/read-json-body'
 import { requireWorkspacePermission } from '../../utils/auth'
 import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
+import { planMeshNoteWrite } from '../../vault/mesh-write'
 import { ContentHashMismatchError, writeToWorkspace } from '../../vault/write'
 import { resolveNoteFilePath } from '../../vault/note-id'
 import { resolveWorkspaceConfig } from '../../vault/workspace'
@@ -39,8 +40,12 @@ export default defineEventHandler(async (event) => {
   const workspaceId = await requireWorkspacePermission(event, 'note', 'write')
 
   try {
+    const plan = await planMeshNoteWrite(event, workspaceId, id, {
+      frontmatter: body.frontmatter,
+      expectedContentHash: body.expectedContentHash,
+    })
     const workspace = await resolveWorkspaceConfig(workspaceId)
-    const filePath = resolveNoteFilePath(workspace.path, id)
+    const filePath = resolveNoteFilePath(workspace.path, plan.noteId)
     try {
       await access(filePath)
       throw createError({ statusCode: 409, statusMessage: 'Note already exists' })
@@ -48,10 +53,7 @@ export default defineEventHandler(async (event) => {
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
-    return await writeToWorkspace(workspaceId, id, body.content, {
-      frontmatter: body.frontmatter,
-      expectedContentHash: body.expectedContentHash,
-    })
+    return await writeToWorkspace(workspaceId, plan.noteId, body.content, plan.options)
   }
   catch (error) {
     if (error instanceof ContentHashMismatchError) {

@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   searchNotes: vi.fn(),
   readNoteById: vi.fn(),
   writeNoteContent: vi.fn(),
+  writeToWorkspace: vi.fn(),
+  resolveWorkspaceConfig: vi.fn(),
   listBacklinks: vi.fn(),
   getVaultGraph: vi.fn(),
   createTask: vi.fn(),
@@ -28,6 +30,14 @@ vi.mock('../../mcp/handlers', () => ({
   listBacklinks: mocks.listBacklinks,
   getVaultGraph: mocks.getVaultGraph,
   createTask: mocks.createTask,
+}))
+
+vi.mock('../../vault/write', () => ({
+  writeToWorkspace: mocks.writeToWorkspace,
+}))
+
+vi.mock('../../vault/workspace', () => ({
+  resolveWorkspaceConfig: mocks.resolveWorkspaceConfig,
 }))
 
 vi.mock('../../utils/read-json-body', () => ({
@@ -151,12 +161,18 @@ describe('PUT /api/agent/notes/[...id]', () => {
     mocks.requireAgentBearer.mockResolvedValue(writeAuth)
     mocks.assertAgentWriteScope.mockImplementation(() => {})
     mocks.readJsonBody.mockResolvedValue({ content: '# Alpha\n' })
-    mocks.writeNoteContent.mockResolvedValue({ committed: true, pushed: false })
+    mocks.resolveWorkspaceConfig.mockResolvedValue({
+      path: '/tmp',
+      branch: 'main',
+      contentRoots: [],
+      syncMode: 'git-live',
+    })
+    mocks.writeToWorkspace.mockResolvedValue({ committed: true, pushed: false, contentHash: 'a'.repeat(64) })
 
     const result = await handlers.writeNote(fakeEvent)
 
-    expect(mocks.writeNoteContent).toHaveBeenCalledWith(writeAuth, 'alpha', '# Alpha\n')
-    expect(result).toEqual({ committed: true, pushed: false })
+    expect(mocks.writeToWorkspace).toHaveBeenCalledWith('org_1', 'alpha', '# Alpha\n', undefined)
+    expect(result).toMatchObject({ committed: true, pushed: false })
   })
 
   it('rejects read-scoped tokens with 403 (write skipped)', async () => {
@@ -167,7 +183,7 @@ describe('PUT /api/agent/notes/[...id]', () => {
     })
 
     await expect(handlers.writeNote(fakeEvent)).rejects.toMatchObject({ statusCode: 403 })
-    expect(mocks.writeNoteContent).not.toHaveBeenCalled()
+    expect(mocks.writeToWorkspace).not.toHaveBeenCalled()
   })
 
   it('rejects a missing content body with 400', async () => {
