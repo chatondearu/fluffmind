@@ -151,25 +151,33 @@ flowchart TB
   in-memory mesh stub, sync-mode API/UI, docs)
 - Commit `feat(sync): implement mesh-live dual-mode sync rethink (PRD-042)` on `main`
 
+### Hardening H1–H3 (graph run 2026-11-14)
+
+Landed uncommitted on working tree (run `cursor-fallback-20261114T122534Z-669242`):
+
+| Task | Result |
+| ---- | ------ |
+| H1 UI↔daemon | `NUXT_PUBLIC_DAEMON_URL` → `/__daemon` proxy → autosave PUT daemon |
+| H2 transport | Localhost **TCP** hub behind `MeshSyncTransport`; iroh still deferred |
+| H3 folders | mesh-live create/rename/delete skip Git + WS invalidate |
+
 ### Still to do (product feel / next sessions)
 
 | Priority | Gap | Why |
 | -------- | --- | --- |
-| High | Wire Nuxt UI ↔ portable daemon | Close portable facade |
-| High | Real mesh transport (iroh + relay) replacing in-memory stub | Multi-device peers |
-| Medium | Folder mutations fully mesh-live (some paths still Git) | Consistency |
+| High | Wire Nuxt/daemon apply to `MeshSyncTransport` (TCP ready) | Live mesh not on save path yet |
+| High | Real iroh + relay (when allowBuilds ok) | Multi-device / NAT |
 | Medium | Operator smoke: opt-in sync-mode + dogfood | Validate dual-mode |
-| Low | Nuxt live path using `MeshSyncTransport` | Stub ready, not wired |
 | Later | Same-note CRDT | Out of PRD-042 |
 | Later | Supersede ADR-002 after real migrates | Per ADR-018 |
 
 ### Suggested next session (pick one)
 
-1. **UI → daemon** portable round-trip (highest product clarity).
-2. **iroh spike** behind `MeshSyncTransport` (replace in-memory hub).
-3. **Folder mesh-live** + audit remaining Git-live call sites.
+1. **Apply path → TCP mesh** (daemon/Nuxt publish updates on transport).
+2. **Operator smoke** mesh-live + portable daemon dogfood.
+3. **iroh** when ready to touch package.json / allowBuilds.
 
-Breadcrumb: *je suis là — suite = brancher UI↔daemon OU iroh derrière MeshSyncTransport.*
+Breadcrumb: *H1–H3 done — suite = brancher apply→MeshSyncTransport OU smoke dual-mode.*
 
 ## Code map (quick)
 
@@ -181,4 +189,6 @@ Breadcrumb: *je suis là — suite = brancher UI↔daemon OU iroh derrière Mesh
 | WS invalidate | `vault-invalidate.ts`, `/ws/vault`, `useVaultInvalidate` |
 | migrate API | `GET\|PATCH /api/workspaces/sync-mode`, `WorkspaceSyncModeSection` |
 | daemon | `scripts/fluffmind-daemon.mjs`, `apps/web/server/daemon/` |
-| mesh stub | `packages/integrations/src/mesh/` |
+| mesh stub / TCP hub | `packages/integrations/src/mesh/` (`InMemoryMeshHub`, `startTcpMeshHub`) |
+| UI↔daemon | `useDaemonNotes`, `nuxt.config` `/__daemon`, `NUXT_PUBLIC_DAEMON_URL` |
+| folder mesh-live | `folders.ts`, `mutations.commitMutation` |

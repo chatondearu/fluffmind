@@ -4,6 +4,7 @@ import { commitAndPush, ensureWorkingCopy } from '@fluffmind/integrations'
 import { assertWithinContentRoots } from './content-roots'
 import { InvalidNoteIdError } from './note-id'
 import { invalidateVaultIndex } from './service'
+import { publishVaultInvalidate } from './vault-invalidate'
 import { withWorkspaceWriteLock } from './write'
 import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
 
@@ -74,7 +75,14 @@ export async function createVaultFolder(workspaceId: string, folderPath: string)
     await mkdir(targetDir, { recursive: true })
     await writeFile(markerPath, '{}\n', 'utf-8')
 
-    // Same git commit path as mutations.commitMutation (no import — circular dep).
+    // Mesh-live: persist files only — Git is export/backup, not the live path (ADR-016/018).
+    // Same shape as mutations.commitMutation (no import — circular dep via FOLDER_MARKER).
+    if (config.syncMode === 'mesh-live') {
+      invalidateVaultIndex(workspaceId)
+      publishVaultInvalidate(workspaceId, { reason: 'index' })
+      return
+    }
+
     const network = await resolveWorkspaceGitNetwork(workspaceId)
     const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
     await commitAndPush(git, {
@@ -84,5 +92,6 @@ export async function createVaultFolder(workspaceId: string, folderPath: string)
       accessToken: network.accessToken,
     })
     invalidateVaultIndex(workspaceId)
+    publishVaultInvalidate(workspaceId, { reason: 'index' })
   })
 }

@@ -4,7 +4,7 @@ import { blockPlainText, serializeDocument } from '@fluffmind/editor-blocks'
 import type { BlockNode } from '@fluffmind/editor-blocks'
 import type { Ref } from 'vue'
 
-import { parseNoteSourceFile } from '../utils/note-source'
+import { buildNoteSourceFile, parseNoteSourceFile } from '../utils/note-source'
 import { isBodyEmpty, blocksWithTitle } from '../utils/note-title'
 import { isDocumentEmpty, noteIdFromBlocks } from '../utils/note-document'
 import {
@@ -12,6 +12,7 @@ import {
   frontmatterEqual,
   shouldAutosave,
 } from '../utils/note-autosave'
+import { useDaemonNotes } from './useDaemonNotes'
 import { refreshVaultNotes } from './useVaultTree'
 
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -21,8 +22,17 @@ const AUTOSAVE_DEBOUNCE_MS = 1500
 const AUTOSAVE_MAX_WAIT_MS = 8000
 
 function extractErrorMessage(err: unknown): string {
-  const asRecord = err as { data?: { message?: string, statusMessage?: string }, statusMessage?: string }
-  return asRecord?.data?.statusMessage ?? asRecord?.data?.message ?? asRecord?.statusMessage ?? 'Save failed.'
+  const asRecord = err as {
+    data?: { message?: string, statusMessage?: string, error?: string }
+    statusMessage?: string
+    message?: string
+  }
+  return asRecord?.data?.error
+    ?? asRecord?.data?.statusMessage
+    ?? asRecord?.data?.message
+    ?? asRecord?.statusMessage
+    ?? asRecord?.message
+    ?? 'Save failed.'
 }
 
 function resolvePayload(options: {
@@ -81,6 +91,7 @@ export function useNoteAutosave(options: {
   const lastSavedSnapshot = ref<string | null>(null)
   /** sha256 of last successfully written file; sent as expectedContentHash on PUT. */
   const lastSavedContentHash = ref<string | null>(null)
+  const { enabled: daemonEnabled, putNote: putDaemonNote } = useDaemonNotes()
   let saveInFlight = false
   let saveQueued = false
 
@@ -151,7 +162,33 @@ export function useNoteAutosave(options: {
     errorMessage.value = null
 
     try {
-      if (options.isNew.value) {
+      // Portable: AUTH_DISABLED + daemonUrl → daemon PUT (via /__daemon), not Git vault API.
+      if (daemonEnabled.value) {
+        const folder = options.folderPrefix?.value ?? null
+        const documentBlocks = blocksWithTitle(options.title.value, options.blocks.value)
+        const id = options.isNew.value
+          ? noteIdFromBlocks(documentBlocks, folder)
+          : options.noteId.value
+        const fileContent = buildNoteSourceFile(saveBody.frontmatter ?? {}, saveBody.content)
+        const written = await putDaemonNote(id, fileContent)
+        if (options.isNew.value) {
+          options.isNew.value = false
+          options.noteId.value = written.id
+          lastSavedSnapshot.value = snapshot
+          lastSavedContentHash.value = written.contentHash
+          await refreshVaultNotes()
+          await options.onCreated(written.id)
+        }
+        else {
+          // Mesh prefix may rewrite short ids; keep the editor on the written path.
+          if (written.id !== options.noteId.value)
+            options.noteId.value = written.id
+          lastSavedSnapshot.value = snapshot
+          lastSavedContentHash.value = written.contentHash
+          await refreshVaultNotes()
+        }
+      }
+      else if (options.isNew.value) {
         const folder = options.folderPrefix?.value ?? null
         const documentBlocks = blocksWithTitle(options.title.value, options.blocks.value)
         let id = noteIdFromBlocks(documentBlocks, folder)

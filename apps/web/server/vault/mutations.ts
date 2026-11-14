@@ -5,6 +5,7 @@ import { assertWithinContentRoots } from './content-roots'
 import { FOLDER_MARKER } from './folders'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { invalidateVaultIndex } from './service'
+import { publishVaultInvalidate, type VaultInvalidateReason } from './vault-invalidate'
 import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
 import { withWorkspaceWriteLock } from './write'
 
@@ -15,8 +16,25 @@ export class VaultConflictError extends Error {
   }
 }
 
-async function commitMutation(workspaceId: string, message: string) {
+type MutationInvalidate = {
+  reason: VaultInvalidateReason
+  noteId?: string
+}
+
+async function commitMutation(
+  workspaceId: string,
+  message: string,
+  invalidate: MutationInvalidate = { reason: 'index' },
+) {
   const config = await resolveWorkspaceConfig(workspaceId)
+
+  // Mesh-live: persist files only — Git is export/backup, not the live path (ADR-016/018).
+  if (config.syncMode === 'mesh-live') {
+    invalidateVaultIndex(workspaceId)
+    publishVaultInvalidate(workspaceId, invalidate)
+    return { committed: false, pushed: false }
+  }
+
   const network = await resolveWorkspaceGitNetwork(workspaceId)
   const git = await ensureWorkingCopy({ ...config, accessToken: network.accessToken })
   const result = await commitAndPush(git, {
@@ -26,6 +44,7 @@ async function commitMutation(workspaceId: string, message: string) {
     accessToken: network.accessToken,
   })
   invalidateVaultIndex(workspaceId)
+  publishVaultInvalidate(workspaceId, invalidate)
   return result
 }
 
@@ -35,7 +54,7 @@ export async function deleteNoteFromWorkspace(workspaceId: string, id: string) {
     assertWithinContentRoots(id, config.contentRoots)
     const filePath = resolveNoteFilePath(config.path, id)
     await rm(filePath, { force: true })
-    return commitMutation(workspaceId, `Delete ${id}`)
+    return commitMutation(workspaceId, `Delete ${id}`, { reason: 'note-write', noteId: id })
   })
 }
 
@@ -64,7 +83,10 @@ export async function renameNoteInWorkspace(workspaceId: string, id: string, new
 
     await mkdir(dirname(toPath), { recursive: true })
     await rename(fromPath, toPath)
-    const result = await commitMutation(workspaceId, `Rename ${id} -> ${trimmed}`)
+    const result = await commitMutation(workspaceId, `Rename ${id} -> ${trimmed}`, {
+      reason: 'note-write',
+      noteId: trimmed,
+    })
     return { ...result, id: trimmed }
   })
 }

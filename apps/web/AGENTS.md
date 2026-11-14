@@ -108,6 +108,10 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
 - `SYNC_MODE` (optional, default `git-live`) — auth-off live path: `git-live` commits
   via Git; `mesh-live` writes files only (no live commit/push). Per-workspace column
   `workspace_config.sync_mode` when auth is on.
+- `NUXT_PUBLIC_DAEMON_URL` (optional) — portable mode: when set (e.g.
+  `http://127.0.0.1:8787`), note autosave uses `useDaemonNotes` → Nitro
+  `/__daemon` proxy → daemon `PUT /v1/notes` (no Nuxt Git vault write API).
+  Leave unset for hosted / AUTH_DISABLED Nuxt vault saves.
 - Import convention: **extensionless** relative imports (`./parser`, not
   `./parser.ts`) — this app's own generated tsconfig doesn't set
   `allowImportingTsExtensions` (unlike `packages/*`, see root `AGENTS.md`).
@@ -115,6 +119,20 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   (`@fluffmind/design-system`) for tokens/the Uno preset, and the
   `@fluffmind/design-system/src/components` subpath specifically for Vue components.
   Don't import both from the same barrel — see that package's `AGENTS.md` for why.
+
+## Portable daemon smoke (UI↔daemon)
+
+No easy Playwright path yet. Operator check:
+
+```sh
+mise exec -- node scripts/fluffmind-daemon.mjs --self-check
+# With a real vault + daemon listening on 8787:
+curl -sS -X PUT http://127.0.0.1:8787/v1/notes \
+  -H 'content-type: application/json' \
+  -d '{"id":"smoke-ui","content":"ok\\n"}'
+# UI: set NUXT_PUBLIC_DAEMON_URL=http://127.0.0.1:8787, restart Nuxt, edit a note —
+# Network tab should show PUT /__daemon/v1/notes (not /api/notes).
+```
 
 ## Adding a page or API route
 

@@ -13,8 +13,9 @@
   publish, WS invalidate, hosted writer, portable daemon, in-memory mesh stub,
   sync-mode migrate API/UI, docs.
 - **Architecture map (diagrams + gaps):** [[sync-architecture|Sync architecture — portable vs hosted]]
-- **Remaining (product hardening):** UI↔daemon wire-up; real iroh transport;
-  folder mesh-live; operator smoke; ADR-002 supersede after real migrates.
+- **Hardening H1–H3 done** (graph 2026-11-14): UI↔daemon, TCP `MeshSyncTransport`,
+  folder mesh-live. **Remaining:** wire apply→transport; iroh when allowBuilds ok;
+  operator smoke; ADR-002 supersede after real migrates.
 
 ## Locked so far
 

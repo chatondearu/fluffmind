@@ -1,4 +1,9 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+/** Portable fluffmind-daemon base URL (empty = hosted / Nuxt vault API). */
+const daemonUrl = process.env.NUXT_PUBLIC_DAEMON_URL?.trim() || ''
+const daemonProxyTarget = (daemonUrl || 'http://127.0.0.1:8787').replace(/\/$/, '')
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   // Skip anonymous telemetry consent prompt (blocks non-interactive builds).
@@ -20,12 +25,18 @@ export default defineNuxtConfig({
       authEnabled: process.env.AUTH_DISABLED !== 'true' && Boolean(process.env.DATABASE_URL),
       githubOAuthEnabled: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
       authPublicSignupEnabled: process.env.AUTH_PUBLIC_SIGNUP === 'true',
+      // When set, note autosave prefers daemon PUT /v1/notes (portable, no Git API).
+      daemonUrl,
     },
   },
   nitro: {
     experimental: {
       // Vault invalidate push for mesh-live multi-browser (PRD-042 T5).
       websocket: true,
+    },
+    // Same-origin proxy so the browser can reach localhost daemon without CORS.
+    routeRules: {
+      '/__daemon/**': { proxy: `${daemonProxyTarget}/**` },
     },
   },
   typescript: {

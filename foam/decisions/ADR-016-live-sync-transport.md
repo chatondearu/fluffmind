@@ -84,3 +84,18 @@ Or relative: `packages/integrations/src/mesh` → `./mesh` / `./mesh/index.ts`.
 
 **Interface names:** `MeshFileUpdate`, `MeshFileUpdateHandler`,
 `MeshSyncTransport`, `InMemoryMeshHub`, `createInMemoryMeshHub`.
+
+## Addendum — H2 hardening transport (2026-11-14)
+
+**Spike outcome:** **iroh still deferred.** `@number0/iroh` ships optional
+platform binaries (incl. `linux-x64-musl`) but pulling it needs a new package
+dependency + `pnpm-workspace.yaml` `allowBuilds` / lockfile changes outside the
+mesh path lock for this ticket. Instead we landed a **localhost TCP hub**
+(`startTcpMeshHub` + `connectTcpMeshPeer`) using Node `net` only: two peers
+talk over real sockets (line-delimited JSON), still behind `MeshSyncTransport`.
+`InMemoryMeshHub` remains for in-process unit tests.
+
+**New names:** `TcpMeshHubHandle`, `startTcpMeshHub`, `connectTcpMeshPeer`.
+
+**Proven:** Vitest `tcp-hub.test.ts` — cross-socket whole-file update between
+two Node peers connected to the same hub.

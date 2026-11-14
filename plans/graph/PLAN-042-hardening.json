@@ -1,0 +1,23 @@
+{
+  "issue": 141,
+  "tasks": [
+    {
+      "id": "h1-ui-daemon",
+      "paths": ["apps/web/app/", "apps/web/nuxt.config.ts", ".env.example", "apps/web/AGENTS.md"],
+      "tier": "medium",
+      "prompt": "Sync hardening H1 — Wire Nuxt UI ↔ portable daemon. Repo /hdd/dev/chatondearu/fluffmind. Use mise exec -- for toolchain. Read foam/architecture/sync-architecture.md (gap UI↔daemon), scripts/fluffmind-daemon.mjs, apps/web/server/daemon/. Goal: thin client path so portable mode can save a note via daemon HTTP (localhost) without going through Nuxt vault Git API. Add runtimeConfig (e.g. daemonUrl / NUXT_PUBLIC_DAEMON_URL), a small composable (useDaemonNotes or similar) that PUT/GET against daemon /v1/notes, and the minimal UI/settings hook so AUTH_DISABLED+daemonUrl can prefer daemon. Reuse existing daemon contract; do not rewrite daemon (outside paths). Stay in paths. Add a tiny vitest or document smoke with daemon --self-check + curl in AGENTS if no easy UI test. Write .orch/task-h1-ui-daemon-result.json (issue 141, status, checks, files_touched, grounding). Do not commit. Do not edit foam/architecture (integrator)."
+    },
+    {
+      "id": "h2-transport",
+      "paths": ["packages/integrations/src/mesh/", "foam/decisions/ADR-016-live-sync-transport.md"],
+      "tier": "large",
+      "prompt": "Sync hardening H2 — Realer mesh transport behind MeshSyncTransport. Repo /hdd/dev/chatondearu/fluffmind. Use mise exec --. Read packages/integrations/src/mesh/ and ADR-016 addendum (iroh deferred). Prefer: (1) try a lightweight iroh/JS mesh dep only if pnpm allowBuilds + Alpine-friendly; else (2) ship a localhost TCP or WebSocket hub transport (two Node peers, not in-process Map) that implements MeshSyncTransport + Vitest proving cross-process or cross-socket file update. Keep InMemoryMeshHub. Update ADR-016 addendum with spike outcome (iroh still deferred vs landed). Stay in paths. Write .orch/task-h2-transport-result.json. Do not commit. Do not add deps unless necessary and allowBuilds-approved."
+    },
+    {
+      "id": "h3-folders",
+      "paths": ["apps/web/server/vault/folders.ts", "apps/web/server/vault/mutations.ts", "apps/web/server/vault/"],
+      "tier": "medium",
+      "prompt": "Sync hardening H3 — Folder mutations mesh-live. Repo /hdd/dev/chatondearu/fluffmind. Use mise exec --. Read write.ts mesh-live branch (skip Git, invalidateVaultIndex + publishVaultInvalidate) and folders.ts createVaultFolder / mutations.ts rename|deleteVaultFolder + commitMutation. On syncMode=mesh-live: create/rename/delete folders must NOT commitAndPush; still invalidate index + WS. Prefer fixing shared commitMutation (also helps note delete/rename) + createVaultFolder git block. Keep git-live behavior. Add/extend vitest under apps/web/server/vault/. Stay in paths (vault/ only). Write .orch/task-h3-folders-result.json. Do not commit."
+    }
+  ]
+}
