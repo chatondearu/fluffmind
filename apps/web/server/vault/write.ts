@@ -142,6 +142,16 @@ export async function writeToWorkspace(
     if (config.syncMode === 'mesh-live') {
       invalidateVaultIndex(workspaceId)
       publishVaultInvalidate(workspaceId, { reason: 'note-write', noteId: id })
+      // Publish to MeshSyncTransport when a peer is bound (MESH_TCP_* / tests).
+      try {
+        const { ensureWorkspaceMeshPeer } = await import('./mesh-peer-bootstrap')
+        await ensureWorkspaceMeshPeer(workspaceId)
+        const { publishLocalMeshNote } = await import('./mesh-apply')
+        await publishLocalMeshNote(workspaceId, id, raw)
+      }
+      catch (error) {
+        console.error(`[mesh-apply] publish failed for ${workspaceId}/${id}:`, error)
+      }
       return { committed: false, pushed: false, contentHash }
     }
 

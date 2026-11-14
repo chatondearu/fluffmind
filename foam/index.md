@@ -48,7 +48,7 @@ Index: [[decisions/index|All ADRs]]
 | [[../prd/PRD-034-github-repo-on-workspace-create|PRD-034 create GitHub repo]] | [[../plans/PLAN-034-github-repo-on-workspace-create|PLAN-034]] | in progress |
 | [[../prd/PRD-042-sync-rethink|PRD-042 sync rethink]] | [[../plans/PLAN-042-sync-rethink|PLAN-042]] | partial (T1–T10 code; product hardening left) |
 
-**Next / resume:** [[architecture/sync-architecture|Sync architecture]] — H1–H3 hardening landed (UI↔daemon, TCP mesh, folder mesh-live); next = apply→`MeshSyncTransport` **or** operator smoke. PRD-034 still in progress; stretch [#28](https://github.com/chatondearu/fluffmind/issues/28). Map [#141](https://github.com/chatondearu/fluffmind/issues/141). Kanban → foam last synced 2026-07-23 (`./scripts/import-kanban.sh`).
+**Next / resume:** [[architecture/sync-architecture|Sync architecture]] — apply→`MeshSyncTransport` landed (`MESH_TCP_*`); next = operator smoke **or** iroh. PRD-034 still in progress; stretch [#28](https://github.com/chatondearu/fluffmind/issues/28). Map [#141](https://github.com/chatondearu/fluffmind/issues/141). Kanban → foam last synced 2026-07-23 (`./scripts/import-kanban.sh`).
 
 - PRD template: `prd/template.md`
 - Plan template: `plans/template.md`

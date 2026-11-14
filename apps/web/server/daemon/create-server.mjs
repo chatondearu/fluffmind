@@ -1,6 +1,6 @@
 /**
  * Localhost HTTP facade for portable mesh-live writes (ADR-016).
- * Thin slice: health + PUT note — no Git, no mesh transport yet.
+ * Thin slice: health + PUT note — no Git. Optional MESH_TCP_* publish after write.
  */
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
@@ -13,6 +13,7 @@ import {
   resolveNoteFilePath,
   writeNoteLocal,
 } from './write-local.mjs'
+import { meshTcpEnv, publishNoteOverTcpMesh } from './mesh-publish.mjs'
 
 async function readJsonBody(req) {
   const chunks = []
@@ -92,6 +93,21 @@ export function createDaemonServer(opts) {
           content: body.content,
           writer,
         })
+
+        const mesh = meshTcpEnv()
+        if (mesh) {
+          try {
+            await publishNoteOverTcpMesh({
+              ...mesh,
+              path: result.id.endsWith('.md') ? result.id : `${result.id}.md`,
+              content: body.content,
+            })
+          }
+          catch (error) {
+            console.error('[daemon] mesh publish failed:', error)
+          }
+        }
+
         sendJson(res, result.created ? 201 : 200, result)
         return
       }

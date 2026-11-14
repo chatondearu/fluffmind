@@ -39,6 +39,10 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   ids rewritten under the writer prefix.
 - `vault-invalidate.ts` + `/ws/vault` — fan-out after note write/publish; client
   composable `useVaultInvalidate` (nitro `experimental.websocket`).
+- `mesh-apply.ts` / `mesh-peer-bootstrap.ts` — bind `MeshSyncTransport` per workspace;
+  mesh-live note writes `publish`; remote updates apply (LWW) + invalidate. Opt-in via
+  `MESH_TCP_PORT` (hub + `nuxt:<workspaceId>` peer). Daemon: `mesh-publish.mjs` when
+  the same env is set.
 - `content-roots.ts` — normalizes root paths and guards index/mutations; empty `[]` =
   whole repo. See ADR-012.
 - `server/utils/admin-workspaces.ts` — instance-admin workspace inventory and dangerous

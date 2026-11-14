@@ -64,13 +64,16 @@ export type {
   GithubAccountType,
 } from './github/create-repo'
 
-// Mesh live sync (PRD-042 T8) — stub transport; real iroh deferred (ADR-016).
+// Mesh live sync (PRD-042) — in-memory stub + localhost TCP hub; iroh deferred (ADR-016).
 export {
   createInMemoryMeshHub,
   InMemoryMeshHub,
+  startTcpMeshHub,
+  connectTcpMeshPeer,
 } from './mesh/index'
 export type {
   MeshFileUpdate,
   MeshFileUpdateHandler,
   MeshSyncTransport,
+  TcpMeshHubHandle,
 } from './mesh/index'

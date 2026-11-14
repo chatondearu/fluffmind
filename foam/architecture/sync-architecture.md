@@ -165,19 +165,17 @@ Landed uncommitted on working tree (run `cursor-fallback-20261114T122534Z-669242
 
 | Priority | Gap | Why |
 | -------- | --- | --- |
-| High | Wire Nuxt/daemon apply to `MeshSyncTransport` (TCP ready) | Live mesh not on save path yet |
+| Medium | Operator smoke: `MESH_TCP_PORT` + mesh-live + daemon dogfood | Validate apply path e2e |
 | High | Real iroh + relay (when allowBuilds ok) | Multi-device / NAT |
-| Medium | Operator smoke: opt-in sync-mode + dogfood | Validate dual-mode |
 | Later | Same-note CRDT | Out of PRD-042 |
 | Later | Supersede ADR-002 after real migrates | Per ADR-018 |
 
 ### Suggested next session (pick one)
 
-1. **Apply path → TCP mesh** (daemon/Nuxt publish updates on transport).
-2. **Operator smoke** mesh-live + portable daemon dogfood.
-3. **iroh** when ready to touch package.json / allowBuilds.
+1. **Operator smoke** mesh-live + `MESH_TCP_PORT` + portable daemon.
+2. **iroh** when ready to touch package.json / allowBuilds.
 
-Breadcrumb: *H1–H3 done — suite = brancher apply→MeshSyncTransport OU smoke dual-mode.*
+Breadcrumb: *apply→MeshSyncTransport landed (`mesh-apply`, `MESH_TCP_*`) — suite = smoke OU iroh.*
 
 ## Code map (quick)
 
@@ -190,5 +188,6 @@ Breadcrumb: *H1–H3 done — suite = brancher apply→MeshSyncTransport OU smok
 | migrate API | `GET\|PATCH /api/workspaces/sync-mode`, `WorkspaceSyncModeSection` |
 | daemon | `scripts/fluffmind-daemon.mjs`, `apps/web/server/daemon/` |
 | mesh stub / TCP hub | `packages/integrations/src/mesh/` (`InMemoryMeshHub`, `startTcpMeshHub`) |
+| apply path | `mesh-apply.ts`, `mesh-peer-bootstrap.ts`, plugin `mesh-peer`, daemon `mesh-publish.mjs` |
 | UI↔daemon | `useDaemonNotes`, `nuxt.config` `/__daemon`, `NUXT_PUBLIC_DAEMON_URL` |
 | folder mesh-live | `folders.ts`, `mutations.commitMutation` |
