@@ -1,5 +1,4 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-import { daemonProxyRules } from './daemon-proxy'
 
 /** Portable fluffmind-daemon base URL (empty = hosted / Nuxt vault API). */
 const daemonUrl = process.env.NUXT_PUBLIC_DAEMON_URL?.trim() || ''
@@ -35,8 +34,6 @@ export default defineNuxtConfig({
       // Vault invalidate push for mesh-live multi-browser (PRD-042 T5).
       websocket: true,
     },
-    // Same-origin proxy so the browser can reach localhost daemon without CORS.
-    routeRules: daemonProxyRules({ daemonUrl, authEnabled }),
   },
   typescript: {
     strict: true

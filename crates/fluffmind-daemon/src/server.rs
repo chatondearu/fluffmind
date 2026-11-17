@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use axum::body::Bytes;
+use axum::extract::rejection::BytesRejection;
 use axum::extract::{DefaultBodyLimit, Query, Request, State};
 use axum::http::{header, StatusCode};
 use axum::middleware::{self, Next};
@@ -96,7 +97,9 @@ async fn gate(State(config): State<Shared>, request: Request, next: Next) -> Res
             .headers()
             .get(header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "));
+            .and_then(|v| v.split_once(' '))
+            .filter(|(scheme, _)| scheme.eq_ignore_ascii_case("bearer"))
+            .map(|(_, token)| token);
         if request.uri().path() != "/health" && !given.is_some_and(|g| tokens_match(token, g)) {
             return ApiError(StatusCode::UNAUTHORIZED, "Unauthorized".into()).into_response();
         }
@@ -123,7 +126,12 @@ fn non_blank_str(value: Option<&Value>) -> Option<&str> {
         .filter(|s| !s.trim().is_empty())
 }
 
-async fn put_note(State(config): State<Shared>, body: Bytes) -> Result<Response, ApiError> {
+async fn put_note(
+    State(config): State<Shared>,
+    body: Result<Bytes, BytesRejection>,
+) -> Result<Response, ApiError> {
+    // Keep the `{ error }` shape for the 413 raised by the body limit.
+    let body = body.map_err(|e| ApiError(e.status(), e.body_text()))?;
     let body: Value = if body.iter().all(u8::is_ascii_whitespace) {
         json!({})
     } else {
@@ -216,8 +224,11 @@ pub async fn write_note_local(
 
     let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
     let tmp = dir.join(format!(".fluffmind-{}-{seq}.tmp", std::process::id()));
-    tokio::fs::write(&tmp, content).await?;
-    if let Err(e) = tokio::fs::rename(&tmp, &path).await {
+    let written = match tokio::fs::write(&tmp, content).await {
+        Ok(()) => tokio::fs::rename(&tmp, &path).await,
+        Err(e) => Err(e),
+    };
+    if let Err(e) = written {
         let _ = tokio::fs::remove_file(&tmp).await;
         return Err(e.into());
     }

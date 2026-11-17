@@ -91,3 +91,12 @@ fn resolve_note_file_path_cases() {
         expect(&c.id, got, want, c.error);
     }
 }
+
+/// A drive prefix segment replaces the whole path on `push` — Windows only, so it
+/// cannot live in the shared (POSIX-valid) case table.
+#[cfg(windows)]
+#[test]
+fn drive_prefix_segment_cannot_escape_the_vault() {
+    let got = resolve_note_file_path(Path::new("C:\\vault"), "writers/device/solo/D:/x");
+    assert_eq!(got.unwrap_err().kind(), "InvalidNoteId");
+}

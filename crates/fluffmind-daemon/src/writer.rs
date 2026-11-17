@@ -153,7 +153,10 @@ pub fn resolve_note_file_path(vault: &Path, id: &str) -> Result<PathBuf, NoteErr
         }
         path.push(segment);
     }
-    // Segments are validated above, so the join cannot escape the vault root.
+    // A Windows drive prefix segment (`C:`) replaces the whole path on `push`.
+    if !path.starts_with(vault) {
+        return Err(invalid_id("Note id escapes the vault root"));
+    }
     path.as_mut_os_string().push(".md");
     Ok(path)
 }

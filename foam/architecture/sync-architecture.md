@@ -197,5 +197,5 @@ smoke's daemon leg is a TCP peer stand-in until #151 gives the daemon a mesh.
 | daemon | `crates/fluffmind-daemon/` (Rust, ADR-020; contract smoke `scripts/daemon-contract-smoke.mjs`; writer-prefix case table `crates/fluffmind-daemon/tests/fixtures/writer-cases.json`, read by cargo test and `writer-cases.test.ts`) |
 | mesh stub / TCP hub | `packages/integrations/src/mesh/` (`InMemoryMeshHub`, `startTcpMeshHub`) |
 | apply path | `mesh-apply.ts`, `mesh-peer-bootstrap.ts`, plugin `mesh-peer` (the Rust daemon has no mesh publish until PLAN-151) |
-| UI↔daemon | `useDaemonNotes`, `daemon-proxy.ts` (`/__daemon` route rule, portable/solo only), `NUXT_PUBLIC_DAEMON_URL`, `FLUFFMIND_DAEMON_TOKEN` |
+| UI↔daemon | `useDaemonNotes`, `daemon-proxy.ts` (`/__daemon` Nitro route, checked per request, portable/solo only), `NUXT_PUBLIC_DAEMON_URL`, `FLUFFMIND_DAEMON_TOKEN` |
 | folder mesh-live | `folders.ts`, `mutations.commitMutation` |
