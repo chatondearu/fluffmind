@@ -53,3 +53,15 @@ land under `packages/db/drizzle/` (for example, `0001_*` for GitHub App link col
 
 Use `GET /api/health` as the health check endpoint; it is also used by the Docker
 health check.
+
+## Sync daemon and relay
+
+The Compose file runs a `sync` service next to `web`: the Rust `fluffmind-daemon`, built from
+the Dockerfile `daemon` target. It shares the `vault-data` and `workspaces-data` volumes and
+keeps its node key in `sync-data` (the peer identity — keep that volume). It has no public
+domain: `web` reaches it at `http://sync:8787` with a bearer token that Coolify generates.
+Workspaces in `git-live` mode ignore it.
+
+To sync peers on different networks, self-host an `iroh-relay`: set `COMPOSE_PROFILES=relay`
+so the optional `relay` service starts, give it the domain Coolify generates for port 3340
+(the proxy terminates TLS), then set `FLUFFMIND_RELAY_URL` to that `https://` URL.

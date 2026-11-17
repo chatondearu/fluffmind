@@ -48,7 +48,7 @@ Index: [[decisions/index|All ADRs]]
 | [[../prd/PRD-034-github-repo-on-workspace-create|PRD-034 create GitHub repo]] | [[../plans/PLAN-034-github-repo-on-workspace-create|PLAN-034]] | in progress |
 | [[../prd/PRD-042-sync-rethink|PRD-042 sync rethink]] | [[../plans/PLAN-042-sync-rethink|PLAN-042]] | partial (T1–T10 code; product hardening left) |
 
-**Next / resume:** [[architecture/sync-architecture|Sync architecture]] — Rust daemon + iroh decided ([[decisions/ADR-020-rust-daemon-iroh-transport|ADR-020]]); next = [#150](https://github.com/chatondearu/fluffmind/issues/150) → [#151](https://github.com/chatondearu/fluffmind/issues/151) → [#152](https://github.com/chatondearu/fluffmind/issues/152). PRD-034 still in progress; stretch [#28](https://github.com/chatondearu/fluffmind/issues/28). Map [#141](https://github.com/chatondearu/fluffmind/issues/141). Kanban → foam last synced 2026-07-23 (`./scripts/import-kanban.sh`).
+**Next / resume:** [[architecture/sync-architecture|Sync architecture]] — Rust daemon + iroh decided ([[decisions/ADR-020-rust-daemon-iroh-transport|ADR-020]]); shipped [#150](https://github.com/chatondearu/fluffmind/issues/150) → [#151](https://github.com/chatondearu/fluffmind/issues/151) → [#152](https://github.com/chatondearu/fluffmind/issues/152) (packaging: portable sidecar + `sync`/`relay` compose services). PRD-034 still in progress; stretch [#28](https://github.com/chatondearu/fluffmind/issues/28). Map [#141](https://github.com/chatondearu/fluffmind/issues/141). Kanban → foam last synced 2026-07-23 (`./scripts/import-kanban.sh`).
 
 - PRD template: `prd/template.md`
 - Plan template: `plans/template.md`

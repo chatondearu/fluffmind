@@ -49,6 +49,8 @@ Solo mode already exists in the app; distribution does not.
 - [x] Git preflight check
 - [x] Solo env forced by launcher
 - [x] GitHub Actions workflow for releases
+- [x] Sync daemon sidecar in every archive (launcher starts/stops it, `--no-daemon` opt-out) —
+      [[../plans/PLAN-152-daemon-packaging|PLAN-152]], [[../foam/decisions/ADR-020-rust-daemon-iroh-transport|ADR-020]] §9
 
 ### Non-functional
 

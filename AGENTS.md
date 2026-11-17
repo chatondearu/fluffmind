@@ -142,7 +142,18 @@ P2 env vars are now part of the standard environment shape:
   `docker-compose.yml`, and `docker-compose.coolify.yml` aligned whenever auth or
   workspace-related env vars change (`AUTH_DISABLED`, `WORKSPACES_ROOT`,
   `BETTER_AUTH_*`, `GITHUB_CLIENT_*`, `GITHUB_SYNC_TOKEN_SECRET`, `GITHUB_APP_*`,
-  `GITHUB_WEBHOOK_SECRET`, `VAULT_READONLY`, `SYNC_MODE`).
+  `GITHUB_WEBHOOK_SECRET`, `VAULT_READONLY`, `SYNC_MODE`, `SYNC_WRITER_DEVICE`,
+  `FLUFFMIND_DAEMON_URL`/`_TOKEN`, `FLUFFMIND_RELAY_URL`, `FLUFFMIND_MESH_DIRECT`,
+  `FLUFFMIND_SYNC_INTERVAL_SECS`). The `sync` (and optional `relay`) service must exist in
+  both compose files.
+- **Dockerfile: `runner` must stay the last stage.** A plain `docker build .` (Coolify's web
+  service has no `target:`) builds the last stage. The `daemon-builder` / `daemon` / `relay`
+  stages sit before it; add new targets there too. Keep the `relay` image tag equal to the
+  `iroh` pin in `crates/fluffmind-daemon/Cargo.toml`.
+- **Portable archives bundle the daemon** (`scripts/package-portable.mjs` → `bin/`), built
+  natively per OS in `release-portable.yml`. Launcher changes need both `fluffmind.sh` and
+  `fluffmind.cmd` (+ `fluffmind-daemon.ps1`); `node scripts/portable-smoke.mjs <package dir>`
+  checks start → daemon save → stop.
 
 ## Project memory
 
