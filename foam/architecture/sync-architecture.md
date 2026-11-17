@@ -126,7 +126,7 @@ flowchart LR
   NuxtSolo --> Files
 ```
 
-**Gap:** daemon HTTP exists (`scripts/fluffmind-daemon.mjs --self-check`); Nuxt UI is
+**Gap:** daemon HTTP exists (Rust `fluffmind-daemon --self-check`); Nuxt UI is
 **not** yet the thin client exclusively talking to the daemon.
 
 ## Decision stack
@@ -168,7 +168,7 @@ Runtime decided 2026-11-17: **Rust `fluffmind-daemon` + iroh**
 
 | Order | Gap | Issue / plan | Why |
 | ----- | --- | ------------ | --- |
-| 1 | Rust daemon, HTTP parity; retire Node daemon | [#150](https://github.com/chatondearu/fluffmind/issues/150) · [[../../plans/PLAN-150-rust-daemon-parity|PLAN-150]] | Swap runtime under an unchanged contract |
+| ✓ | Rust daemon, HTTP parity; Node daemon retired | [#150](https://github.com/chatondearu/fluffmind/issues/150) · [[../../plans/PLAN-150-rust-daemon-parity|PLAN-150]] | Swap runtime under an unchanged contract |
 | 2 | Real iroh + relay behind `MeshSyncTransport`; delete TCP hub | [#151](https://github.com/chatondearu/fluffmind/issues/151) · [[../../plans/PLAN-151-iroh-transport-relay|PLAN-151]] | Multi-device / NAT / offline catch-up |
 | 3 | Package: portable sidecar, Coolify `sync` + `relay` services | [#152](https://github.com/chatondearu/fluffmind/issues/152) · [[../../plans/PLAN-152-daemon-packaging|PLAN-152]] | Users get it without dev setup |
 | ✓ | Operator smoke mesh-live + daemon dogfood | [#155](https://github.com/chatondearu/fluffmind/pull/155) | Done: `pnpm --filter @fluffmind/web run test:mesh-smoke` (daemon → TCP hub → apply → WS → publish; rogue canonical rejected; git-live ↔ mesh-live rollback). Port to iroh in #151 |
@@ -180,9 +180,10 @@ Mesh apply rejects canonical paths and ignores updates on git-live workspaces
 
 ### Suggested next session
 
-Pick up [#150](https://github.com/chatondearu/fluffmind/issues/150) (PLAN-150 T1–T2).
+Pick up [#151](https://github.com/chatondearu/fluffmind/issues/151) (PLAN-151: iroh + relay).
 
-Breadcrumb: *Rust + iroh decided (ADR-020) — next = #150 parity, then #151 iroh, then #152 packaging.*
+Breadcrumb: *Rust daemon parity shipped (#150) — next = #151 iroh, then #152 packaging.* The mesh
+smoke's daemon leg is a TCP peer stand-in until #151 gives the daemon a mesh.
 
 ## Code map (quick)
 
@@ -193,8 +194,8 @@ Breadcrumb: *Rust + iroh decided (ADR-020) — next = #150 parity, then #151 iro
 | publish | `publish.ts`, `POST /api/notes/publish` |
 | WS invalidate | `vault-invalidate.ts`, `/ws/vault`, `useVaultInvalidate` |
 | migrate API | `GET\|PATCH /api/workspaces/sync-mode`, `WorkspaceSyncModeSection` |
-| daemon | `scripts/fluffmind-daemon.mjs`, `apps/web/server/daemon/` |
+| daemon | `crates/fluffmind-daemon/` (Rust, ADR-020; contract smoke `scripts/daemon-contract-smoke.mjs`; writer-prefix case table `crates/fluffmind-daemon/tests/fixtures/writer-cases.json`, read by cargo test and `writer-cases.test.ts`) |
 | mesh stub / TCP hub | `packages/integrations/src/mesh/` (`InMemoryMeshHub`, `startTcpMeshHub`) |
-| apply path | `mesh-apply.ts`, `mesh-peer-bootstrap.ts`, plugin `mesh-peer`, daemon `mesh-publish.mjs` |
-| UI↔daemon | `useDaemonNotes`, `nuxt.config` `/__daemon`, `NUXT_PUBLIC_DAEMON_URL` |
+| apply path | `mesh-apply.ts`, `mesh-peer-bootstrap.ts`, plugin `mesh-peer` (the Rust daemon has no mesh publish until PLAN-151) |
+| UI↔daemon | `useDaemonNotes`, `daemon-proxy.ts` (`/__daemon` route rule, portable/solo only), `NUXT_PUBLIC_DAEMON_URL`, `FLUFFMIND_DAEMON_TOKEN` |
 | folder mesh-live | `folders.ts`, `mutations.commitMutation` |

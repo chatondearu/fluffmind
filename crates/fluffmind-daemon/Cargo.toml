@@ -1,0 +1,20 @@
+[package]
+name = "fluffmind-daemon"
+version = "0.1.0"
+edition = "2021"
+description = "Portable Fluffmind sync daemon: mesh-live note writes under writers/<kind>/<id>/, no Git (ADR-020)"
+license = "MIT"
+publish = false
+
+[dependencies]
+axum = "0.8"
+clap = { version = "4", features = ["derive", "env"] }
+http-body-util = "0.1"
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "signal"] }
+tower = { version = "0.5", features = ["util"] }
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }

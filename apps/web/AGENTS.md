@@ -115,7 +115,10 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
 - `NUXT_PUBLIC_DAEMON_URL` (optional) — portable mode: when set (e.g.
   `http://127.0.0.1:8787`), note autosave uses `useDaemonNotes` → Nitro
   `/__daemon` proxy → daemon `PUT /v1/notes` (no Nuxt Git vault write API).
-  Leave unset for hosted / AUTH_DISABLED Nuxt vault saves.
+  Leave unset for hosted / AUTH_DISABLED Nuxt vault saves. The proxy is a Nitro route
+  rule (`daemon-proxy.ts`) registered at build / dev start **only** when this URL is set
+  **and** auth is off; hosted (auth on) has no `/__daemon` and reaches the daemon
+  server-side only. The proxy never adds `FLUFFMIND_DAEMON_TOKEN`.
 - Import convention: **extensionless** relative imports (`./parser`, not
   `./parser.ts`) — this app's own generated tsconfig doesn't set
   `allowImportingTsExtensions` (unlike `packages/*`, see root `AGENTS.md`).
@@ -128,9 +131,13 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
 
 No easy Playwright path yet. Operator check:
 
+The daemon is the Rust crate `crates/fluffmind-daemon` (ADR-020).
+
 ```sh
-mise exec -- node scripts/fluffmind-daemon.mjs --self-check
-# With a real vault + daemon listening on 8787:
+mise exec -- cargo run -p fluffmind-daemon -- --self-check
+# Real vault, daemon on 8787, then the same contract over a real socket:
+mise exec -- cargo run -p fluffmind-daemon -- --vault "$VAULT_PATH" &
+node ../../scripts/daemon-contract-smoke.mjs http://127.0.0.1:8787 --vault "$VAULT_PATH"
 curl -sS -X PUT http://127.0.0.1:8787/v1/notes \
   -H 'content-type: application/json' \
   -d '{"id":"smoke-ui","content":"ok\\n"}'

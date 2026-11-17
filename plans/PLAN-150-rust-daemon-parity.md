@@ -49,33 +49,33 @@ base URL, so the same checks gate the Node → Rust swap.
 
 ## Tasks
 
-- [ ] **T1 — Toolchain + empty binary.** Root Cargo workspace, crate builds a `--help`
+- [x] **T1 — Toolchain + empty binary.** Root Cargo workspace, crate builds a `--help`
       binary; Rust pinned in `mise.toml` and flake devShell; `Cargo.lock` committed;
       `target/` ignored. Acceptance: `mise exec -- cargo run -p fluffmind-daemon -- --help` prints usage.
-- [ ] **T2 — Writer identity + path resolution.** Rust equivalents of
+- [x] **T2 — Writer identity + path resolution.** Rust equivalents of
       `parseWriterIdentity` / `noteIdForMeshWriter` / `resolveNoteFilePath` driven by a
       shared JSON case table (inputs → expected id or error kind) that the existing TS
       tests also read. Acceptance: both `cargo test` and the TS daemon/writer tests pass on
       the same table.
-- [ ] **T3 — HTTP parity.** `GET /health` (`ok`, `vaultPath`, `defaultWriter`,
+- [x] **T3 — HTTP parity.** `GET /health` (`ok`, `vaultPath`, `defaultWriter`,
       `syncMode: "mesh-live"`), `PUT /v1/notes` (201 created / 200 updated, body
       `{ id, path, created, committed:false, pushed:false, contentHash }` — `contentHash` =
       sha256 hex of the raw file, read by the UI autosave), `GET /v1/notes?id&writer`
       (200 / 404 / 400), JSON `{ error }` on failure. Files written atomically (temp +
       rename). Acceptance: contract smoke green, and it asserts `contentHash`.
-- [ ] **T4 — CLI parity + self-check.** Flags `--vault --port --host --writer
+- [x] **T4 — CLI parity + self-check.** Flags `--vault --port --host --writer
       --self-check --help`; `--self-check` runs the contract against a temp vault and
       prints `self-check: ok`. Acceptance: `fluffmind-daemon --self-check` exits 0.
-- [ ] **T5 — Token gate + browser reach.** `FLUFFMIND_DAEMON_TOKEN` checked as
+- [x] **T5 — Token gate + browser reach.** `FLUFFMIND_DAEMON_TOKEN` checked as
       `Authorization: Bearer` on every route except `/health`; with a token set, `/health`
       returns only `{ ok }`. Startup refuses a non-loopback `--host` without a token. Nuxt
       registers the `/__daemon` proxy **only** when the daemon URL is set **and** auth is
       off (portable/solo), and the proxy never forwards the token; hosted code reaches the
       daemon server-side only. Acceptance: unit tests for 401, the bare `/health`, the
       startup refusal, and a Nuxt check that `/__daemon` is absent when auth is on.
-- [ ] **T6 — CI.** Rust job: `cargo fmt --check`, `cargo clippy --all-targets -- -D
+- [x] **T6 — CI.** Rust job: `cargo fmt --check`, `cargo clippy --all-targets -- -D
       warnings`, `cargo test`, `fluffmind-daemon --self-check`. Acceptance: job green on PR.
-- [ ] **T7 — Retire Node daemon.** Docs/scripts point at the Rust binary; delete
+- [x] **T7 — Retire Node daemon.** Docs/scripts point at the Rust binary; delete
       `scripts/fluffmind-daemon.mjs` and `apps/web/server/daemon/` (the TCP publish
       helper goes with PLAN-151 if still referenced). Acceptance: `rg fluffmind-daemon.mjs`
       returns only history docs; `pnpm lint typecheck test` green.

@@ -34,6 +34,11 @@
             git
             jq
             docker-compose
+            # fluffmind-daemon (ADR-020)
+            cargo
+            rustc
+            clippy
+            rustfmt
           ];
 
           shellHook = ''

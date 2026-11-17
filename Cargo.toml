@@ -1,0 +1,4 @@
+# Cargo workspace (ADR-020 §10): outside pnpm workspaces and Turborepo.
+[workspace]
+resolver = "2"
+members = ["crates/*"]

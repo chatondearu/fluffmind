@@ -11,3 +11,5 @@
 *.log
 .DS_Store
 .vscode
+# Cargo build output (the daemon crate is not built in the web image yet)
+target

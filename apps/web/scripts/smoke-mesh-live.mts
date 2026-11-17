@@ -2,9 +2,11 @@
 /**
  * Operator smoke for PRD-042 mesh-live (no DATABASE_URL, no network beyond 127.0.0.1).
  *
- * 1. Two peers over MESH_TCP_PORT: portable daemon (vault A) writes a draft →
+ * 1. Two peers over MESH_TCP_PORT: a daemon-shaped peer publishes a laptop draft →
  *    TCP hub → Nuxt-side peer (vault B) applies it + WS invalidate → explicit
  *    publish to canonical on B. A rogue canonical update must not clobber root.
+ *    The Rust daemon has no mesh yet (PLAN-151), so this peer stands in for it; its
+ *    HTTP write contract is covered by scripts/daemon-contract-smoke.mjs.
  * 2. Dual-mode flip on a throwaway Git vault: git-live commits, mesh-live skips Git,
  *    flipping back to git-live commits again (rollback).
  *
@@ -40,7 +42,6 @@ async function waitFor<T>(label: string, probe: () => T | undefined | Promise<T 
 }
 
 const root = await mkdtemp(join(tmpdir(), 'fluffmind-mesh-smoke-'))
-const vaultA = join(root, 'vault-a')
 const vaultB = join(root, 'vault-b')
 const vaultFlip = join(root, 'vault-flip')
 
@@ -59,34 +60,25 @@ const { unbindWorkspaceMeshTransport } = await import('../server/vault/mesh-appl
 const { registerVaultWsPeer } = await import('../server/vault/vault-ws-peers.ts')
 const { publishNoteToCanonical } = await import('../server/vault/publish.ts')
 const { writeToWorkspace } = await import('../server/vault/write.ts')
-const { createDaemonServer } = await import('../server/daemon/create-server.mjs')
 const { connectTcpMeshPeer } = await import('@fluffmind/integrations')
 
 const wsEvents: Array<{ reason: string, noteId?: string }> = []
-let daemon: ReturnType<typeof createDaemonServer> | undefined
+let daemon: Awaited<ReturnType<typeof connectTcpMeshPeer>> | undefined
 
 try {
   // --- 1. Two peers over MESH_TCP_PORT -------------------------------------------
   await ensureWorkspaceMeshPeer('default')
   registerVaultWsPeer('default', { id: 'smoke-browser', send: data => wsEvents.push(JSON.parse(data)) })
 
-  daemon = createDaemonServer({ vaultPath: vaultA, defaultWriter: 'device:laptop', port: 0 })
-  await daemon.listen()
-  const { port: daemonPort } = daemon.server.address() as { port: number }
-
-  const put = await fetch(`http://127.0.0.1:${daemonPort}/v1/notes`, {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ id: 'ideas', content: '# Ideas from laptop\n' }),
-  })
-  assert(put.status === 201, `daemon PUT returned ${put.status}`)
   const draftId = 'writers/device/laptop/ideas'
+  daemon = await connectTcpMeshPeer({ host: '127.0.0.1', port: Number(process.env.MESH_TCP_PORT), peerId: 'daemon:laptop' })
+  await daemon.publish({ path: `${draftId}.md`, content: '# Ideas from laptop\n', mtimeMs: Date.now() })
 
   await waitFor('WS invalidate after apply', () =>
     wsEvents.find(e => e.reason === 'note-write' && e.noteId === draftId))
   const applied = await readFile(join(vaultB, `${draftId}.md`), 'utf-8')
   assert(applied.includes('Ideas from laptop'), 'draft applied on peer B')
-  console.log('✓ daemon write → TCP mesh → apply on peer B → WS invalidate')
+  console.log('✓ laptop draft → TCP mesh → apply on peer B → WS invalidate')
 
   await publishNoteToCanonical('default', { sourceId: draftId, writer: 'device:laptop' })
   assert((await readFile(join(vaultB, 'ideas.md'), 'utf-8')).includes('Ideas from laptop'), 'canonical published')
