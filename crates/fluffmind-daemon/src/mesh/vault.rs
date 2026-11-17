@@ -27,6 +27,10 @@ pub struct VaultData {
 pub struct Vault {
     pub local_id: String,
     file: PathBuf,
+    /// Mirror of `data.mesh_id` readable without the (possibly busy) data lock: incoming
+    /// requests look the vault up by mesh id and must never be refused because an apply is
+    /// in flight. Updated together with `data.mesh_id` (first enrol).
+    pub mesh_id: std::sync::RwLock<String>,
     pub data: Mutex<VaultData>,
 }
 
@@ -79,11 +83,12 @@ impl Vault {
         let file = Self::state_file(data_dir, local_id);
         match std::fs::read(&file) {
             Ok(raw) => {
-                let data = serde_json::from_slice(&raw)
+                let data: VaultData = serde_json::from_slice(&raw)
                     .map_err(|e| format!("corrupt vault state {}: {e}", file.display()))?;
                 Ok(Some(Self {
                     local_id: local_id.to_string(),
                     file,
+                    mesh_id: std::sync::RwLock::new(data.mesh_id.clone()),
                     data: Mutex::new(data),
                 }))
             }
@@ -96,6 +101,7 @@ impl Vault {
         Self {
             local_id: local_id.to_string(),
             file: Self::state_file(data_dir, local_id),
+            mesh_id: std::sync::RwLock::new(data.mesh_id.clone()),
             data: Mutex::new(data),
         }
     }

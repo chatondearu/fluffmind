@@ -103,6 +103,7 @@ optionally, deploy.
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | for GitHub login | GitHub **OAuth App** (identity) |
 | `GITHUB_SYNC_TOKEN_SECRET` | recommended | Encrypts workspace PAT links at rest |
 | `SYNC_MODE` | optional | Solo / auth-off live path: `git-live` (default) or `mesh-live` ([PRD-042](./prd/PRD-042-sync-rethink.md)). Auth-on uses per-workspace `sync_mode`. |
+| `FLUFFMIND_DAEMON_URL` / `FLUFFMIND_DAEMON_TOKEN` | for mesh-live peers | Base URL (+ bearer) of the Rust `fluffmind-daemon` ([ADR-020](./foam/decisions/ADR-020-rust-daemon-iroh-transport.md)). Nuxt pushes vault config and mesh-live changes to it; the daemon syncs with peers over iroh (relay: daemon-side `FLUFFMIND_RELAY_URL`). Peers join with `fluffmind-daemon ticket` / `enrol`. Server-side only. |
 
 GitHub OAuth App callback URL: `{BETTER_AUTH_URL}/api/auth/callback/github`.  
 First signup on an empty instance becomes admin and can create the first workspace.
@@ -313,7 +314,7 @@ pnpm package:portable -- --target current
 
 ## Status & docs
 
-MVP + post-MVP UX are shipped, including distributed workspace lock (P7a) and portable solo packaging (P8a). Sync rethink ([PRD-042](./prd/PRD-042-sync-rethink.md) / PLAN-042) is in progress: mesh-live mode, writer prefixes, publish, and hosted WS invalidate are landing; peer mesh transport and migrate UX follow. Multi-disk scale-out and static publish remain deferred under epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
+MVP + post-MVP UX are shipped, including distributed workspace lock (P7a) and portable solo packaging (P8a). Sync rethink ([PRD-042](./prd/PRD-042-sync-rethink.md) / PLAN-042) is in progress: mesh-live mode, writer prefixes, publish, and hosted WS invalidate are landing; the iroh mesh transport lives in the Rust daemon (#151); packaging and migrate UX follow. Multi-disk scale-out and static publish remain deferred under epic [#28](https://github.com/chatondearu/fluffmind/issues/28).
 
 | Doc | Purpose |
 | --- | ------- |
