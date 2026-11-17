@@ -94,12 +94,21 @@ try {
   console.log('✓ explicit publish → canonical ideas.md on peer B')
 
   const rogue = await connectTcpMeshPeer({ host: '127.0.0.1', port: Number(process.env.MESH_TCP_PORT), peerId: 'rogue' })
+  // Swallow only the expected rejection log; any other error still prints.
   const origError = console.error
-  console.error = () => {} // the rejected apply logs by design
-  await rogue.publish({ path: 'ideas.md', content: 'clobbered\n', mtimeMs: Date.now() + 60_000 })
-  await delay(300)
-  console.error = origError
-  await rogue.close()
+  let rejected = false
+  console.error = (...args: unknown[]) => {
+    if (args.some(a => a instanceof Error && a.name === 'WriterPrefixViolationError')) rejected = true
+    else origError(...args)
+  }
+  try {
+    await rogue.publish({ path: 'ideas.md', content: 'clobbered\n', mtimeMs: Date.now() + 60_000 })
+    await waitFor('canonical apply rejection', () => (rejected ? true : undefined))
+  }
+  finally {
+    console.error = origError
+    await rogue.close()
+  }
   assert(!(await readFile(join(vaultB, 'ideas.md'), 'utf-8')).includes('clobbered'), 'canonical not clobbered by sync')
   console.log('✓ canonical update over the mesh is rejected (ADR-017)')
 

@@ -100,6 +100,7 @@ export async function applyMeshFileUpdate(
 ): Promise<{ applied: boolean, noteId: string }> {
   const noteId = noteIdFromMeshPath(update.path)
   // Not isUnderWritersTree: that also accepts the root file `writers.md`.
+  // TODO(#151/#154): accept when update is marked published + canPublish (ADR-020 §7)
   if (!noteId.startsWith('writers/')) {
     throw new WriterPrefixViolationError(
       `Mesh update "${update.path}" targets a canonical path (publish is explicit)`,
