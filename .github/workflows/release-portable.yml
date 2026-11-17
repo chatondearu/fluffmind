@@ -142,14 +142,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p release-assets
-          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name 'fluffmind-daemon-*' -o -name 'SHA256SUMS' \) -exec cp {} release-assets/ \;
-          cd release-assets
-          # Merge SHA256SUMS if multiple
-          if ls SHA256SUMS* 1>/dev/null 2>&1; then
-            cat SHA256SUMS* | sort -u > SHA256SUMS.merged
-            mv SHA256SUMS.merged SHA256SUMS
-          fi
-          ls -la
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name 'fluffmind-daemon-*' \) -exec cp {} release-assets/ \;
+          # One SHA256SUMS per target: merge them (copying would keep only the last).
+          find artifacts -type f -name SHA256SUMS -exec cat {} + | sort -u > release-assets/SHA256SUMS
+          ls -la release-assets
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

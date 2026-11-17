@@ -134,6 +134,9 @@ Enrol a device with `fluffmind-daemon ticket` / `enrol` against the daemon.
 generates for port 3340 (the proxy terminates TLS; the relay itself speaks plain HTTP — never
 publish it without a proxy), then set `FLUFFMIND_RELAY_URL` to that `https://…` URL for the
 `sync` service and for portable daemons. Locally: `docker compose --profile relay up`.
+The relay serves any iroh endpoint by default (traffic stays end-to-end encrypted, but anyone
+can use its bandwidth); to restrict it, list your devices' endpoint ids in
+`access.allowlist` in `deploy/iroh-relay.toml`.
 
 GitHub OAuth App callback URL: `{BETTER_AUTH_URL}/api/auth/callback/github`.  
 First signup on an empty instance becomes admin and can create the first workspace.
