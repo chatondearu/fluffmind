@@ -9,6 +9,12 @@ DEFAULT_VAULT="$ROOT/vault"
 DATA_DIR="$ROOT/data"
 PID_FILE="$DATA_DIR/fluffmind.pid"
 LOG_FILE="$DATA_DIR/fluffmind.log"
+# Sync daemon sidecar (ADR-020): loopback only, started before Nuxt.
+DAEMON_BIN="$ROOT/bin/fluffmind-daemon"
+DAEMON_PID_FILE="$DATA_DIR/fluffmind-daemon.pid"
+DAEMON_LOG_FILE="$DATA_DIR/fluffmind-daemon.log"
+DAEMON_PORT="${FLUFFMIND_DAEMON_PORT:-8787}"
+USE_DAEMON=1
 
 VAULT=""
 PORT="${PORT:-3000}"
@@ -22,7 +28,8 @@ usage() {
 Fluffmind portable (solo mode — no Docker, no Postgres)
 
 Usage:
-  fluffmind [command] [--vault <path>] [--port <n>] [--host <addr>] [--readonly] [--no-open] [--help]
+  fluffmind [command] [--vault <path>] [--port <n>] [--host <addr>] [--readonly] [--no-open]
+            [--no-daemon] [--daemon-port <n>] [--help]
 
 Commands:
   run      Start in the foreground (default; Ctrl+C stops)
@@ -36,7 +43,9 @@ Vault resolution (first match wins):
   3. <package>/vault
 
 Options:
-  --readonly   Reject vault mutations (sets VAULT_READONLY=true)
+  --readonly   Reject vault mutations (sets VAULT_READONLY=true; implies --no-daemon)
+  --no-daemon  Skip the sync daemon sidecar (Git-live solo, as before)
+  --daemon-port <n>  Sync daemon loopback port (default: 8787)
 
 Requires: git on PATH
 EOF
@@ -89,6 +98,49 @@ stop_pid() {
   fi
 }
 
+# Plain HTTP GET /health over bash's /dev/tcp (no curl dependency).
+daemon_healthy() {
+  (
+    exec 3<>"/dev/tcp/127.0.0.1/$DAEMON_PORT" || exit 1
+    printf 'GET /health HTTP/1.0\r\n\r\n' >&3
+    head -n1 <&3 | grep -q ' 200 '
+  ) 2>/dev/null
+}
+
+stop_daemon() {
+  [[ -f "$DAEMON_PID_FILE" ]] || return 0
+  stop_pid "$(cat "$DAEMON_PID_FILE" 2>/dev/null || true)"
+  rm -f "$DAEMON_PID_FILE"
+}
+
+# Start the daemon and wait for /health; exports NUXT_PUBLIC_DAEMON_URL for Nuxt.
+start_daemon() {
+  [[ "$USE_DAEMON" == "1" ]] || return 0
+  if [[ ! -x "$DAEMON_BIN" ]]; then
+    echo "error: sync daemon not found at $DAEMON_BIN (use --no-daemon)" >&2
+    exit 1
+  fi
+  # Reap a daemon left behind by a crashed launcher.
+  stop_daemon
+  mkdir -p "$DATA_DIR/daemon"
+  FLUFFMIND_DAEMON_DATA="$DATA_DIR/daemon" nohup "$DAEMON_BIN" \
+    --vault "$VAULT" --host 127.0.0.1 --port "$DAEMON_PORT" >>"$DAEMON_LOG_FILE" 2>&1 &
+  local pid=$!
+  echo "$pid" >"$DAEMON_PID_FILE"
+  for _ in $(seq 1 100); do
+    if daemon_healthy && kill -0 "$pid" 2>/dev/null; then
+      export NUXT_PUBLIC_DAEMON_URL="http://127.0.0.1:$DAEMON_PORT"
+      return 0
+    fi
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.2
+  done
+  echo "error: sync daemon failed to start on port $DAEMON_PORT — see $DAEMON_LOG_FILE" >&2
+  echo "  (port in use? try --daemon-port <n>, or --no-daemon)" >&2
+  stop_daemon
+  exit 1
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     run|start|stop|status)
@@ -115,6 +167,14 @@ while [[ $# -gt 0 ]]; do
       READONLY=1
       shift
       ;;
+    --no-daemon)
+      USE_DAEMON=0
+      shift
+      ;;
+    --daemon-port)
+      DAEMON_PORT="${2:-}"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -134,6 +194,9 @@ if [[ "$CMD" == "status" ]]; then
     pid="$(cat "$PID_FILE")"
     echo "Fluffmind is running (pid $pid)"
     echo "  log: $LOG_FILE"
+    if [[ -f "$DAEMON_PID_FILE" ]] && kill -0 "$(cat "$DAEMON_PID_FILE")" 2>/dev/null; then
+      echo "  sync daemon: running (pid $(cat "$DAEMON_PID_FILE"))"
+    fi
     exit 0
   fi
   echo "Fluffmind is not running"
@@ -145,6 +208,7 @@ if [[ "$CMD" == "stop" ]]; then
   if ! is_running; then
     echo "Fluffmind is not running"
     rm -f "$PID_FILE"
+    stop_daemon
     exit 0
   fi
   pid="$(cat "$PID_FILE")"
@@ -158,6 +222,7 @@ if [[ "$CMD" == "stop" ]]; then
     stop_pid "$orphan"
   done
   rm -f "$PID_FILE"
+  stop_daemon
   echo "Stopped."
   exit 0
 fi
@@ -220,6 +285,8 @@ fi
 READONLY_LABEL="no"
 if [[ "${VAULT_READONLY:-}" == "true" ]]; then
   READONLY_LABEL="yes"
+  # The daemon's PUT /v1/notes does not honour VAULT_READONLY: keep it out of read-only runs.
+  USE_DAEMON=0
 fi
 
 URL="http://${HOST}:${PORT}"
@@ -253,6 +320,7 @@ if [[ "$CMD" == "start" ]]; then
     exit 1
   fi
   rm -f "$PID_FILE"
+  start_daemon
   echo "Fluffmind solo (background)"
   echo "  vault: $VAULT_PATH"
   echo "  readonly: $READONLY_LABEL"
@@ -266,17 +334,29 @@ if [[ "$CMD" == "start" ]]; then
   if ! is_running; then
     echo "error: server exited immediately — see $LOG_FILE" >&2
     rm -f "$PID_FILE"
+    stop_daemon
     exit 1
   fi
   open_browser &
   exit 0
 fi
 
-# Foreground (run)
+# Foreground (run): Nuxt runs as a child so the traps can stop it and the daemon together.
+start_daemon
 echo "Fluffmind solo"
 echo "  vault: $VAULT_PATH"
 echo "  readonly: $READONLY_LABEL"
 echo "  url:   $URL"
 echo "  (Ctrl+C to stop — or use: $(basename "$0") start)"
 open_browser &
-exec "$NODE_BIN" "$SERVER_ENTRY"
+"$NODE_BIN" "$SERVER_ENTRY" &
+NODE_PID=$!
+cleanup() {
+  trap - EXIT
+  stop_pid "$NODE_PID"
+  stop_daemon
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM HUP
+wait "$NODE_PID"

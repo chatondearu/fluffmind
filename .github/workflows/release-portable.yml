@@ -1,4 +1,6 @@
-# Portable solo package (PRD-032) — zip/tar with embedded Node + Nitro output.
+# Portable solo package (PRD-032) — zip/tar with embedded Node + Nitro output + the Rust
+# sync daemon sidecar (ADR-020 §9, PLAN-152). One native build per OS runner; linux-x64 is
+# static musl so the daemon does not depend on the runner's glibc.
 name: Release portable
 
 on:
@@ -30,12 +32,17 @@ jobs:
         include:
           - os: macos-14
             target: darwin-arm64
+            daemon_bin: target/release/fluffmind-daemon
           - os: macos-13
             target: darwin-x64
+            daemon_bin: target/release/fluffmind-daemon
           - os: ubuntu-24.04
             target: linux-x64
+            cargo_target: x86_64-unknown-linux-musl
+            daemon_bin: target/x86_64-unknown-linux-musl/release/fluffmind-daemon
           - os: windows-2022
             target: win-x64
+            daemon_bin: target/release/fluffmind-daemon.exe
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -66,10 +73,49 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Setup Rust
+        if: steps.should.outputs.run == 'true'
+        shell: bash
+        run: |
+          # Same toolchain as ci.yml / mise.toml.
+          rustup toolchain install 1.99.1 --profile minimal
+          rustup default 1.99.1
+          if [[ -n "${{ matrix.cargo_target }}" ]]; then
+            rustup target add "${{ matrix.cargo_target }}"
+            sudo apt-get update && sudo apt-get install -y musl-tools
+          fi
+
+      - name: Cache Cargo
+        if: steps.should.outputs.run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-release-${{ matrix.target }}-${{ hashFiles('Cargo.lock') }}
+
+      - name: Build sync daemon
+        if: steps.should.outputs.run == 'true'
+        shell: bash
+        run: |
+          if [[ -n "${{ matrix.cargo_target }}" ]]; then
+            export CC_x86_64_unknown_linux_musl=musl-gcc
+            cargo build --release --locked -p fluffmind-daemon --target "${{ matrix.cargo_target }}"
+          else
+            cargo build --release --locked -p fluffmind-daemon
+          fi
+
       - name: Build portable package
         if: steps.should.outputs.run == 'true'
         shell: bash
-        run: node scripts/package-portable.mjs --target "${{ matrix.target }}"
+        run: node scripts/package-portable.mjs --target "${{ matrix.target }}" --daemon-bin "${{ matrix.daemon_bin }}"
+
+      # Launcher lifecycle (start → health → note save through the daemon → stop → no leftovers).
+      - name: Smoke portable package
+        if: steps.should.outputs.run == 'true'
+        shell: bash
+        run: node scripts/portable-smoke.mjs "dist/portable/fluffmind-${{ matrix.target }}"
 
       - name: Upload artifact
         if: steps.should.outputs.run == 'true'
@@ -78,6 +124,7 @@ jobs:
           name: fluffmind-${{ matrix.target }}
           path: |
             dist/portable/fluffmind-${{ matrix.target }}.*
+            dist/portable/fluffmind-daemon-${{ matrix.target }}*
             dist/portable/SHA256SUMS
           if-no-files-found: error
 
@@ -95,7 +142,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p release-assets
-          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name 'SHA256SUMS' \) -exec cp {} release-assets/ \;
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name 'fluffmind-daemon-*' -o -name 'SHA256SUMS' \) -exec cp {} release-assets/ \;
           cd release-assets
           # Merge SHA256SUMS if multiple
           if ls SHA256SUMS* 1>/dev/null 2>&1; then

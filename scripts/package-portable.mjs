@@ -4,8 +4,12 @@
  *
  * Usage:
  *   node scripts/package-portable.mjs [--target <id>|current|all] [--skip-build] [--out-dir <dir>]
+ *                                      [--daemon-bin <path>] [--no-daemon]
  *
  * Targets: darwin-arm64, darwin-x64, linux-x64, win-x64
+ *
+ * The sync daemon (ADR-020) is a host-native Rust binary: it is built with cargo for the
+ * current target, so any other target needs --daemon-bin (cross-built, see release-portable.yml).
  */
 import { createHash } from 'node:crypto'
 import { createWriteStream, existsSync } from 'node:fs'
@@ -64,6 +68,8 @@ function parseArgs(argv) {
   const opts = {
     target: 'current',
     skipBuild: false,
+    noDaemon: false,
+    daemonBin: '',
     outDir: join(REPO_ROOT, 'dist', 'portable'),
   }
   for (let i = 0; i < argv.length; i++) {
@@ -72,8 +78,10 @@ function parseArgs(argv) {
     if (a === '--target') opts.target = argv[++i]
     else if (a === '--skip-build') opts.skipBuild = true
     else if (a === '--out-dir') opts.outDir = resolve(argv[++i])
+    else if (a === '--daemon-bin') opts.daemonBin = resolve(argv[++i])
+    else if (a === '--no-daemon') opts.noDaemon = true
     else if (a === '--help' || a === '-h') {
-      console.log(`Usage: node scripts/package-portable.mjs [--target current|all|${Object.keys(TARGETS).join('|')}] [--skip-build] [--out-dir dir]`)
+      console.log(`Usage: node scripts/package-portable.mjs [--target current|all|${Object.keys(TARGETS).join('|')}] [--skip-build] [--out-dir dir] [--daemon-bin path] [--no-daemon]`)
       process.exit(0)
     }
     else {
@@ -124,6 +132,24 @@ function ensureWebBuild(skipBuild) {
   return outputDir
 }
 
+/** Path of the daemon binary to bundle for `targetId`, building it for the host target. */
+function resolveDaemonBin(targetId, opts) {
+  if (opts.daemonBin) {
+    if (!existsSync(opts.daemonBin)) throw new Error(`--daemon-bin not found: ${opts.daemonBin}`)
+    return opts.daemonBin
+  }
+  if (targetId !== detectCurrentTarget()) {
+    throw new Error(`No daemon binary for ${targetId}: pass --daemon-bin <cross-built binary> (or --no-daemon)`)
+  }
+  const bin = join(REPO_ROOT, 'target', 'release', TARGETS[targetId].isWindows ? 'fluffmind-daemon.exe' : 'fluffmind-daemon')
+  if (!opts.skipBuild) {
+    console.log('→ building fluffmind-daemon …')
+    execFileSync('cargo', ['build', '--release', '--locked', '-p', 'fluffmind-daemon'], { cwd: REPO_ROOT, stdio: 'inherit' })
+  }
+  if (!existsSync(bin)) throw new Error(`Missing ${bin}; run cargo build --release -p fluffmind-daemon`)
+  return bin
+}
+
 async function download(url, dest) {
   console.log(`→ download ${url}`)
   const res = await fetch(url)
@@ -150,7 +176,7 @@ async function extractNodeArchive(archivePath, kind, stagingDir) {
   }
 }
 
-async function assembleTarget(targetId, webOutput, outDir, cacheDir) {
+async function assembleTarget(targetId, webOutput, outDir, cacheDir, daemonBin) {
   const meta = TARGETS[targetId]
   const packageName = `fluffmind-${targetId}`
   const packageDir = join(outDir, packageName)
@@ -192,8 +218,20 @@ async function assembleTarget(targetId, webOutput, outDir, cacheDir) {
   await writeFile(join(packageDir, 'data', '.gitkeep'), '')
   await copyFile(join(PORTABLE_TEMPLATES, 'README.txt'), join(packageDir, 'README.txt'))
 
+  // Standalone copy next to the archive: attached to the release with its SHA256 (PLAN-152 T1).
+  const extraArtifacts = []
+  if (daemonBin) {
+    const daemonName = meta.isWindows ? 'fluffmind-daemon.exe' : 'fluffmind-daemon'
+    await copyFile(daemonBin, join(packageDir, 'bin', daemonName))
+    await chmod(join(packageDir, 'bin', daemonName), 0o755)
+    const standalone = join(outDir, `fluffmind-daemon-${targetId}${meta.isWindows ? '.exe' : ''}`)
+    await copyFile(daemonBin, standalone)
+    extraArtifacts.push(standalone)
+  }
+
   if (meta.isWindows) {
     await copyFile(join(PORTABLE_TEMPLATES, 'fluffmind.cmd'), join(packageDir, 'bin', 'fluffmind.cmd'))
+    await copyFile(join(PORTABLE_TEMPLATES, 'fluffmind-daemon.ps1'), join(packageDir, 'bin', 'fluffmind-daemon.ps1'))
   }
   else {
     const dest = join(packageDir, 'bin', 'fluffmind')
@@ -215,13 +253,13 @@ async function assembleTarget(targetId, webOutput, outDir, cacheDir) {
         { stdio: 'inherit' },
       )
     }
-    return zipPath
+    return [zipPath, ...extraArtifacts]
   }
 
   const tarPath = join(outDir, `${packageName}.tar.gz`)
   await rm(tarPath, { force: true })
   execFileSync('tar', ['-czf', tarPath, packageName], { cwd: outDir, stdio: 'inherit' })
-  return tarPath
+  return [tarPath, ...extraArtifacts]
 }
 
 async function writeChecksums(files, outDir) {
@@ -248,9 +286,10 @@ async function main() {
   const artifacts = []
   for (const target of targets) {
     console.log(`\n=== packaging ${target} ===`)
-    const artifact = await assembleTarget(target, webOutput, outDir, cacheDir)
-    artifacts.push(artifact)
-    console.log(`✓ ${artifact}`)
+    const daemonBin = opts.noDaemon ? '' : resolveDaemonBin(target, opts)
+    const built = await assembleTarget(target, webOutput, outDir, cacheDir, daemonBin)
+    artifacts.push(...built)
+    console.log(`✓ ${built[0]}`)
   }
 
   await writeChecksums(artifacts, outDir)
