@@ -140,7 +140,8 @@ fn is_json(request: &Request) -> bool {
 /// Every write must be JSON.
 async fn gate(State(config): State<Shared>, request: Request, next: Next) -> Response {
     if config.token.is_none() {
-        // A missing Host is not a browser (they always send it), e.g. in-process tests.
+        // A missing Host is not a browser (they always send it): the launcher's HTTP/1.0
+        // `/health` probe (fluffmind.sh) and in-process tests.
         let host = request.headers().get(header::HOST);
         if host.is_some_and(|h| !h.to_str().is_ok_and(is_loopback_host)) {
             return ApiError(StatusCode::FORBIDDEN, "Forbidden host".into()).into_response();
