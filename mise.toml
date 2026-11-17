@@ -1,10 +1,12 @@
 # Optional language pins (ADR-013). Prefer `mise activate` or one outer
 # `mise run` / `mise exec` — not shim-primary PATH for agents.
-# Versions match flake.nix devShells.default (nodejs_22 / pnpm).
+# Node/pnpm versions match flake.nix devShells.default (nodejs_22 / pnpm); Rust there is nixpkgs' current stable.
 
 [tools]
 node = "22.23.1"
 pnpm = "11.9.0"
+# Sync daemon (ADR-020): Cargo workspace at the repo root, run via `mise exec -- cargo …`.
+rust = { version = "1.99.1", components = "rustfmt,clippy" }
 
 [settings]
 # Prefer prebuilt Node binaries. On NixOS enable nix-ld (or fall back to

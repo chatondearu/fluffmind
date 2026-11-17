@@ -22,6 +22,11 @@ pnpm workspaces + Turborepo.
 - `apps/web` — the Nuxt app. Everything runnable today lives here.
 - `packages/design-system` — Reka UI + UnoCSS + Material Design 3 tokens. Has real
   content.
+- `crates/fluffmind-daemon` — the portable sync daemon in **Rust** (ADR-020): HTTP
+  `GET /health`, `PUT|GET /v1/notes`, no Git. A Cargo workspace at the repo root,
+  deliberately **outside** pnpm/Turborepo (`pnpm lint|test` do not cover it; CI has a
+  separate `rust` job). Writer-prefix rules live in both TS (`apps/web/server/vault/`) and
+  Rust and are pinned by one shared case table — change a rule in both.
 - `packages/editor-blocks`, `packages/db` — still empty shells on purpose (P0
   scaffolding to lock in the monorepo shape; `src/index.ts` says which phase fills
   each in — P3, P2). Don't add content there until that phase's plan says so.
@@ -54,6 +59,10 @@ pnpm typecheck   # turbo run typecheck
 
 Or scoped to one package: `pnpm --filter @fluffmind/web run dev`.
 
+The Rust daemon (Rust pinned in `mise.toml` / flake): `mise exec -- cargo fmt --check`,
+`mise exec -- cargo clippy --all-targets -- -D warnings`, `mise exec -- cargo test`,
+`mise exec -- cargo run -p fluffmind-daemon -- --self-check`.
+
 Or via Docker: `cp .env.example .env` (set `VAULT_PATH`), then `docker compose up` —
 see the Dockerfile/compose files' own comments for what each stage/service is for.
 
@@ -65,6 +74,8 @@ P2 env vars are now part of the standard environment shape:
 
 - `AUTH_DISABLED` (optional, default `true` in examples) — force P1 no-auth behavior.
 - `VAULT_READONLY` (optional) — when exactly `true`, reject vault mutations (HTTP 403).
+- `FLUFFMIND_DAEMON_TOKEN` (optional) — daemon bearer token (`Authorization: Bearer`, every
+  route except `/health`); **required** when the daemon binds a non-loopback `--host`.
 - `SYNC_MODE` (optional, default `git-live`) — auth-off live path (`mesh-live` skips
   Git commit/push on note save; PRD-042). Auth-on uses `workspace_config.sync_mode`.
 - `WORKSPACES_ROOT` (optional, default `/data/workspaces`) — per-workspace vault root.

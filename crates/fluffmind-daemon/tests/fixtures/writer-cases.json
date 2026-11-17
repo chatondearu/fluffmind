@@ -1,0 +1,53 @@
+{
+  "_comment": "Shared by cargo test (crates/fluffmind-daemon/tests/writer_cases.rs) and vitest (apps/web/server/vault/writer-cases.test.ts). Errors use the TS class name minus the Error suffix.",
+  "parseWriterIdentity": [
+    { "input": "user:alice", "ok": { "kind": "user", "id": "alice" } },
+    { "input": "agent:bot-1", "ok": { "kind": "agent", "id": "bot-1" } },
+    { "input": "device:laptop_01", "ok": { "kind": "device", "id": "laptop_01" } },
+    { "input": "  device:solo  ", "ok": { "kind": "device", "id": "solo" } },
+    { "input": "device:a.b-c", "ok": { "kind": "device", "id": "a.b-c" } },
+    { "input": "", "error": "InvalidWriterIdentity" },
+    { "input": "   ", "error": "InvalidWriterIdentity" },
+    { "input": "user", "error": "InvalidWriterIdentity" },
+    { "input": ":alice", "error": "InvalidWriterIdentity" },
+    { "input": "foo:bar", "error": "InvalidWriterIdentity" },
+    { "input": "User:alice", "error": "InvalidWriterIdentity" },
+    { "input": "user:", "error": "InvalidWriterIdentity" },
+    { "input": "user:a/b", "error": "InvalidWriterIdentity" },
+    { "input": "user:a b", "error": "InvalidWriterIdentity" },
+    { "input": "user:a:b", "error": "InvalidWriterIdentity" },
+    { "input": "user:..\\x", "error": "InvalidWriterIdentity" }
+  ],
+  "noteIdForMeshWriter": [
+    { "noteId": "ideas", "writer": "device:laptop", "ok": "writers/device/laptop/ideas" },
+    { "noteId": "/ideas/", "writer": "device:laptop", "ok": "writers/device/laptop/ideas" },
+    { "noteId": "a/b/c", "writer": "user:alice", "ok": "writers/user/alice/a/b/c" },
+    { "noteId": "writers/device/laptop/x", "writer": "device:laptop", "ok": "writers/device/laptop/x" },
+    { "noteId": "/writers/device/laptop/x/", "writer": "device:laptop", "ok": "writers/device/laptop/x" },
+    { "noteId": "writers/device/laptop", "writer": "device:laptop", "ok": "writers/device/laptop" },
+    { "noteId": "writers/user/alice/stolen", "writer": "device:solo", "error": "WriterPrefixViolation" },
+    { "noteId": "writers/device/laptop-evil/x", "writer": "device:laptop", "error": "WriterPrefixViolation" },
+    { "noteId": "writers/agent/alice/x", "writer": "user:alice", "error": "WriterPrefixViolation" },
+    { "noteId": "writers", "writer": "device:solo", "error": "WriterPrefixViolation" },
+    { "noteId": "writers/", "writer": "device:solo", "error": "WriterPrefixViolation" }
+  ],
+  "resolveNoteFilePath": [
+    { "id": "projets/index", "ok": "projets/index.md" },
+    { "id": "writers/device/solo/a.b", "ok": "writers/device/solo/a.b.md" },
+    { "id": "  spaced  ", "ok": "spaced.md" },
+    { "id": "", "error": "InvalidNoteId" },
+    { "id": "   ", "error": "InvalidNoteId" },
+    { "id": "..", "error": "InvalidNoteId" },
+    { "id": ".", "error": "InvalidNoteId" },
+    { "id": "a/../b", "error": "InvalidNoteId" },
+    { "id": "a/./b", "error": "InvalidNoteId" },
+    { "id": "../outside", "error": "InvalidNoteId" },
+    { "id": "foo/../../outside", "error": "InvalidNoteId" },
+    { "id": "/absolute", "error": "InvalidNoteId" },
+    { "id": "trailing/", "error": "InvalidNoteId" },
+    { "id": "a//b", "error": "InvalidNoteId" },
+    { "id": "note.md", "error": "InvalidNoteId" },
+    { "id": "folder/note.md", "error": "InvalidNoteId" },
+    { "id": "a\\b", "error": "InvalidNoteId" }
+  ]
+}

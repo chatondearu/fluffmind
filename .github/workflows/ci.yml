@@ -42,3 +42,41 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # Rust sync daemon (ADR-020): Cargo is outside pnpm/Turborepo, so it gets its own job.
+  rust:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt clippy
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Self-check
+        run: cargo run --locked -p fluffmind-daemon -- --self-check
+
+      - name: HTTP contract smoke (real socket)
+        run: |
+          vault="$(mktemp -d)"
+          cargo run --locked -q -p fluffmind-daemon -- --vault "$vault" --port 8787 &
+          for _ in $(seq 1 100); do curl -fs http://127.0.0.1:8787/health >/dev/null && break; sleep 0.2; done
+          node scripts/daemon-contract-smoke.mjs http://127.0.0.1:8787 --vault "$vault"
