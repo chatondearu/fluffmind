@@ -112,7 +112,8 @@ stop_daemon() {
   local pid
   pid="$(cat "$DAEMON_PID_FILE" 2>/dev/null || true)"
   # Guard against a recycled pid (e.g. after a reboot): only kill our daemon.
-  if [[ -n "$pid" ]] && ps -p "$pid" -o comm= 2>/dev/null | grep -q fluffmind-daemon; then
+  # args, not comm: Linux truncates comm to 15 chars ("fluffmind-daemo").
+  if [[ -n "$pid" ]] && ps -p "$pid" -o args= 2>/dev/null | grep -q fluffmind-daemon; then
     stop_pid "$pid"
   fi
   rm -f "$DAEMON_PID_FILE"
