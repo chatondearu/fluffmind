@@ -27,7 +27,7 @@ use tokio::task::JoinHandle;
 
 use crate::fsio::{mtime_ms, set_mtime_ms, write_atomic};
 use crate::writer::{parse_writer_identity, resolve_note_file_path};
-use entry::{check_policy, check_remote, Entry, Grant};
+use entry::{check_policy, check_remote, now_ms, Entry, Grant};
 use proto::{
     Blob, EnrolReply, EnrolReq, Reply, SyncReq, ENROL_ALPN, FETCH_BATCH, FETCH_BUDGET, MAX_REPLY,
     MAX_REQUEST, SYNC_ALPN,
@@ -37,6 +37,10 @@ use vault::{normalize_content_roots, random_hex32, valid_local_id, Vault, VaultD
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 const ENROL_TIMEOUT: Duration = Duration::from_secs(10);
+/// A request is a few bytes; do not let a silent peer hold a handler task.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+/// Strangers get one refusal, quickly: the sync ALPN is reachable by anyone with the id.
+const STRANGER_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug)]
 pub enum MeshError {
@@ -461,7 +465,7 @@ impl Mesh {
         // An explicit local change is always the newest state of the path.
         let mtime = existing
             .as_ref()
-            .map_or(disk_mtime, |e| disk_mtime.max(e.mtime_ms + 1));
+            .map_or(disk_mtime, |e| disk_mtime.max(e.mtime_ms.saturating_add(1)));
         let entry = Entry::sign(
             &self.inner.secret,
             &data.mesh_id,
@@ -584,6 +588,7 @@ impl Mesh {
             // First join: adopt the shared vault id. The signature covers the vault id, so
             // re-sign what this side originated.
             data.mesh_id = mesh_vault.clone();
+            *vault.mesh_id.write().unwrap() = mesh_vault.clone();
             let own = self.endpoint_id();
             for entry in data.entries.values_mut().filter(|e| e.origin == own) {
                 *entry = Entry::sign(
@@ -638,12 +643,6 @@ impl Mesh {
     }
 }
 
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_millis() as u64)
-}
-
 /// `kind:id` or `kind:*`.
 fn validate_writer_pattern(pattern: &str) -> MeshResult<()> {
     match pattern.strip_suffix(":*") {
@@ -674,11 +673,23 @@ async fn call<Req: Serialize, Res: serde::de::DeserializeOwned>(
 }
 
 impl Inner {
-    fn vault_by_mesh_id(&self, mesh_id: &str) -> Option<Arc<Vault>> {
+    /// Is `peer` in the allow-list of any attached vault?
+    async fn knows_peer(&self, peer: &str) -> bool {
         let vaults: Vec<Arc<Vault>> = self.vaults.read().unwrap().values().cloned().collect();
+        for vault in vaults {
+            if vault.data.lock().await.peers.contains_key(peer) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn vault_by_mesh_id(&self, mesh_id: &str) -> Option<Arc<Vault>> {
+        let vaults = self.vaults.read().unwrap();
         vaults
-            .into_iter()
-            .find(|v| v.data.try_lock().is_ok_and(|d| d.mesh_id == mesh_id))
+            .values()
+            .find(|v| *v.mesh_id.read().unwrap() == mesh_id)
+            .cloned()
     }
 
     fn addr_for(
@@ -1104,12 +1115,27 @@ impl ProtocolHandler for SyncHandler {
             return Ok(());
         };
         let remote = connection.remote_id().to_string();
+        let known = inner.knows_peer(&remote).await;
         // One connection carries several request/reply streams until the peer closes it.
-        while let Ok((mut send, mut recv)) = connection.accept_bi().await {
-            let raw = recv
-                .read_to_end(MAX_REQUEST)
-                .await
-                .map_err(AcceptError::from_err)?;
+        loop {
+            let next = connection.accept_bi();
+            let accepted = if known {
+                next.await
+            } else {
+                match tokio::time::timeout(STRANGER_TIMEOUT, next).await {
+                    Ok(accepted) => accepted,
+                    Err(_) => break,
+                }
+            };
+            let Ok((mut send, mut recv)) = accepted else {
+                break;
+            };
+            let Ok(raw) =
+                tokio::time::timeout(REQUEST_TIMEOUT, recv.read_to_end(MAX_REQUEST)).await
+            else {
+                break;
+            };
+            let raw = raw.map_err(AcceptError::from_err)?;
             let reply = match serde_json::from_slice::<SyncReq>(&raw) {
                 Ok(request) => inner.serve_sync(&remote, request).await,
                 Err(_) => Reply::refused(),
@@ -1117,6 +1143,11 @@ impl ProtocolHandler for SyncHandler {
             let out = serde_json::to_vec(&reply).map_err(AcceptError::from_err)?;
             send.write_all(&out).await.map_err(AcceptError::from_err)?;
             send.finish()?;
+            if !known {
+                // One refusal per stranger connection; give it time to be read.
+                let _ = tokio::time::timeout(STRANGER_TIMEOUT, connection.closed()).await;
+                break;
+            }
         }
         Ok(())
     }

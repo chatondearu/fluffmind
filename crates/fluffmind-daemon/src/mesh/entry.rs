@@ -137,6 +137,16 @@ pub fn note_id_from_path(path: &str) -> Result<String, String> {
     Ok(id.to_string())
 }
 
+/// A peer may sign any `mtimeMs`; one far in the future would win LWW forever and lock the
+/// path for everyone. Allow generous clock skew, refuse the rest.
+pub const MAX_FUTURE_SKEW_MS: u64 = 24 * 60 * 60 * 1000;
+
+pub fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64)
+}
+
 pub fn is_writers_path(note_id: &str) -> bool {
     note_id.starts_with("writers/")
 }
@@ -193,6 +203,9 @@ pub fn check_remote(
         .get(&entry.origin)
         .ok_or_else(|| format!("origin {} is not in the allow-list", entry.origin))?;
     entry.verify(vault)?;
+    if entry.mtime_ms > now_ms().saturating_add(MAX_FUTURE_SKEW_MS) {
+        return Err(format!("{} is dated too far in the future", entry.path));
+    }
     if is_writers_path(&entry.note_id().unwrap_or_default()) && !grant.allows_writer(&entry.writer)
     {
         return Err(format!(
@@ -279,6 +292,17 @@ mod tests {
         ))
         .is_ok());
         assert!(check(&signed(&host, "writers/user/u/n.md", "user:u", true)).is_err());
+        // A far-future mtime would pin the path forever under LWW.
+        let far = Entry::sign(
+            &host,
+            "vault",
+            "notes/n.md",
+            "user:u",
+            Some("0".repeat(64)),
+            u64::MAX,
+            true,
+        );
+        assert!(check(&far).is_err());
         // Stranger and traversal.
         assert!(check(&signed(
             &SecretKey::generate(),
