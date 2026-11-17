@@ -145,6 +145,9 @@ struct Inner {
     limiter: StdMutex<RedeemLimiter>,
     /// Last manifest digest pulled per (mesh vault, peer): pull only when it differs.
     digests: StdMutex<HashMap<(String, String), String>>,
+    /// `Changed`-triggered pulls in flight per (local vault, peer); `true` = another
+    /// `Changed` arrived meanwhile, so pull once more when done.
+    pulling: StdMutex<HashMap<(String, String), bool>>,
     router: StdMutex<Option<Router>>,
     tasks: StdMutex<Vec<JoinHandle<()>>>,
 }
@@ -158,10 +161,50 @@ macro_rules! warn {
     ($($arg:tt)*) => { eprintln!("[mesh] {}", format_args!($($arg)*)) };
 }
 
+/// Start a pull for `key` unless one is in flight; then only mark it dirty.
+fn claim_pull(pulling: &mut HashMap<(String, String), bool>, key: &(String, String)) -> bool {
+    match pulling.get_mut(key) {
+        Some(dirty) => {
+            *dirty = true;
+            false
+        }
+        None => {
+            pulling.insert(key.clone(), false);
+            true
+        }
+    }
+}
+
+/// End a pull for `key`: `true` = it was marked dirty meanwhile, pull again.
+fn release_pull(pulling: &mut HashMap<(String, String), bool>, key: &(String, String)) -> bool {
+    if pulling.get(key) == Some(&true) {
+        pulling.insert(key.clone(), false);
+        true
+    } else {
+        pulling.remove(key);
+        false
+    }
+}
+
 /// Load the ed25519 key (= `EndpointId`) or create it with mode 0600.
 fn load_or_create_key(path: &Path) -> Result<SecretKey, String> {
     use std::io::Write;
     if let Ok(bytes) = std::fs::read(path) {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(path)
+                .map_err(|e| e.to_string())?
+                .permissions()
+                .mode();
+            if mode & 0o077 != 0 {
+                return Err(format!(
+                    "{} is open to other users (mode {:o}); run chmod 600 on it",
+                    path.display(),
+                    mode & 0o777
+                ));
+            }
+        }
         let bytes: [u8; 32] = bytes
             .try_into()
             .map_err(|_| format!("{} must hold exactly 32 bytes", path.display()))?;
@@ -198,6 +241,7 @@ impl Mesh {
             Endpoint::builder(presets::Minimal)
                 .relay_mode(RelayMode::Custom(RelayMap::from(url.clone())))
         } else {
+            warn!("FLUFFMIND_RELAY_URL is unset: using the public n0 relays");
             Endpoint::builder(presets::N0)
         };
         let mut builder = builder;
@@ -235,6 +279,7 @@ impl Mesh {
             pendings: StdMutex::default(),
             limiter: StdMutex::default(),
             digests: StdMutex::default(),
+            pulling: StdMutex::default(),
             router: StdMutex::new(None),
             tasks: StdMutex::default(),
         });
@@ -1029,19 +1074,39 @@ impl Inner {
         }
         match request {
             SyncReq::Changed { .. } => {
-                let (inner, peer) = (self.clone(), remote.to_string());
-                tokio::spawn(async move {
-                    if let Err(e) = inner.pull_peer(&vault, &peer).await {
-                        warn!("pull from {peer} failed: {e}");
-                    }
-                });
+                // One pull at a time per (vault, peer): a burst of `Changed` must not fan
+                // out into parallel pulls, each buffering a manifest of up to MAX_REPLY.
+                let key = (vault.local_id.clone(), remote.to_string());
+                if claim_pull(&mut self.pulling.lock().unwrap(), &key) {
+                    let inner = self.clone();
+                    tokio::spawn(async move {
+                        loop {
+                            if let Err(e) = inner.pull_peer(&vault, &key.1).await {
+                                warn!("pull from {} failed: {e}", key.1);
+                            }
+                            if !release_pull(&mut inner.pulling.lock().unwrap(), &key) {
+                                break;
+                            }
+                        }
+                    });
+                }
                 Reply::ok()
             }
             SyncReq::Manifest { .. } => {
                 let data = vault.data.lock().await;
+                // Roots may have narrowed since an entry was recorded: never serve outside them.
+                let entries = data
+                    .entries
+                    .values()
+                    .filter(|e| {
+                        e.note_id()
+                            .is_ok_and(|id| entry::within_content_roots(&id, &data.content_roots))
+                    })
+                    .cloned()
+                    .collect();
                 Reply {
                     ok: true,
-                    entries: Some(data.entries.values().cloned().collect()),
+                    entries: Some(entries),
                     ..Reply::default()
                 }
             }
@@ -1060,6 +1125,9 @@ impl Inner {
                     let Ok(note_id) = entry::note_id_from_path(&path) else {
                         continue;
                     };
+                    if !entry::within_content_roots(&note_id, &data.content_roots) {
+                        continue;
+                    }
                     let Ok(file) = resolve_note_file_path(&data.path, &note_id) else {
                         continue;
                     };
