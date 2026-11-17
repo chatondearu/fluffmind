@@ -50,7 +50,10 @@ async fn send_raw(
     token: Option<&str>,
     body: Option<Value>,
 ) -> axum::response::Response {
-    let mut request = Request::builder().method(method).uri(uri);
+    let mut request = Request::builder().method(method.clone()).uri(uri);
+    if method != Method::GET {
+        request = request.header(header::CONTENT_TYPE, "application/json");
+    }
     if let Some(token) = token {
         request = request.header(header::AUTHORIZATION, format!("Bearer {token}"));
     }

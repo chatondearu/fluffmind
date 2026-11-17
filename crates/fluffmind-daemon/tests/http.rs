@@ -26,7 +26,10 @@ async fn send(
     bearer: Option<&str>,
     body: Option<&str>,
 ) -> (StatusCode, Value) {
-    let mut request = Request::builder().method(method).uri(uri);
+    let mut request = Request::builder().method(method.clone()).uri(uri);
+    if method != Method::GET {
+        request = request.header(header::CONTENT_TYPE, "application/json");
+    }
     if let Some(token) = bearer {
         request = request.header(header::AUTHORIZATION, format!("Bearer {token}"));
     }
@@ -166,6 +169,82 @@ async fn token_gate_guards_every_route_but_health() {
         .unwrap();
     let response = app.clone().oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
+}
+
+/// One raw request with explicit headers; returns the status.
+async fn raw(
+    app: &Router,
+    method: Method,
+    uri: &str,
+    headers: &[(&str, &str)],
+    body: &str,
+) -> StatusCode {
+    let mut request = Request::builder().method(method).uri(uri);
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    let request = request.body(Body::from(body.to_owned())).unwrap();
+    app.clone().oneshot(request).await.unwrap().status()
+}
+
+#[tokio::test]
+async fn writes_must_be_json() {
+    // A no-cors page can POST text/plain to the tokenless loopback daemon (e.g. enrol).
+    let vault = tempfile::tempdir().unwrap();
+    let app = app(vault.path(), None);
+    let body = json!({ "id": "a", "content": "x" }).to_string();
+    for headers in [
+        &[][..],
+        &[("content-type", "text/plain;charset=UTF-8")][..],
+        &[("content-type", "application/x-www-form-urlencoded")][..],
+    ] {
+        let status = raw(&app, Method::PUT, "/v1/notes", headers, &body).await;
+        assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE, "{headers:?}");
+    }
+    let status = raw(
+        &app,
+        Method::POST,
+        "/v1/vaults/default/enrol",
+        &[("content-type", "text/plain")],
+        "{\"ticket\":\"x\"}",
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    let json_utf8 = [("content-type", "Application/JSON; charset=utf-8")];
+    assert_eq!(
+        raw(&app, Method::PUT, "/v1/notes", &json_utf8, &body).await,
+        StatusCode::CREATED
+    );
+}
+
+#[tokio::test]
+async fn tokenless_daemon_only_answers_loopback_hosts() {
+    // DNS rebinding: the attacker's page reaches 127.0.0.1 under its own hostname.
+    let vault = tempfile::tempdir().unwrap();
+    let app = app(vault.path(), None);
+    for host in [
+        "evil.example",
+        "evil.example:8787",
+        "127.0.0.1.evil.example",
+        "10.0.0.2:8787",
+    ] {
+        let status = raw(&app, Method::GET, "/health", &[("host", host)], "").await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{host}");
+    }
+    for host in [
+        "127.0.0.1:8787",
+        "localhost:8787",
+        "LOCALHOST",
+        "[::1]:8787",
+        "[::1]",
+    ] {
+        let status = raw(&app, Method::GET, "/health", &[("host", host)], "").await;
+        assert_eq!(status, StatusCode::OK, "{host}");
+    }
+    // With a token (hosted `sync`), the bearer is the gate and any Host is fine.
+    let app = self::app(vault.path(), Some("s3cret"));
+    let status = raw(&app, Method::GET, "/health", &[("host", "sync:8787")], "").await;
+    assert_eq!(status, StatusCode::OK);
 }
 
 #[tokio::test]

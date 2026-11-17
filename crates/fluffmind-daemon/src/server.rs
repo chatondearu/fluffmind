@@ -9,7 +9,7 @@ use std::sync::Arc;
 use axum::body::Bytes;
 use axum::extract::rejection::BytesRejection;
 use axum::extract::{DefaultBodyLimit, Path as UrlPath, Query, Request, State};
-use axum::http::{header, StatusCode};
+use axum::http::{header, Method, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
@@ -115,8 +115,37 @@ fn tokens_match(expected: &str, given: &str) -> bool {
             == 0
 }
 
-/// Bearer gate on every route except `/health`.
+/// `Host` names a loopback address (port optional). Blocks DNS rebinding on the tokenless
+/// loopback daemon: a rebound page still sends its own hostname.
+fn is_loopback_host(host: &str) -> bool {
+    let name = match host.rsplit_once(':') {
+        Some((name, port)) if port.bytes().all(|b| b.is_ascii_digit()) => name,
+        _ => host,
+    };
+    name.eq_ignore_ascii_case("localhost") || name == "127.0.0.1" || name == "[::1]"
+}
+
+/// Writes must be `application/json`: a cross-origin page can only send it after a CORS
+/// preflight, which the daemon never grants (no-cors `text/plain` would otherwise pass).
+fn is_json(request: &Request) -> bool {
+    request
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.split(';').next())
+        .is_some_and(|v| v.trim().eq_ignore_ascii_case("application/json"))
+}
+
+/// Bearer gate on every route except `/health`; without a token, loopback `Host` only.
+/// Every write must be JSON.
 async fn gate(State(config): State<Shared>, request: Request, next: Next) -> Response {
+    if config.token.is_none() {
+        // A missing Host is not a browser (they always send it), e.g. in-process tests.
+        let host = request.headers().get(header::HOST);
+        if host.is_some_and(|h| !h.to_str().is_ok_and(is_loopback_host)) {
+            return ApiError(StatusCode::FORBIDDEN, "Forbidden host".into()).into_response();
+        }
+    }
     if let Some(token) = &config.token {
         let given = request
             .headers()
@@ -128,6 +157,13 @@ async fn gate(State(config): State<Shared>, request: Request, next: Next) -> Res
         if request.uri().path() != "/health" && !given.is_some_and(|g| tokens_match(token, g)) {
             return ApiError(StatusCode::UNAUTHORIZED, "Unauthorized".into()).into_response();
         }
+    }
+    if !matches!(*request.method(), Method::GET | Method::HEAD) && !is_json(&request) {
+        return ApiError(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "Content-Type must be application/json".into(),
+        )
+        .into_response();
     }
     next.run(request).await
 }
