@@ -22,7 +22,7 @@ services:
       SYNC_WRITER_DEVICE: ${SYNC_WRITER_DEVICE:-}
       # Nuxt -> `sync` over the compose network only (the daemon port is not published).
       FLUFFMIND_DAEMON_URL: ${FLUFFMIND_DAEMON_URL:-http://sync:8787}
-      FLUFFMIND_DAEMON_TOKEN: ${FLUFFMIND_DAEMON_TOKEN:-dev-daemon-token}
+      FLUFFMIND_DAEMON_TOKEN: ${FLUFFMIND_DAEMON_TOKEN:?set FLUFFMIND_DAEMON_TOKEN in .env}
       GIT_REMOTE_URL: ${GIT_REMOTE_URL:-}
       GIT_BRANCH: ${GIT_BRANCH:-main}
       AUTH_DISABLED: ${AUTH_DISABLED:-true}
@@ -74,8 +74,7 @@ services:
     user: root
     command: ['--host', '0.0.0.0', '--vault', '/vault']
     environment:
-      # Dev-only default, safe because the port is internal; set a real one in .env.
-      FLUFFMIND_DAEMON_TOKEN: ${FLUFFMIND_DAEMON_TOKEN:-dev-daemon-token}
+      FLUFFMIND_DAEMON_TOKEN: ${FLUFFMIND_DAEMON_TOKEN:?set FLUFFMIND_DAEMON_TOKEN in .env}
       FLUFFMIND_RELAY_URL: ${FLUFFMIND_RELAY_URL:-}
       FLUFFMIND_MESH_DIRECT: ${FLUFFMIND_MESH_DIRECT:-}
       FLUFFMIND_SYNC_INTERVAL_SECS: ${FLUFFMIND_SYNC_INTERVAL_SECS:-}

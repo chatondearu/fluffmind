@@ -277,6 +277,9 @@ async function writeChecksums(files, outDir) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2))
   const targets = resolveTargets(opts.target)
+  // One --daemon-bin is one native binary: it cannot serve several targets.
+  if (opts.daemonBin && !opts.noDaemon && targets.length > 1)
+    throw new Error('--daemon-bin needs a single --target (one native binary per archive)')
   const webOutput = ensureWebBuild(opts.skipBuild)
   const outDir = opts.outDir
   await mkdir(outDir, { recursive: true })

@@ -181,9 +181,11 @@ exit /b %NODE_RC%
 
 :daemon_start
 if not "%USE_DAEMON%"=="1" exit /b 0
+REM Archive built with --no-daemon: fall back to Git-live solo (ADR-018).
 if not exist "%DAEMON_BIN%" (
-  echo error: sync daemon not found at %DAEMON_BIN% ^(use --no-daemon^)
-  exit /b 1
+  echo warning: sync daemon not found at %DAEMON_BIN% - running without it ^(Git-live^)
+  set "USE_DAEMON=0"
+  exit /b 0
 )
 powershell -NoProfile -ExecutionPolicy Bypass -File "%DAEMON_PS1%" start -Root "%ROOT%" -Vault "%VAULT_PATH%" -Port %DAEMON_PORT%
 if errorlevel 1 exit /b 1
@@ -216,21 +218,23 @@ call :daemon_stop
 exit /b 0
 
 :do_start
-call :daemon_start
-if errorlevel 1 exit /b 1
 powershell -NoProfile -Command ^
   "if (Test-Path -LiteralPath '%PID_FILE%') {" ^
   "  $old = Get-Content -LiteralPath '%PID_FILE%' -ErrorAction SilentlyContinue;" ^
   "  if ($old) { try { Get-Process -Id $old -ErrorAction Stop | Out-Null; Write-Host \"Fluffmind is already running (pid $old).\"; Write-Host \"  Use: fluffmind stop\"; exit 1 } catch {} }" ^
   "  Remove-Item -LiteralPath '%PID_FILE%' -Force -ErrorAction SilentlyContinue" ^
-  "};" ^
+  "}"
+if errorlevel 1 exit /b 1
+call :daemon_start
+if errorlevel 1 exit /b 1
+powershell -NoProfile -Command ^
   "$env:VAULT_PATH='%VAULT_PATH%'; $env:WORKSPACES_ROOT='%WORKSPACES_ROOT%'; $env:AUTH_DISABLED='true';" ^
   "if ('%VAULT_READONLY%' -eq 'true') { $env:VAULT_READONLY='true' };" ^
   "$env:DATABASE_URL=$null; $env:NODE_ENV='production'; $env:NITRO_HOST='%HOST%'; $env:NITRO_PORT='%PORT%'; $env:HOST='%HOST%'; $env:PORT='%PORT%';" ^
-  "$proc = Start-Process -FilePath '%NODE_BIN%' -ArgumentList @('%SERVER_ENTRY%') -WorkingDirectory '%ROOT%' -RedirectStandardOutput '%LOG_FILE%' -RedirectStandardError '%LOG_FILE%' -WindowStyle Hidden -PassThru;" ^
+  "$proc = Start-Process -FilePath '%NODE_BIN%' -ArgumentList @('%SERVER_ENTRY%') -WorkingDirectory '%ROOT%' -RedirectStandardOutput '%LOG_FILE%' -RedirectStandardError '%LOG_FILE%.err' -WindowStyle Hidden -PassThru;" ^
   "Set-Content -LiteralPath '%PID_FILE%' -Value $proc.Id;" ^
   "Start-Sleep -Milliseconds 400;" ^
-  "try { Get-Process -Id $proc.Id -ErrorAction Stop | Out-Null } catch { Write-Host \"error: server exited immediately — see %LOG_FILE%\"; Remove-Item -LiteralPath '%PID_FILE%' -Force -ErrorAction SilentlyContinue; exit 1 };" ^
+  "try { Get-Process -Id $proc.Id -ErrorAction Stop | Out-Null } catch { Write-Host \"error: server exited immediately — see %LOG_FILE%.err\"; Remove-Item -LiteralPath '%PID_FILE%' -Force -ErrorAction SilentlyContinue; exit 1 };" ^
   "Write-Host 'Fluffmind solo (background)';" ^
   "Write-Host \"  vault: %VAULT_PATH%\";" ^
   "Write-Host \"  readonly: %READONLY_LABEL%\";" ^
@@ -238,7 +242,10 @@ powershell -NoProfile -Command ^
   "Write-Host \"  log:   %LOG_FILE%\";" ^
   "Write-Host '  stop:  fluffmind stop';" ^
   "exit 0"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (
+  call :daemon_stop
+  exit /b 1
+)
 
 if "%OPEN_BROWSER%"=="1" (
   start "" cmd /c "timeout /t 2 /nobreak >nul & start \"\" \"%URL%\""

@@ -36,5 +36,5 @@ Notes you save land under <vault>/writers/device/solo/…; no Git commit per sav
 Its key and mesh state live in ./data/daemon, its log in ./data/fluffmind-daemon.log.
 A crashed launcher can leave it running: the next start/stop reaps it.
 
-Background PID/log live in ./data/fluffmind.pid and ./data/fluffmind.log.
+Background PID/log live in ./data/fluffmind.pid and ./data/fluffmind.log (Windows: errors in fluffmind.log.err).
 Data / lock files live in ./data (not inside your vault git tree).

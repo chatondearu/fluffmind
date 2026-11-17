@@ -34,9 +34,8 @@ function Test-Healthy {
 
 if ($Action -eq 'stop') { Stop-Daemon; exit 0 }
 
-# A daemon left behind by a crashed launcher (Ctrl+C / closed window skips cleanup), or
-# a second `start` on a running instance: keep it when healthy, reap it otherwise.
-if ((Get-Daemon) -and (Test-Healthy)) { exit 0 }
+# Always reap a daemon left behind by a crashed launcher (Ctrl+C / closed window skips
+# cleanup): it may serve another --vault.
 Stop-Daemon
 
 New-Item -ItemType Directory -Force -Path (Join-Path $data 'daemon') | Out-Null

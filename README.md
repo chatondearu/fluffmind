@@ -89,7 +89,7 @@ VAULT_PATH=/absolute/path/to/a/markdown/vault VAULT_READONLY=true pnpm --filter 
 ### Docker
 
 ```sh
-cp .env.example .env   # set VAULT_PATH to a real markdown vault
+cp .env.example .env   # set VAULT_PATH to a real markdown vault + FLUFFMIND_DAEMON_TOKEN
 ./scripts/stack-local.sh
 ```
 
