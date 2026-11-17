@@ -33,5 +33,10 @@ export interface MeshSyncTransport {
   publish: (update: Omit<MeshFileUpdate, 'peerId'>) => Promise<void>
   /** Subscribe to remote updates (does not echo local publishes). Returns unsubscribe. */
   onUpdate: (handler: MeshFileUpdateHandler) => () => void
+  /**
+   * Optional: the transport may have missed updates (event stream lag or reconnect), so the
+   * consumer should re-read its view instead of trusting incremental updates.
+   */
+  onResync?: (handler: () => void) => () => void
   close: () => Promise<void>
 }

@@ -372,10 +372,14 @@ async fn get_events(
     State(config): State<Shared>,
 ) -> Result<Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>>, ApiError>
 {
-    let events = BroadcastStream::new(mesh(&config)?.subscribe())
-        // A lagged receiver only misses events; Nuxt re-indexes on reconnect anyway.
-        .filter_map(Result::ok)
-        .map(|event| Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default())));
+    let events = BroadcastStream::new(mesh(&config)?.subscribe()).map(|event| {
+        // A lagged receiver missed events: tell Nuxt to re-index everything.
+        let data = match event {
+            Ok(event) => serde_json::to_string(&event).unwrap_or_default(),
+            Err(_) => json!({ "resync": true }).to_string(),
+        };
+        Ok(Event::default().data(data))
+    });
     Ok(Sse::new(events).keep_alive(KeepAlive::default()))
 }
 

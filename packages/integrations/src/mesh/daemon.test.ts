@@ -143,6 +143,32 @@ describe('DaemonMeshTransport (stub daemon)', () => {
     await transport.close()
   })
 
+  it('tells consumers to resync after a reconnect and on a lag marker', async () => {
+    const transport = new DaemonMeshTransport({ url, vault: 'ws-1', reconnectMs: 10 })
+    let resyncs = 0
+    transport.onResync(() => { resyncs++ })
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    emit({ resync: true })
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(resyncs).toBe(1)
+
+    streams.shift()?.destroy()
+    await new Promise(resolve => setTimeout(resolve, 250))
+    expect(resyncs).toBe(2)
+    await transport.close()
+  })
+
+  it('gives up on a daemon that never answers', async () => {
+    const hung = createServer(() => {})
+    await new Promise<void>(resolve => hung.listen(0, '127.0.0.1', resolve))
+    const hungUrl = `http://127.0.0.1:${(hung.address() as AddressInfo).port}`
+    const transport = new DaemonMeshTransport({ url: hungUrl, vault: 'ws-1', requestTimeoutMs: 50 })
+    await expect(transport.publish({ path: 'a.md', content: '', mtimeMs: 1, writer: 'user:a' })).rejects.toThrow()
+    hung.closeAllConnections()
+    await new Promise(resolve => hung.close(resolve))
+  })
+
   it('pushes vault config with PUT /v1/vaults/:id', async () => {
     replies.set('PUT /v1/vaults/ws-1', { status: 200, body: { id: 'ws-1', syncMode: 'mesh-live', attached: true, meshVault: 'abc' } })
     const config = { syncMode: 'mesh-live' as const, contentRoots: ['notes'], path: '/data/ws-1' }

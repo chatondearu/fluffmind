@@ -132,6 +132,11 @@ pub fn note_id_from_path(path: &str) -> Result<String, String> {
         return Err("path contains control characters".into());
     }
     let id = path.strip_suffix(".md").ok_or("path must end with .md")?;
+    // The path resolver trims, the writers/ prefix check does not: refuse ids where the two
+    // would disagree (" writers/x" must never pass as a canonical path).
+    if id.split('/').any(|segment| segment != segment.trim()) {
+        return Err("path segments must not start or end with whitespace".into());
+    }
     // Placeholder root: only the path-shape checks matter here.
     resolve_note_file_path(Path::new("vault"), id).map_err(|e| e.to_string())?;
     Ok(id.to_string())
@@ -206,7 +211,12 @@ pub fn check_remote(
     if entry.mtime_ms > now_ms().saturating_add(MAX_FUTURE_SKEW_MS) {
         return Err(format!("{} is dated too far in the future", entry.path));
     }
-    if is_writers_path(&entry.note_id().unwrap_or_default()) && !grant.allows_writer(&entry.writer)
+    // A `canPublish` origin (the host) may also remove drafts when it publishes or renames
+    // them: its tombstone is signed with the draft owner's identity.
+    let removes_draft = entry.is_tombstone() && grant.can_publish;
+    if is_writers_path(&entry.note_id().unwrap_or_default())
+        && !grant.allows_writer(&entry.writer)
+        && !removes_draft
     {
         return Err(format!(
             "origin {} may not author as {}",
@@ -292,6 +302,23 @@ mod tests {
         ))
         .is_ok());
         assert!(check(&signed(&host, "writers/user/u/n.md", "user:u", true)).is_err());
+        // Whitespace must not turn a writers/ path into a "canonical" one.
+        assert!(check(&signed(&host, " writers/device/a/n.md", "device:a", true)).is_err());
+        assert!(check(&signed(&host, "notes/ x.md", "user:u", true)).is_err());
+        // The publishing host may tombstone a device draft; a plain device may not.
+        let tomb = |k: &SecretKey| {
+            Entry::sign(
+                k,
+                "vault",
+                "writers/device/a/n.md",
+                "device:a",
+                None,
+                10,
+                false,
+            )
+        };
+        assert!(check(&tomb(&host)).is_ok());
+        assert!(check(&tomb(&SecretKey::generate())).is_err());
         // A far-future mtime would pin the path forever under LWW.
         let far = Entry::sign(
             &host,

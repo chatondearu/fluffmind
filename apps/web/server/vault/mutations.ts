@@ -9,6 +9,7 @@ import { invalidateVaultIndex } from './service'
 import { publishVaultInvalidate, type VaultInvalidateReason } from './vault-invalidate'
 import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
 import { withWorkspaceWriteLock } from './write'
+import { assertNoteIdWritableByWriter, isUnderWritersTree, parseWriterIdentity } from './writer-prefix'
 
 export class VaultConflictError extends Error {
   constructor(message: string) {
@@ -26,6 +27,19 @@ type MutationInvalidate = {
  * Tell the daemon about removed/new notes after a mesh-live mutation (best-effort).
  * `writer` is the session writer; auth-off solo falls back to the device id.
  */
+/**
+ * mesh-live (ADR-017): drafts belong to their writer, and only the publish action turns a
+ * draft canonical — a rename must not smuggle one past the canPublish grant.
+ */
+function assertMeshMutation(syncMode: string, writer: string | undefined, from: string, to?: string) {
+  if (syncMode !== 'mesh-live' || !isUnderWritersTree(from))
+    return
+  if (writer)
+    assertNoteIdWritableByWriter(from, parseWriterIdentity(writer))
+  if (to !== undefined && !isUnderWritersTree(to))
+    throw new InvalidNoteIdError('Publish a draft with the publish action; it cannot be renamed onto a canonical path')
+}
+
 async function notifyMesh(workspaceId: string, writer: string | undefined, changes: MeshChange[]) {
   const solo = `device:${process.env.SYNC_WRITER_DEVICE?.trim() || 'solo'}`
   await publishMeshChanges(workspaceId, writer ?? solo, changes)
@@ -62,6 +76,7 @@ export async function deleteNoteFromWorkspace(workspaceId: string, id: string, w
   return withWorkspaceWriteLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
     assertWithinContentRoots(id, config.contentRoots)
+    assertMeshMutation(config.syncMode, writer, id)
     const filePath = resolveNoteFilePath(config.path, id)
     await rm(filePath, { force: true })
     if (config.syncMode === 'mesh-live')
@@ -80,6 +95,7 @@ export async function renameNoteInWorkspace(workspaceId: string, id: string, new
     const config = await resolveWorkspaceConfig(workspaceId)
     assertWithinContentRoots(id, config.contentRoots)
     assertWithinContentRoots(trimmed, config.contentRoots)
+    assertMeshMutation(config.syncMode, writer, id, trimmed)
     const fromPath = resolveNoteFilePath(config.path, id)
     const toPath = resolveNoteFilePath(config.path, trimmed)
 
@@ -116,6 +132,7 @@ export async function renameVaultFolder(workspaceId: string, oldPath: string, ne
     const config = await resolveWorkspaceConfig(workspaceId)
     assertWithinContentRoots(oldPath, config.contentRoots)
     assertWithinContentRoots(newPath, config.contentRoots)
+    assertMeshMutation(config.syncMode, writer, oldPath, newPath)
     const fromDir = join(config.path, ...oldPath.split('/'))
     const toDir = join(config.path, ...newPath.split('/'))
 
@@ -147,6 +164,7 @@ export async function deleteVaultFolder(workspaceId: string, folderPath: string,
   return withWorkspaceWriteLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
     assertWithinContentRoots(folderPath, config.contentRoots)
+    assertMeshMutation(config.syncMode, writer, folderPath)
     const dirPath = join(config.path, ...folderPath.split('/'))
     const noteIds = recursive ? await listNoteIds(config.path, dirPath) : []
     const noteCount = noteIds.length

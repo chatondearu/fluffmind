@@ -4,6 +4,7 @@ export {
   DaemonHttpError,
   DaemonMeshTransport,
   putDaemonVault,
+  listDaemonVaults,
   type DaemonClientOptions,
   type DaemonVaultConfig,
   type DaemonVaultState,
