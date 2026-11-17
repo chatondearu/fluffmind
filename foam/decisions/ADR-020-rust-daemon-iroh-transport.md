@@ -41,6 +41,9 @@ and uses **iroh**.
    `deleted`); `mesh-apply` keeps its role. Bind `127.0.0.1` by default; a bearer token
    (`FLUFFMIND_DAEMON_TOKEN`) is **required** when bound to a non-loopback address (hosted
    internal network). When a token is set, `/health` returns only `{ ok }` (no `vaultPath`).
+   Without a token, only loopback `Host` headers are served (403: DNS rebinding), and every
+   write needs `Content-Type: application/json` (415): a web page cannot reach the tokenless
+   portable daemon with a no-cors `text/plain` POST (e.g. `enrol`).
    **Browser reach**: the `/__daemon` proxy exists only for portable/solo (daemon URL set
    **and** auth off) and never carries the token; hosted Nuxt calls the daemon server-side
    only.

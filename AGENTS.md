@@ -82,6 +82,8 @@ P2 env vars are now part of the standard environment shape:
 - `VAULT_READONLY` (optional) — when exactly `true`, reject vault mutations (HTTP 403).
 - `FLUFFMIND_DAEMON_TOKEN` (optional) — daemon bearer token (`Authorization: Bearer`, every
   route except `/health`); **required** when the daemon binds a non-loopback `--host`.
+  Without it the daemon only answers loopback `Host` headers (403, DNS rebinding); writes
+  always need `Content-Type: application/json` (415; blocks no-cors `text/plain` posts).
 - `SYNC_MODE` (optional, default `git-live`) — auth-off live path (`mesh-live` skips
   Git commit/push on note save; PRD-042). Auth-on uses `workspace_config.sync_mode`.
 - `FLUFFMIND_DAEMON_URL` (optional, Nuxt side) — Rust daemon base URL; when set, mesh-live
