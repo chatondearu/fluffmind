@@ -240,3 +240,55 @@ fn startup_refuses_non_loopback_without_token() {
         assert!(String::from_utf8_lossy(&out.stderr).contains("Refusing to bind 0.0.0.0"));
     }
 }
+
+/// `docker stop` and the portable launcher stop the daemon with SIGTERM: it must exit cleanly.
+#[cfg(unix)]
+#[test]
+fn sigterm_stops_the_daemon_cleanly() {
+    use std::io::{BufRead, BufReader};
+    use std::process::Stdio;
+    use std::time::{Duration, Instant};
+
+    let (vault, data) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_fluffmind-daemon"))
+        .args([
+            "--vault",
+            vault.path().to_str().unwrap(),
+            "--port",
+            &port.to_string(),
+        ])
+        .env("FLUFFMIND_DAEMON_DATA", data.path())
+        .env("FLUFFMIND_MESH_DIRECT", "1")
+        .env("FLUFFMIND_MESH_MDNS", "0")
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+    while !lines
+        .next()
+        .unwrap()
+        .unwrap()
+        .starts_with("mesh endpoint id=")
+    {}
+    // Serving starts right after that line; give the signal handler a moment to register.
+    std::thread::sleep(Duration::from_millis(500));
+
+    Command::new("kill")
+        .args(["-TERM", &child.id().to_string()])
+        .status()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        assert!(Instant::now() < deadline, "daemon ignored SIGTERM");
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert!(status.success(), "unclean exit: {status}");
+}

@@ -2,3 +2,8 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
+
+# Portable archives ship this binary per target (PLAN-152): keep it small.
+[profile.release]
+strip = true
+lto = "thin"
