@@ -216,13 +216,25 @@ async fn run(cli: Cli) -> Result<(), String> {
         token,
     });
     let served = axum::serve(listener, app)
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .map_err(|e| e.to_string());
     mesh.shutdown().await;
     served
+}
+
+/// Ctrl+C, plus SIGTERM on unix: `docker stop` and the portable launcher both send it.
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    if let Ok(mut term) = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+    {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+            _ = term.recv() => {}
+        }
+        return;
+    }
+    let _ = tokio::signal::ctrl_c().await;
 }
 
 #[tokio::main]
