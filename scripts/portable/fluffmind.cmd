@@ -161,7 +161,9 @@ set "URL=http://%HOST%:%PORT%"
 
 if /I "%CMD%"=="start" goto do_start
 
-REM Foreground (run)
+REM Foreground (run). Refuse when an instance is up: daemon_start would reap its daemon.
+call :refuse_if_running
+if errorlevel 1 exit /b 1
 call :daemon_start
 if errorlevel 1 exit /b 1
 echo Fluffmind solo
@@ -178,6 +180,15 @@ if "%OPEN_BROWSER%"=="1" (
 set "NODE_RC=%ERRORLEVEL%"
 call :daemon_stop
 exit /b %NODE_RC%
+
+:refuse_if_running
+powershell -NoProfile -Command ^
+  "if (Test-Path -LiteralPath '%PID_FILE%') {" ^
+  "  $old = Get-Content -LiteralPath '%PID_FILE%' -ErrorAction SilentlyContinue;" ^
+  "  if ($old) { try { Get-Process -Id $old -ErrorAction Stop | Out-Null; Write-Host \"Fluffmind is already running (pid $old).\"; Write-Host \"  Use: fluffmind stop\"; exit 1 } catch {} }" ^
+  "  Remove-Item -LiteralPath '%PID_FILE%' -Force -ErrorAction SilentlyContinue" ^
+  "}"
+exit /b %ERRORLEVEL%
 
 :daemon_start
 if not "%USE_DAEMON%"=="1" exit /b 0
@@ -218,12 +229,7 @@ call :daemon_stop
 exit /b 0
 
 :do_start
-powershell -NoProfile -Command ^
-  "if (Test-Path -LiteralPath '%PID_FILE%') {" ^
-  "  $old = Get-Content -LiteralPath '%PID_FILE%' -ErrorAction SilentlyContinue;" ^
-  "  if ($old) { try { Get-Process -Id $old -ErrorAction Stop | Out-Null; Write-Host \"Fluffmind is already running (pid $old).\"; Write-Host \"  Use: fluffmind stop\"; exit 1 } catch {} }" ^
-  "  Remove-Item -LiteralPath '%PID_FILE%' -Force -ErrorAction SilentlyContinue" ^
-  "}"
+call :refuse_if_running
 if errorlevel 1 exit /b 1
 call :daemon_start
 if errorlevel 1 exit /b 1

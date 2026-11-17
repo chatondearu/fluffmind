@@ -350,6 +350,14 @@ if [[ "$CMD" == "start" ]]; then
 fi
 
 # Foreground (run): Nuxt runs as a child so the traps can stop it and the daemon together.
+# Refuse when an instance is up: start_daemon would reap its daemon, and our trap would
+# then kill the replacement, leaving that instance on a dead daemon.
+if is_running; then
+  echo "Fluffmind is already running (pid $(cat "$PID_FILE"))." >&2
+  echo "  url: $URL" >&2
+  echo "  Use: $(basename "$0") stop" >&2
+  exit 1
+fi
 start_daemon
 echo "Fluffmind solo"
 echo "  vault: $VAULT_PATH"
