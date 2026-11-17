@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { getSession, isAuthEnabled, requireSession } from '../utils/auth'
+import { isAuthEnabled, requireSession } from '../utils/auth'
 import {
   type WriterIdentity,
   assertNoteIdWritableByWriter,

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   resolveWorkspaceGitNetwork: vi.fn(),
   invalidateVaultIndex: vi.fn(),
   withWorkspaceLock: vi.fn(async (_id: string, run: () => Promise<unknown>) => run()),
+  publishLocalMeshNote: vi.fn(),
 }))
 
 vi.mock('@fluffmind/integrations', () => ({
@@ -42,6 +43,10 @@ vi.mock('./lock', () => ({
 
 vi.mock('./content-roots', () => ({
   assertWithinContentRoots: () => undefined,
+}))
+
+vi.mock('./mesh-apply', () => ({
+  publishLocalMeshNote: mocks.publishLocalMeshNote,
 }))
 
 const { writeToWorkspace } = await import('./write')
@@ -77,6 +82,7 @@ describe('writeToWorkspace — mesh-live', () => {
     expect(mocks.ensureWorkingCopy).not.toHaveBeenCalled()
     expect(mocks.commitAndPush).not.toHaveBeenCalled()
     expect(mocks.invalidateVaultIndex).toHaveBeenCalledWith('ws-1')
+    expect(mocks.publishLocalMeshNote).toHaveBeenCalledWith('ws-1', id, expect.stringContaining('Hello mesh'))
   })
 
   it('rejects canonical paths and missing writer on mesh-live', async () => {
@@ -85,5 +91,43 @@ describe('writeToWorkspace — mesh-live', () => {
 
     await expect(writeToWorkspace('ws-1', 'writers/user/alice/x', 'nope'))
       .rejects.toMatchObject({ name: 'InvalidWriterIdentityError' })
+  })
+
+  it('rejects another writer\'s prefix', async () => {
+    await expect(writeToWorkspace('ws-1', 'writers/user/bob/x', 'nope', { writer: 'user:alice' }))
+      .rejects.toMatchObject({ name: 'WriterPrefixViolationError' })
+    await expect(writeToWorkspace('ws-1', 'writers/agent/alice/x', 'nope', { writer: 'user:alice' }))
+      .rejects.toMatchObject({ name: 'WriterPrefixViolationError' })
+    expect(mocks.publishLocalMeshNote).not.toHaveBeenCalled()
+  })
+})
+
+describe('writeToWorkspace — git-live (unchanged)', () => {
+  let vaultPath: string
+
+  beforeEach(async () => {
+    vaultPath = await mkdtemp(join(tmpdir(), 'fluffmind-git-write-'))
+    mocks.resolveWorkspaceConfig.mockResolvedValue({
+      path: vaultPath,
+      branch: 'main',
+      contentRoots: [],
+      syncMode: 'git-live',
+    })
+    mocks.resolveWorkspaceGitNetwork.mockResolvedValue({})
+    mocks.ensureWorkingCopy.mockResolvedValue({})
+    mocks.commitAndPush.mockResolvedValue({ committed: true, pushed: false })
+  })
+
+  afterEach(async () => {
+    vi.clearAllMocks()
+    await rm(vaultPath, { recursive: true, force: true })
+  })
+
+  it('commits canonical writes without a writer and never publishes to the mesh', async () => {
+    const result = await writeToWorkspace('ws-1', 'index', 'Root page')
+
+    expect(result).toMatchObject({ committed: true, pushed: false })
+    expect(mocks.commitAndPush).toHaveBeenCalledWith({}, expect.objectContaining({ message: 'Create index' }))
+    expect(mocks.publishLocalMeshNote).not.toHaveBeenCalled()
   })
 })

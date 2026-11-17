@@ -148,9 +148,9 @@ Tracer bullets: prove **one vault** end-to-end on mesh-live before widening faca
 5. **Host WS** notify after apply
 6. **Transport** peer file exchange (spike)
 
-- [ ] Automated tests on seams 1–5 (project vitest / web filter conventions)
+- [x] Automated tests on seams 1–5 (project vitest / web filter conventions) — `sync-mode`, `workspace`, `workspace-sync-mode`, `write.mesh`, `writer-prefix`, `publish`, `mesh-apply`, `vault-invalidate` tests
 - [x] Smoke for T7 + T8 (daemon `--self-check` + mesh vitest two peers)
-- [ ] Manual: dual-mode flip on a throwaway vault _(API/UI ready — operator smoke)_
+- [x] Dual-mode flip on a throwaway vault — scripted: `pnpm --filter @fluffmind/web run test:mesh-smoke` (also covers daemon → `MESH_TCP_PORT` → apply → publish)
 
 ## Verification
 

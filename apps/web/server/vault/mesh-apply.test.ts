@@ -117,4 +117,64 @@ describe('mesh-apply', () => {
     expect(result.applied).toBe(false)
     expect(await readFile(filePath, 'utf-8')).toBe('local\n')
   })
+
+  it('refuses canonical paths — sync alone cannot clobber root (ADR-017)', async () => {
+    const canonical = join(vaultPath, 'index.md')
+    await writeFile(canonical, 'canonical\n', 'utf-8')
+
+    await expect(applyMeshFileUpdate('ws-1', {
+      path: 'index.md',
+      content: 'clobbered\n',
+      mtimeMs: Date.now() + 60_000,
+      peerId: 'other',
+    })).rejects.toMatchObject({ name: 'WriterPrefixViolationError' })
+
+    expect(await readFile(canonical, 'utf-8')).toBe('canonical\n')
+    await expect(applyMeshFileUpdate('ws-1', {
+      path: 'writers.md',
+      content: 'root file\n',
+      mtimeMs: Date.now(),
+      peerId: 'other',
+    })).rejects.toMatchObject({ name: 'WriterPrefixViolationError' })
+    expect(mocks.publishVaultInvalidate).not.toHaveBeenCalled()
+  })
+
+  it('does not apply remote updates on a git-live workspace', async () => {
+    mocks.resolveWorkspaceConfig.mockResolvedValue({
+      path: vaultPath,
+      branch: 'main',
+      contentRoots: [],
+      syncMode: 'git-live',
+    })
+
+    const result = await applyMeshFileUpdate('ws-1', {
+      path: 'writers/user/a/late.md',
+      content: 'x\n',
+      mtimeMs: Date.now(),
+      peerId: 'other',
+    })
+
+    expect(result.applied).toBe(false)
+    await expect(readFile(join(vaultPath, 'writers/user/a/late.md'), 'utf-8'))
+      .rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('applies a peer update end-to-end through a bound transport (no echo)', async () => {
+    const hub = createInMemoryMeshHub()
+    const local = hub.join('local')
+    const remote = hub.join('remote')
+    bindWorkspaceMeshTransport('ws-1', local)
+    const echoes: unknown[] = []
+    remote.onUpdate(u => echoes.push(u))
+
+    const invalidated = new Promise<void>((resolve) => {
+      mocks.publishVaultInvalidate.mockImplementationOnce(() => resolve())
+    })
+    await remote.publish({ path: 'writers/user/b/peer.md', content: 'from b\n', mtimeMs: 1_700_000_000_000 })
+    await invalidated
+
+    expect(await readFile(join(vaultPath, 'writers/user/b/peer.md'), 'utf-8')).toBe('from b\n')
+    expect(echoes).toEqual([])
+    await remote.close()
+  })
 })
