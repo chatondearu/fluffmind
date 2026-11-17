@@ -49,7 +49,7 @@ flowchart TB
     Agent["Agent\nwriters/agent/tokenId"]
   end
 
-  Daemon -.->|"mesh stub → iroh later"| OtherDevice
+  Daemon -.->|"TCP hub today → iroh (ADR-020)"| OtherDevice
   Nuxt -.->|"hub replica\nnot content master"| OtherDevice
   Agent --> Nuxt
   Agent -.-> Daemon
@@ -163,19 +163,23 @@ Landed uncommitted on working tree (run `cursor-fallback-20261114T122534Z-669242
 
 ### Still to do (product feel / next sessions)
 
-| Priority | Gap | Why |
-| -------- | --- | --- |
-| Medium | Operator smoke: `MESH_TCP_PORT` + mesh-live + daemon dogfood | Validate apply path e2e |
-| High | Real iroh + relay (when allowBuilds ok) | Multi-device / NAT |
-| Later | Same-note CRDT | Out of PRD-042 |
-| Later | Supersede ADR-002 after real migrates | Per ADR-018 |
+Runtime decided 2026-11-17: **Rust `fluffmind-daemon` + iroh**
+([[../decisions/ADR-020-rust-daemon-iroh-transport|ADR-020]]). Recommended order:
 
-### Suggested next session (pick one)
+| Order | Gap | Issue / plan | Why |
+| ----- | --- | ------------ | --- |
+| 1 | Rust daemon, HTTP parity; retire Node daemon | [#150](https://github.com/chatondearu/fluffmind/issues/150) · [[../../plans/PLAN-150-rust-daemon-parity|PLAN-150]] | Swap runtime under an unchanged contract |
+| 2 | Real iroh + relay behind `MeshSyncTransport`; delete TCP hub | [#151](https://github.com/chatondearu/fluffmind/issues/151) · [[../../plans/PLAN-151-iroh-transport-relay|PLAN-151]] | Multi-device / NAT / offline catch-up |
+| 3 | Package: portable sidecar, Coolify `sync` + `relay` services | [#152](https://github.com/chatondearu/fluffmind/issues/152) · [[../../plans/PLAN-152-daemon-packaging|PLAN-152]] | Users get it without dev setup |
+| — | Operator smoke mesh-live + daemon dogfood | — | Fold into #150/#151 manual checks (TCP hub is going away) |
+| Later | Same-note CRDT | — | Out of PRD-042 |
+| Later | Supersede ADR-002 after real migrates | — | Per ADR-018 |
 
-1. **Operator smoke** mesh-live + `MESH_TCP_PORT` + portable daemon.
-2. **iroh** when ready to touch package.json / allowBuilds.
+### Suggested next session
 
-Breadcrumb: *apply→MeshSyncTransport landed (`mesh-apply`, `MESH_TCP_*`) — suite = smoke OU iroh.*
+Pick up [#150](https://github.com/chatondearu/fluffmind/issues/150) (PLAN-150 T1–T2).
+
+Breadcrumb: *Rust + iroh decided (ADR-020) — next = #150 parity, then #151 iroh, then #152 packaging.*
 
 ## Code map (quick)
 
