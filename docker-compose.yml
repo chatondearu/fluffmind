@@ -92,7 +92,7 @@ services:
       start_period: 10s
 
   # Optional self-hosted iroh relay (ADR-020 §8): `docker compose --profile relay up`.
-  # Plain HTTP on 3340 (dev); production TLS goes through the Coolify proxy.
+  # Plain HTTP on 3340 (dev, loopback only); production TLS goes through the Coolify proxy.
   relay:
     profiles: [relay]
     build:
@@ -101,7 +101,7 @@ services:
       target: relay
     restart: unless-stopped
     ports:
-      - '3340:3340'
+      - '127.0.0.1:3340:3340'
 
   postgres:
     image: postgres:17-alpine

@@ -23,6 +23,8 @@ fi
 # docker-compose.yml has no default daemon token: generate a random one once.
 if [ -z "${FLUFFMIND_DAEMON_TOKEN:-}" ]; then
   FLUFFMIND_DAEMON_TOKEN="$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
+  # Without a trailing newline the token would be glued to the last line of .env.
+  if [ -s .env ] && [ -n "$(tail -c1 .env)" ]; then echo >>.env; fi
   echo "FLUFFMIND_DAEMON_TOKEN=$FLUFFMIND_DAEMON_TOKEN" >>.env
   echo "Generated FLUFFMIND_DAEMON_TOKEN in .env"
 fi

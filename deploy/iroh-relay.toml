@@ -5,3 +5,10 @@ http_bind_addr = "0.0.0.0:3340"
 enable_relay = true
 enable_quic_addr_discovery = false
 enable_metrics = false
+
+# Access: open to every iroh endpoint by default. Traffic stays end-to-end encrypted, but
+# anyone who finds the URL can use the relay's bandwidth. To restrict it to your devices,
+# list their endpoint ids (`endpointId` in each daemon's `GET /v1/mesh`) and rebuild:
+# access.allowlist = [
+#   "<endpoint id>",
+# ]

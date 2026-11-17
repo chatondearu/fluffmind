@@ -65,3 +65,6 @@ Workspaces in `git-live` mode ignore it.
 To sync peers on different networks, self-host an `iroh-relay`: set `COMPOSE_PROFILES=relay`
 so the optional `relay` service starts, give it the domain Coolify generates for port 3340
 (the proxy terminates TLS), then set `FLUFFMIND_RELAY_URL` to that `https://` URL.
+The relay accepts any iroh endpoint by default (traffic stays end-to-end encrypted, but anyone
+can use its bandwidth); to restrict it, list your devices' endpoint ids (`endpointId` in each
+daemon's `GET /v1/mesh`) under `access.allowlist` in `deploy/iroh-relay.toml`.
