@@ -39,6 +39,7 @@ const {
   resolveWorkspaceConfig,
   resolveWorkspaceGitNetwork,
   resolveWorkspaceGitRemoteUrl,
+  workspaceConfigFromEnv,
 } = await import('./workspace')
 
 function mockWorkspaceConfig(
@@ -127,6 +128,29 @@ describe('resolveWorkspaceConfig', () => {
     await expect(resolveWorkspaceConfig('org-1')).resolves.toMatchObject({
       syncMode: 'mesh-live',
     })
+  })
+
+  it('falls back to git-live for an unknown stored sync mode', async () => {
+    mockWorkspaceConfig(undefined, [], 'bogus')
+
+    await expect(resolveWorkspaceConfig('org-1')).resolves.toMatchObject({
+      syncMode: 'git-live',
+    })
+  })
+})
+
+describe('workspaceConfigFromEnv — SYNC_MODE (auth-off)', () => {
+  afterEach(() => {
+    delete process.env.VAULT_PATH
+    delete process.env.SYNC_MODE
+  })
+
+  it('reads SYNC_MODE and defaults to git-live', () => {
+    process.env.VAULT_PATH = '/tmp/fluffmind-env-vault'
+    expect(workspaceConfigFromEnv()?.syncMode).toBe('git-live')
+
+    process.env.SYNC_MODE = 'mesh-live'
+    expect(workspaceConfigFromEnv()?.syncMode).toBe('mesh-live')
   })
 })
 

@@ -11,6 +11,7 @@ import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { invalidateVaultIndex } from './service'
 import { publishVaultInvalidate } from './vault-invalidate'
 import { resolveWorkspaceConfig } from './workspace'
+import { WriterPrefixViolationError } from './writer-prefix'
 
 type BoundPeer = {
   transport: MeshSyncTransport
@@ -89,15 +90,25 @@ export async function publishLocalMeshNote(
 }
 
 /**
- * Apply a remote whole-file update (LWW). Skips if local mtime is newer.
- * Does not re-publish to the mesh.
+ * Apply a remote whole-file update (LWW). Skips if local mtime is newer or the
+ * workspace is not mesh-live. Only `writers/` paths apply — canonical pages need
+ * the explicit publish step (ADR-017). Does not re-publish to the mesh.
  */
 export async function applyMeshFileUpdate(
   workspaceId: string,
   update: MeshFileUpdate,
 ): Promise<{ applied: boolean, noteId: string }> {
   const noteId = noteIdFromMeshPath(update.path)
+  // Not isUnderWritersTree: that also accepts the root file `writers.md`.
+  if (!noteId.startsWith('writers/')) {
+    throw new WriterPrefixViolationError(
+      `Mesh update "${update.path}" targets a canonical path (publish is explicit)`,
+    )
+  }
   const config = await resolveWorkspaceConfig(workspaceId)
+  // git-live: commitAndPush runs `git add -A`, so peer drafts would land in Git silently.
+  if (config.syncMode !== 'mesh-live')
+    return { applied: false, noteId }
   assertWithinContentRoots(noteId, config.contentRoots)
   const filePath = resolveNoteFilePath(config.path, noteId)
 

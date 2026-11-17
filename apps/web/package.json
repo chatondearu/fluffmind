@@ -12,6 +12,7 @@
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
     "test:lock-smoke": "tsx scripts/smoke-workspace-lock.mts",
+    "test:mesh-smoke": "tsx scripts/smoke-mesh-live.mts",
     "mcp:stdio": "tsx server/mcp/stdio.ts"
   },
   "dependencies": {

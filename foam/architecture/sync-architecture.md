@@ -171,9 +171,12 @@ Runtime decided 2026-11-17: **Rust `fluffmind-daemon` + iroh**
 | 1 | Rust daemon, HTTP parity; retire Node daemon | [#150](https://github.com/chatondearu/fluffmind/issues/150) · [[../../plans/PLAN-150-rust-daemon-parity|PLAN-150]] | Swap runtime under an unchanged contract |
 | 2 | Real iroh + relay behind `MeshSyncTransport`; delete TCP hub | [#151](https://github.com/chatondearu/fluffmind/issues/151) · [[../../plans/PLAN-151-iroh-transport-relay|PLAN-151]] | Multi-device / NAT / offline catch-up |
 | 3 | Package: portable sidecar, Coolify `sync` + `relay` services | [#152](https://github.com/chatondearu/fluffmind/issues/152) · [[../../plans/PLAN-152-daemon-packaging|PLAN-152]] | Users get it without dev setup |
-| — | Operator smoke mesh-live + daemon dogfood | — | Fold into #150/#151 manual checks (TCP hub is going away) |
+| ✓ | Operator smoke mesh-live + daemon dogfood | [#155](https://github.com/chatondearu/fluffmind/pull/155) | Done: `pnpm --filter @fluffmind/web run test:mesh-smoke` (daemon → TCP hub → apply → WS → publish; rogue canonical rejected; git-live ↔ mesh-live rollback). Port to iroh in #151 |
 | Later | Same-note CRDT | — | Out of PRD-042 |
 | Later | Supersede ADR-002 after real migrates | — | Per ADR-018 |
+
+Mesh apply rejects canonical paths and ignores updates on git-live workspaces
+(ADR-017); peer-to-writer binding tracked in [#154](https://github.com/chatondearu/fluffmind/issues/154).
 
 ### Suggested next session
 

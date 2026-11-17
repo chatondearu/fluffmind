@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   resolveWorkspaceGitNetwork: vi.fn(),
   invalidateVaultIndex: vi.fn(),
   withWorkspaceLock: vi.fn(async (_id: string, run: () => Promise<unknown>) => run()),
+  publishVaultInvalidate: vi.fn(),
 }))
 
 vi.mock('@fluffmind/integrations', () => ({
@@ -27,7 +28,7 @@ vi.mock('./service', () => ({
 }))
 
 vi.mock('./vault-invalidate', () => ({
-  publishVaultInvalidate: vi.fn(),
+  publishVaultInvalidate: mocks.publishVaultInvalidate,
 }))
 
 vi.mock('./lock', () => ({
@@ -103,6 +104,10 @@ describe('publishNoteToCanonical — mesh-live', () => {
     })
     expect(mocks.commitAndPush).not.toHaveBeenCalled()
     expect(mocks.invalidateVaultIndex).toHaveBeenCalledWith('ws-1')
+    expect(mocks.publishVaultInvalidate).toHaveBeenCalledWith('ws-1', {
+      reason: 'note-publish',
+      noteId: 'hello',
+    })
   })
 
   it('rejects publishing into writers/ or from outside the prefix', async () => {
@@ -134,5 +139,40 @@ describe('publishNoteToCanonical — mesh-live', () => {
 
     expect(await readFile(join(vaultPath, 'canonical-kept.md'), 'utf-8')).toContain('kept')
     expect(await readFile(join(vaultPath, `${sourceId}.md`), 'utf-8')).toContain('kept')
+  })
+})
+
+describe('publishNoteToCanonical — git-live', () => {
+  let vaultPath: string
+
+  beforeEach(async () => {
+    vaultPath = await mkdtemp(join(tmpdir(), 'fluffmind-publish-git-'))
+    mocks.resolveWorkspaceConfig.mockResolvedValue({
+      path: vaultPath,
+      branch: 'main',
+      contentRoots: [],
+      syncMode: 'git-live',
+    })
+    mocks.resolveWorkspaceGitNetwork.mockResolvedValue({})
+    mocks.ensureWorkingCopy.mockResolvedValue({})
+    mocks.commitAndPush.mockResolvedValue({ committed: true, pushed: true })
+  })
+
+  afterEach(async () => {
+    vi.clearAllMocks()
+    await rm(vaultPath, { recursive: true, force: true })
+  })
+
+  it('commits the publish as one Git change', async () => {
+    const sourceId = 'writers/device/laptop/plan'
+    await mkdir(join(vaultPath, 'writers/device/laptop'), { recursive: true })
+    await writeFile(join(vaultPath, `${sourceId}.md`), 'plan\n', 'utf-8')
+
+    const result = await publishNoteToCanonical('ws-1', { sourceId, writer: 'device:laptop' })
+
+    expect(result).toEqual({ sourceId, targetId: 'plan', committed: true, pushed: true })
+    expect(mocks.commitAndPush).toHaveBeenCalledWith({}, expect.objectContaining({
+      message: `Publish ${sourceId} -> plan`,
+    }))
   })
 })

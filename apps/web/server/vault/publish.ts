@@ -13,10 +13,10 @@ import {
   parseWriterIdentity,
   writerPathPrefix,
 } from './writer-prefix'
-
-export { isUnderWritersTree }
 import { withWorkspaceLock } from './lock'
 import { resolveWorkspaceConfig, resolveWorkspaceGitNetwork } from './workspace'
+
+export { isUnderWritersTree }
 
 export class PublishTargetError extends Error {
   constructor(message: string) {
