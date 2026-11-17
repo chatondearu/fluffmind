@@ -85,7 +85,9 @@ Or relative: `packages/integrations/src/mesh` → `./mesh` / `./mesh/index.ts`.
 **Interface names:** `MeshFileUpdate`, `MeshFileUpdateHandler`,
 `MeshSyncTransport`, `InMemoryMeshHub`, `createInMemoryMeshHub`.
 
-## Addendum — H2 hardening transport (2026-11-14)
+## Addendum — H2 hardening transport (2026-11-14) — **removed 2026-11-17**
+
+> The TCP hub described below was deleted in #151 (iroh in the Rust daemon, [[ADR-020-rust-daemon-iroh-transport|ADR-020]]); `InMemoryMeshHub` stays for unit tests. Kept as history.
 
 **Spike outcome:** **iroh still deferred.** `@number0/iroh` ships optional
 platform binaries (incl. `linux-x64-musl`) but pulling it needs a new package

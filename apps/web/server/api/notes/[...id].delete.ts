@@ -1,5 +1,6 @@
 import { requireWorkspacePermission } from '../../utils/auth'
 import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
+import { resolveSessionWriterId } from '../../vault/hosted-writer'
 import { deleteNoteFromWorkspace } from '../../vault/mutations'
 
 export default defineEventHandler(async (event) => {
@@ -9,7 +10,7 @@ export default defineEventHandler(async (event) => {
   const workspaceId = await requireWorkspacePermission(event, 'note', 'write')
 
   try {
-    return await deleteNoteFromWorkspace(workspaceId, id)
+    return await deleteNoteFromWorkspace(workspaceId, id, await resolveSessionWriterId(event))
   }
   catch (error) {
     rethrowVaultMutationError(error)

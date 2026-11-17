@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { ensureWorkingCopy, commitAndPush, GitConflictError } from '@fluffmind/integrations'
+import { writeFileAtomic } from './atomic-write'
 import { assertWithinContentRoots } from './content-roots'
 import { withWorkspaceLock } from './lock'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
@@ -101,6 +102,7 @@ export async function writeToWorkspace(
     const config = await resolveWorkspaceConfig(workspaceId)
     assertWithinContentRoots(id, config.contentRoots)
 
+    let meshWriter = ''
     if (config.syncMode === 'mesh-live') {
       if (options?.writer === undefined) {
         throw new InvalidWriterIdentityError(
@@ -111,6 +113,7 @@ export async function writeToWorkspace(
         ? parseWriterIdentity(options.writer)
         : options.writer
       assertNoteIdWritableByWriter(id, writer)
+      meshWriter = `${writer.kind}:${writer.id}`
     }
 
     const filePath = resolveNoteFilePath(config.path, id)
@@ -136,18 +139,18 @@ export async function writeToWorkspace(
     const raw = serializeNoteFile(content, frontmatter)
     const contentHash = sha256Hex(raw)
 
-    await writeFile(filePath, raw, 'utf-8')
+    await writeFileAtomic(filePath, raw)
 
     // Mesh-live: persist files only — Git is export/backup, not the live path (ADR-016/018).
     if (config.syncMode === 'mesh-live') {
       invalidateVaultIndex(workspaceId)
       publishVaultInvalidate(workspaceId, { reason: 'note-write', noteId: id })
-      // Publish to MeshSyncTransport when a peer is bound (MESH_TCP_* / tests).
+      // Tell the daemon (or any bound MeshSyncTransport) the file changed.
       try {
         const { ensureWorkspaceMeshPeer } = await import('./mesh-peer-bootstrap')
         await ensureWorkspaceMeshPeer(workspaceId)
         const { publishLocalMeshNote } = await import('./mesh-apply')
-        await publishLocalMeshNote(workspaceId, id, raw)
+        await publishLocalMeshNote(workspaceId, id, raw, { writer: meshWriter })
       }
       catch (error) {
         console.error(`[mesh-apply] publish failed for ${workspaceId}/${id}:`, error)

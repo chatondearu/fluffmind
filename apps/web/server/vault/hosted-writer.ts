@@ -38,6 +38,12 @@ export async function resolveSessionWriter(event: H3Event): Promise<WriterIdenti
   return writerIdentityForUser(session.user.id)
 }
 
+/** `kind:id` form of {@link resolveSessionWriter}, as sent to the daemon. */
+export async function resolveSessionWriterId(event: H3Event): Promise<string> {
+  const writer = await resolveSessionWriter(event)
+  return `${writer.kind}:${writer.id}`
+}
+
 /**
  * On mesh-live, note ids that are not already under `writers/` are rewritten
  * under the actor prefix so existing clients keep sending short ids as drafts.

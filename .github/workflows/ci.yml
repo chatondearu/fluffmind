@@ -77,6 +77,8 @@ jobs:
       - name: HTTP contract smoke (real socket)
         run: |
           vault="$(mktemp -d)"
+          # Hermetic mesh: no relay, no LAN discovery, throwaway key/state dir.
+          export FLUFFMIND_MESH_DIRECT=1 FLUFFMIND_MESH_MDNS=0 FLUFFMIND_DAEMON_DATA="$(mktemp -d)"
           cargo run --locked -q -p fluffmind-daemon -- --vault "$vault" --port 8787 &
           for _ in $(seq 1 100); do curl -fs http://127.0.0.1:8787/health >/dev/null && break; sleep 0.2; done
           node scripts/daemon-contract-smoke.mjs http://127.0.0.1:8787 --vault "$vault"

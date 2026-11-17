@@ -1,8 +1,9 @@
 import { access, mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { dirname, join, relative, sep } from 'node:path'
 import { commitAndPush, ensureWorkingCopy } from '@fluffmind/integrations'
 import { assertWithinContentRoots } from './content-roots'
 import { FOLDER_MARKER } from './folders'
+import { type MeshChange, publishMeshChanges } from './mesh-peer-bootstrap'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { invalidateVaultIndex } from './service'
 import { publishVaultInvalidate, type VaultInvalidateReason } from './vault-invalidate'
@@ -19,6 +20,15 @@ export class VaultConflictError extends Error {
 type MutationInvalidate = {
   reason: VaultInvalidateReason
   noteId?: string
+}
+
+/**
+ * Tell the daemon about removed/new notes after a mesh-live mutation (best-effort).
+ * `writer` is the session writer; auth-off solo falls back to the device id.
+ */
+async function notifyMesh(workspaceId: string, writer: string | undefined, changes: MeshChange[]) {
+  const solo = `device:${process.env.SYNC_WRITER_DEVICE?.trim() || 'solo'}`
+  await publishMeshChanges(workspaceId, writer ?? solo, changes)
 }
 
 async function commitMutation(
@@ -48,17 +58,19 @@ async function commitMutation(
   return result
 }
 
-export async function deleteNoteFromWorkspace(workspaceId: string, id: string) {
+export async function deleteNoteFromWorkspace(workspaceId: string, id: string, writer?: string) {
   return withWorkspaceWriteLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
     assertWithinContentRoots(id, config.contentRoots)
     const filePath = resolveNoteFilePath(config.path, id)
     await rm(filePath, { force: true })
+    if (config.syncMode === 'mesh-live')
+      await notifyMesh(workspaceId, writer, [{ noteId: id, deleted: true }])
     return commitMutation(workspaceId, `Delete ${id}`, { reason: 'note-write', noteId: id })
   })
 }
 
-export async function renameNoteInWorkspace(workspaceId: string, id: string, newId: string) {
+export async function renameNoteInWorkspace(workspaceId: string, id: string, newId: string, writer?: string) {
   const trimmed = newId.trim()
   if (!trimmed || trimmed === id) {
     throw new InvalidNoteIdError('New note id is required')
@@ -83,6 +95,8 @@ export async function renameNoteInWorkspace(workspaceId: string, id: string, new
 
     await mkdir(dirname(toPath), { recursive: true })
     await rename(fromPath, toPath)
+    if (config.syncMode === 'mesh-live')
+      await notifyMesh(workspaceId, writer, [{ noteId: id, deleted: true }, { noteId: trimmed }])
     const result = await commitMutation(workspaceId, `Rename ${id} -> ${trimmed}`, {
       reason: 'note-write',
       noteId: trimmed,
@@ -91,7 +105,7 @@ export async function renameNoteInWorkspace(workspaceId: string, id: string, new
   })
 }
 
-export async function renameVaultFolder(workspaceId: string, oldPath: string, newPath: string) {
+export async function renameVaultFolder(workspaceId: string, oldPath: string, newPath: string, writer?: string) {
   validateFolderPath(oldPath)
   validateFolderPath(newPath)
   if (oldPath === newPath) {
@@ -115,21 +129,27 @@ export async function renameVaultFolder(workspaceId: string, oldPath: string, ne
       if (error instanceof VaultConflictError) throw error
     }
 
+    const meshNoteIds = config.syncMode === 'mesh-live' ? await listNoteIds(config.path, fromDir) : []
     await mkdir(dirname(toDir), { recursive: true })
     await rename(fromDir, toDir)
+    await notifyMesh(workspaceId, writer, [
+      ...meshNoteIds.map(noteId => ({ noteId, deleted: true })),
+      ...meshNoteIds.map(noteId => ({ noteId: `${newPath}${noteId.slice(oldPath.length)}` })),
+    ])
     const result = await commitMutation(workspaceId, `Rename folder ${oldPath} -> ${newPath}`)
     return { ...result, path: newPath }
   })
 }
 
-export async function deleteVaultFolder(workspaceId: string, folderPath: string, recursive = false) {
+export async function deleteVaultFolder(workspaceId: string, folderPath: string, recursive = false, writer?: string) {
   validateFolderPath(folderPath)
 
   return withWorkspaceWriteLock(workspaceId, async () => {
     const config = await resolveWorkspaceConfig(workspaceId)
     assertWithinContentRoots(folderPath, config.contentRoots)
     const dirPath = join(config.path, ...folderPath.split('/'))
-    const noteCount = recursive ? await countMarkdownFiles(dirPath) : 0
+    const noteIds = recursive ? await listNoteIds(config.path, dirPath) : []
+    const noteCount = noteIds.length
 
     if (recursive) {
       await rm(dirPath, { recursive: true, force: true })
@@ -143,6 +163,8 @@ export async function deleteVaultFolder(workspaceId: string, folderPath: string,
       await rm(dirPath, { recursive: true, force: true })
     }
 
+    if (config.syncMode === 'mesh-live')
+      await notifyMesh(workspaceId, writer, noteIds.map(noteId => ({ noteId, deleted: true })))
     const result = await commitMutation(workspaceId, `Delete folder ${folderPath}`)
     return { ...result, deletedNotes: noteCount }
   })
@@ -160,8 +182,9 @@ function validateFolderPath(folderPath: string) {
   }
 }
 
-async function countMarkdownFiles(dirPath: string): Promise<number> {
-  let count = 0
+/** Note ids (vault-relative, no `.md`) of every markdown file under `dirPath`. */
+async function listNoteIds(vaultPath: string, dirPath: string): Promise<string[]> {
+  const ids: string[] = []
 
   async function walk(current: string) {
     const entries = await readdir(current, { withFileTypes: true })
@@ -171,7 +194,7 @@ async function countMarkdownFiles(dirPath: string): Promise<number> {
       if (entry.isDirectory()) {
         await walk(full)
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
-        count += 1
+        ids.push(relative(vaultPath, full).split(sep).join('/').slice(0, -'.md'.length))
       }
     }
   }
@@ -180,9 +203,9 @@ async function countMarkdownFiles(dirPath: string): Promise<number> {
     await stat(dirPath)
     await walk(dirPath)
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 0
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw error
   }
 
-  return count
+  return ids
 }

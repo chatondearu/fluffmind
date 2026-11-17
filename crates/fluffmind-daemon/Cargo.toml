@@ -8,13 +8,21 @@ publish = false
 
 [dependencies]
 axum = "0.8"
+blake3 = "1"
 clap = { version = "4", features = ["derive", "env"] }
+data-encoding = "2"
 http-body-util = "0.1"
+# Exact pin (ADR-020 §4): same version as the self-hosted iroh-relay; bump monthly / on RUSTSEC.
+iroh = "=1.4.1"
+iroh-mdns-address-lookup = "0.6"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 tempfile = "3"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "signal"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "signal", "sync", "time", "io-util"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 tower = { version = "0.5", features = ["util"] }
 
 [dev-dependencies]
-serde = { version = "1", features = ["derive"] }
+# In-process relay server for the T5 test (`iroh::test_utils::run_relay_server`).
+iroh = { version = "=1.4.1", features = ["test-utils"] }

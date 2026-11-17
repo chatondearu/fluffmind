@@ -39,10 +39,15 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
   ids rewritten under the writer prefix.
 - `vault-invalidate.ts` + `/ws/vault` — fan-out after note write/publish; client
   composable `useVaultInvalidate` (nitro `experimental.websocket`).
-- `mesh-apply.ts` / `mesh-peer-bootstrap.ts` — bind `MeshSyncTransport` per workspace;
-  mesh-live note writes `publish`; remote updates apply (LWW) + invalidate. Opt-in via
-  `MESH_TCP_PORT` (hub + `nuxt:<workspaceId>` peer). Daemon: `mesh-publish.mjs` when
-  the same env is set.
+- `mesh-apply.ts` / `mesh-peer-bootstrap.ts` — bind a `MeshSyncTransport` per workspace.
+  Opt-in via `FLUFFMIND_DAEMON_URL`: one `DaemonMeshTransport` (HTTP only; Nuxt never
+  links iroh, ADR-020) per mesh-live workspace. Boot (auth-off `default`, auth-on every
+  mesh-live workspace) and every `syncMode` / `contentRoots` change push the vault with
+  `PUT /v1/vaults/:id` (a non-mesh-live push detaches it). Mesh-live writes, publish,
+  note delete/rename and folder delete/rename call `POST /v1/mesh/changed` (`deleted`
+  tombstones; canonical paths carry `published: true`). Remote changes arrive on the SSE
+  stream as `persisted` updates: `applyMeshFileUpdate` only invalidates (the daemon
+  already wrote the file). `atomic-write.ts`: Nuxt writes vault files via temp + rename.
 - `content-roots.ts` — normalizes root paths and guards index/mutations; empty `[]` =
   whole repo. See ADR-012.
 - `server/utils/admin-workspaces.ts` — instance-admin workspace inventory and dangerous
@@ -112,6 +117,9 @@ See the root `AGENTS.md` and `DESIGN.md` first. This file covers this app specif
 - `SYNC_MODE` (optional, default `git-live`) — auth-off live path: `git-live` commits
   via Git; `mesh-live` writes files only (no live commit/push). Per-workspace column
   `workspace_config.sync_mode` when auth is on.
+- `FLUFFMIND_DAEMON_URL` (optional) — server-side daemon base URL for the mesh peer
+  (see `mesh-peer-bootstrap.ts`); with `FLUFFMIND_DAEMON_TOKEN` as bearer. Unset = no
+  mesh peer. `FLUFFMIND_RELAY_URL` / `FLUFFMIND_MESH_DIRECT` are daemon-side only.
 - `NUXT_PUBLIC_DAEMON_URL` (optional) — portable mode: when set (e.g.
   `http://127.0.0.1:8787`), note autosave uses `useDaemonNotes` → Nitro
   `/__daemon` proxy → daemon `PUT /v1/notes` (no Nuxt Git vault write API).

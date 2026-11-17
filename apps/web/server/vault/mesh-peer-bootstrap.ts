@@ -1,79 +1,115 @@
 /**
- * Optional TCP mesh hub + Nuxt peer (MESH_TCP_PORT).
- * shortcut: one hub per process; peer id nuxt:<workspaceId>; upgrade when iroh lands.
+ * Bind a DaemonMeshTransport per mesh-live workspace when FLUFFMIND_DAEMON_URL is set
+ * (ADR-020). Nuxt talks to the daemon over HTTP only; Postgres (or env, auth-off)
+ * stays the source of truth and is pushed to the daemon via `PUT /v1/vaults/:id`.
+ * shortcut: no retry loop if the daemon is down at boot — the next mesh write re-attaches.
  */
 import {
-  connectTcpMeshPeer,
-  startTcpMeshHub,
-  type TcpMeshHubHandle,
+  DaemonMeshTransport,
+  putDaemonVault,
+  type DaemonClientOptions,
 } from '@fluffmind/integrations'
-import { bindWorkspaceMeshTransport } from './mesh-apply'
+import { bindWorkspaceMeshTransport, publishLocalMeshNote, unbindWorkspaceMeshTransport } from './mesh-apply'
+import { resolveWorkspaceConfig, type WorkspaceConfig } from './workspace'
 
-let hub: TcpMeshHubHandle | null = null
-const connecting = new Map<string, Promise<void>>()
+/** Workspace id → in-flight/finished attach. Present ⇔ the daemon knows it as mesh-live. */
+const attached = new Map<string, Promise<void>>()
 
-function meshTcpPort(): number | null {
-  const raw = process.env.MESH_TCP_PORT?.trim()
-  if (!raw)
+/** Server-side only: the token never reaches browsers. */
+function daemonOptions(): DaemonClientOptions | null {
+  const url = process.env.FLUFFMIND_DAEMON_URL?.trim()
+  if (!url)
     return null
-  const port = Number(raw)
-  return Number.isInteger(port) && port > 0 && port < 65536 ? port : null
+  return { url, token: process.env.FLUFFMIND_DAEMON_TOKEN?.trim() || undefined }
 }
 
-function meshTcpHost(): string {
-  return process.env.MESH_TCP_HOST?.trim() || '127.0.0.1'
+export function isDaemonConfigured(): boolean {
+  return daemonOptions() !== null
 }
 
-/** Start localhost hub when MESH_TCP_LISTEN is not "0" (default: listen). */
-export async function ensureMeshTcpHub(): Promise<TcpMeshHubHandle | null> {
-  const port = meshTcpPort()
-  if (port === null)
-    return null
-  if (process.env.MESH_TCP_LISTEN === '0')
-    return null
-  if (hub)
-    return hub
-  hub = await startTcpMeshHub({ host: meshTcpHost(), port })
-  console.info(`[mesh] TCP hub listening on ${hub.host}:${hub.port}`)
-  return hub
+function pushConfig(options: DaemonClientOptions, workspaceId: string, config: WorkspaceConfig) {
+  return putDaemonVault(options, workspaceId, {
+    syncMode: config.syncMode,
+    contentRoots: config.contentRoots,
+    path: config.path,
+  })
 }
 
-/** Connect (and bind) a workspace peer if MESH_TCP_PORT is set. Idempotent. */
+/** Push the vault config, then bind the transport. Idempotent; retried after a failure. */
 export async function ensureWorkspaceMeshPeer(workspaceId: string): Promise<void> {
-  const port = meshTcpPort()
-  if (port === null)
+  const options = daemonOptions()
+  if (!options)
     return
 
-  const existing = connecting.get(workspaceId)
-  if (existing) {
-    await existing
-    return
+  let run = attached.get(workspaceId)
+  if (!run) {
+    run = (async () => {
+      await pushConfig(options, workspaceId, await resolveWorkspaceConfig(workspaceId))
+      bindWorkspaceMeshTransport(workspaceId, new DaemonMeshTransport({ ...options, vault: workspaceId }))
+    })()
+    attached.set(workspaceId, run)
+    run.catch(() => attached.delete(workspaceId))
   }
+  await run
+}
 
-  const run = (async () => {
-    await ensureMeshTcpHub()
-    const host = meshTcpHost()
-    // Prefix from env (default nuxt); workspace id keeps multi-vault peers unique on one hub.
-    const peerId = `${process.env.MESH_PEER_ID?.trim() || 'nuxt'}:${workspaceId}`
-    const transport = await connectTcpMeshPeer({ host, port, peerId })
-    bindWorkspaceMeshTransport(workspaceId, transport)
-    console.info(`[mesh] peer ${peerId} bound to workspace ${workspaceId}`)
-  })()
+/**
+ * Re-push the workspace config after a `syncMode` / `contentRoots` change (or at boot).
+ * mesh-live → attach (or refresh); anything else → push so the daemon detaches, drop the binding.
+ */
+export async function syncWorkspaceDaemonConfig(workspaceId: string): Promise<void> {
+  const options = daemonOptions()
+  if (!options)
+    return
 
-  connecting.set(workspaceId, run)
+  const config = await resolveWorkspaceConfig(workspaceId)
+  if (config.syncMode === 'mesh-live' && !attached.has(workspaceId))
+    return ensureWorkspaceMeshPeer(workspaceId)
+
+  if (config.syncMode !== 'mesh-live') {
+    attached.delete(workspaceId)
+    await unbindWorkspaceMeshTransport(workspaceId)
+  }
+  else {
+    await attached.get(workspaceId)
+  }
+  await pushConfig(options, workspaceId, config)
+}
+
+export interface MeshChange {
+  noteId: string
+  /** The file is already gone (tombstone). */
+  deleted?: boolean
+}
+
+/** `writers/<kind>/<id>/…` → `kind:id`. */
+function writerFromNoteId(noteId: string): string | undefined {
+  const match = /^writers\/([^/]+)\/([^/]+)\//.exec(noteId)
+  return match ? `${match[1]}:${match[2]}` : undefined
+}
+
+/**
+ * Notify the daemon about vault files Nuxt already wrote/removed. Best-effort: failures
+ * are logged, never thrown (the local write succeeded). Drafts carry their path owner as
+ * writer; canonical paths use `actor` (the session writer). No-op without a daemon.
+ */
+export async function publishMeshChanges(
+  workspaceId: string,
+  actor: string,
+  changes: MeshChange[],
+): Promise<void> {
+  if (changes.length === 0)
+    return
   try {
-    await run
+    await ensureWorkspaceMeshPeer(workspaceId)
+    for (const change of changes) {
+      await publishLocalMeshNote(workspaceId, change.noteId, '', {
+        writer: writerFromNoteId(change.noteId) ?? actor,
+        deleted: change.deleted,
+      })
+    }
   }
   catch (error) {
-    connecting.delete(workspaceId)
-    throw error
+    console.error(`[mesh] daemon notify failed for ${workspaceId}:`, error)
   }
-}
-
-export async function shutdownMeshPeers(): Promise<void> {
-  if (hub) {
-    await hub.close()
-    hub = null
-  }
-  connecting.clear()
 }

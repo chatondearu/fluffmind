@@ -82,7 +82,7 @@ describe('writeToWorkspace — mesh-live', () => {
     expect(mocks.ensureWorkingCopy).not.toHaveBeenCalled()
     expect(mocks.commitAndPush).not.toHaveBeenCalled()
     expect(mocks.invalidateVaultIndex).toHaveBeenCalledWith('ws-1')
-    expect(mocks.publishLocalMeshNote).toHaveBeenCalledWith('ws-1', id, expect.stringContaining('Hello mesh'))
+    expect(mocks.publishLocalMeshNote).toHaveBeenCalledWith('ws-1', id, expect.stringContaining('Hello mesh'), { writer: 'user:alice' })
   })
 
   it('rejects canonical paths and missing writer on mesh-live', async () => {

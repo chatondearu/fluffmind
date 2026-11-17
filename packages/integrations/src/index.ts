@@ -64,16 +64,19 @@ export type {
   GithubAccountType,
 } from './github/create-repo'
 
-// Mesh live sync (PRD-042) — in-memory stub + localhost TCP hub; iroh deferred (ADR-016).
+// Mesh live sync (PRD-042) — in-memory stub + HTTP adapter to the Rust daemon (ADR-020).
 export {
   createInMemoryMeshHub,
   InMemoryMeshHub,
-  startTcpMeshHub,
-  connectTcpMeshPeer,
+  DaemonHttpError,
+  DaemonMeshTransport,
+  putDaemonVault,
 } from './mesh/index'
 export type {
   MeshFileUpdate,
   MeshFileUpdateHandler,
   MeshSyncTransport,
-  TcpMeshHubHandle,
+  DaemonClientOptions,
+  DaemonVaultConfig,
+  DaemonVaultState,
 } from './mesh/index'

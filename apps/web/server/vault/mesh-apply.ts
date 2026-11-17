@@ -1,17 +1,19 @@
 /**
  * Bind a MeshSyncTransport to a workspace: local mesh-live writes publish;
- * remote updates apply to disk (LWW by mtimeMs) + invalidate/WS.
- * No-op when no transport is bound (default until MESH_TCP_* / tests).
+ * remote updates apply (LWW by mtimeMs) + invalidate/WS. Updates the daemon already
+ * persisted (`persisted: true`) only invalidate — Nuxt never re-writes them.
+ * No-op when no transport is bound (default until FLUFFMIND_DAEMON_URL / tests).
  */
-import { mkdir, readFile, stat, writeFile, utimes } from 'node:fs/promises'
+import { mkdir, readFile, stat } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { MeshFileUpdate, MeshSyncTransport } from '@fluffmind/integrations'
+import { writeFileAtomic } from './atomic-write'
 import { assertWithinContentRoots } from './content-roots'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { invalidateVaultIndex } from './service'
 import { publishVaultInvalidate } from './vault-invalidate'
 import { resolveWorkspaceConfig } from './workspace'
-import { WriterPrefixViolationError } from './writer-prefix'
+import { WriterPrefixViolationError, isUnderWritersTree } from './writer-prefix'
 
 type BoundPeer = {
   transport: MeshSyncTransport
@@ -70,12 +72,24 @@ export async function unbindWorkspaceMeshTransport(workspaceId: string): Promise
   }
 }
 
-/** Publish a local note write to peers. Silent no-op if unbound. */
+export interface LocalMeshChange {
+  /** `kind:id` of the acting writer. */
+  writer: string
+  mtimeMs?: number
+  /** The file is already gone (tombstone). */
+  deleted?: boolean
+}
+
+/**
+ * Tell peers about a local change. Silent no-op if unbound. Non-`writers/` paths are
+ * always `published: true` (the daemon refuses unmarked canonical entries, ADR-017);
+ * callers only reach this for them from publish / canonical delete / rename.
+ */
 export async function publishLocalMeshNote(
   workspaceId: string,
   noteId: string,
   content: string,
-  mtimeMs: number = Date.now(),
+  change: LocalMeshChange,
 ): Promise<void> {
   if (applying.has(`${workspaceId}:${noteId}`))
     return
@@ -85,14 +99,19 @@ export async function publishLocalMeshNote(
   await transport.publish({
     path: meshPathForNoteId(noteId),
     content,
-    mtimeMs,
+    mtimeMs: change.mtimeMs ?? Date.now(),
+    writer: change.writer,
+    published: !isUnderWritersTree(noteId),
+    deleted: change.deleted ?? false,
   })
 }
 
 /**
- * Apply a remote whole-file update (LWW). Skips if local mtime is newer or the
- * workspace is not mesh-live. Only `writers/` paths apply — canonical pages need
- * the explicit publish step (ADR-017). Does not re-publish to the mesh.
+ * Apply a remote whole-file update. Skips if the workspace is not mesh-live.
+ * - `persisted` (daemon already wrote/removed the file, rules enforced there): only
+ *   invalidate the index and notify browsers.
+ * - otherwise only `writers/` paths apply (LWW by mtime); canonical pages need the
+ *   explicit publish step (ADR-017). Does not re-publish to the mesh.
  */
 export async function applyMeshFileUpdate(
   workspaceId: string,
@@ -100,8 +119,7 @@ export async function applyMeshFileUpdate(
 ): Promise<{ applied: boolean, noteId: string }> {
   const noteId = noteIdFromMeshPath(update.path)
   // Not isUnderWritersTree: that also accepts the root file `writers.md`.
-  // TODO(#151/#154): accept when update is marked published + canPublish (ADR-020 §7)
-  if (!noteId.startsWith('writers/')) {
+  if (!update.persisted && !noteId.startsWith('writers/')) {
     throw new WriterPrefixViolationError(
       `Mesh update "${update.path}" targets a canonical path (publish is explicit)`,
     )
@@ -111,30 +129,33 @@ export async function applyMeshFileUpdate(
   if (config.syncMode !== 'mesh-live')
     return { applied: false, noteId }
   assertWithinContentRoots(noteId, config.contentRoots)
-  const filePath = resolveNoteFilePath(config.path, noteId)
 
-  try {
-    const existing = await stat(filePath)
-    const localMtimeMs = Math.trunc(existing.mtimeMs)
-    if (localMtimeMs > update.mtimeMs)
+  if (!update.persisted) {
+    // A non-persisted tombstone has no body to write.
+    if (update.deleted)
       return { applied: false, noteId }
-  }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
-      throw error
-  }
+    const filePath = resolveNoteFilePath(config.path, noteId)
 
-  const key = `${workspaceId}:${noteId}`
-  applying.add(key)
-  try {
-    await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, update.content, 'utf-8')
-    const atime = new Date()
-    const mtime = new Date(update.mtimeMs)
-    await utimes(filePath, atime, mtime)
-  }
-  finally {
-    applying.delete(key)
+    try {
+      const existing = await stat(filePath)
+      const localMtimeMs = Math.trunc(existing.mtimeMs)
+      if (localMtimeMs > update.mtimeMs)
+        return { applied: false, noteId }
+    }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+        throw error
+    }
+
+    const key = `${workspaceId}:${noteId}`
+    applying.add(key)
+    try {
+      await mkdir(dirname(filePath), { recursive: true })
+      await writeFileAtomic(filePath, update.content, new Date(update.mtimeMs))
+    }
+    finally {
+      applying.delete(key)
+    }
   }
 
   invalidateVaultIndex(workspaceId)
