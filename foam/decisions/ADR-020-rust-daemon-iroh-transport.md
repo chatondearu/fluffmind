@@ -159,7 +159,8 @@ Decisions taken while building §3–8; they refine, not contradict, the section
   (8) Path checks are lexical: a symlinked directory inside a vault is followed. (9) Tombstones
   are never garbage-collected; the index file is rewritten per change. (10) The enrol limiter is
   keyed by `EndpointId`, which a stranger can mint: a flood can lock a live ticket out for the
-  window (guessing the 60-bit code stays infeasible). (11) `/__daemon` (browser proxy) only
+  window (guessing the 60-bit code stays infeasible). Accepted trade-off: the global cap is what
+  bounds brute force; the host re-issues the ticket once the window ends. (11) `/__daemon` (browser proxy) only
   forwards `/health` and `/v1/notes`; every mesh route is server-side.
 
 ## Alternatives considered

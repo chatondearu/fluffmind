@@ -86,6 +86,11 @@ describe('mesh-apply', () => {
     await publishLocalMeshNote('ws-1', 'notes/a', '', { writer: 'user:a', deleted: true })
     expect(await tombstone).toMatchObject({ path: 'notes/a.md', published: true, deleted: true })
 
+    // The root file `writers.md` is canonical, as in the daemon (entry.rs is_writers_path).
+    const root = new Promise<MeshFileUpdate>(resolve => remote.onUpdate(resolve))
+    await publishLocalMeshNote('ws-1', 'writers', '# w\n', { writer: 'user:a' })
+    expect(await root).toMatchObject({ path: 'writers.md', published: true })
+
     await remote.close()
   })
 

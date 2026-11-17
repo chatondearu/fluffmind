@@ -13,7 +13,7 @@ import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { invalidateVaultIndex } from './service'
 import { publishVaultInvalidate } from './vault-invalidate'
 import { resolveWorkspaceConfig } from './workspace'
-import { WriterPrefixViolationError, isUnderWritersTree } from './writer-prefix'
+import { WriterPrefixViolationError } from './writer-prefix'
 
 type BoundPeer = {
   transport: MeshSyncTransport
@@ -112,7 +112,8 @@ export async function publishLocalMeshNote(
     content,
     mtimeMs: change.mtimeMs ?? Date.now(),
     writer: change.writer,
-    published: !isUnderWritersTree(noteId),
+    // Same rule as the daemon (entry.rs is_writers_path): the root `writers.md` is canonical.
+    published: !noteId.startsWith('writers/'),
     deleted: change.deleted ?? false,
   })
 }

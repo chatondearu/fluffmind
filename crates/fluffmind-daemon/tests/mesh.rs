@@ -516,3 +516,101 @@ async fn pull_gives_up_on_a_peer_serving_out_of_scope_blobs() {
     assert!(!host.file("writers/device/fake/in.md").exists());
     assert!(!host.file("writers/device/fake/out.md").exists());
 }
+
+/// An enrolled peer floods `Changed`: the host must not fan out into parallel pulls (each
+/// would buffer a manifest of up to MAX_REPLY). The fake peer answers `Manifest` slowly
+/// and records how many it serves at once.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn changed_flood_runs_one_pull_at_a_time() {
+    use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+    use std::sync::Arc;
+
+    let dir = tempfile::tempdir().unwrap();
+    // No interval pull during the test: only `Changed` triggers pulls.
+    let host = node_with(dir.path(), "host", |o| {
+        o.sync_interval = Duration::from_secs(3600)
+    })
+    .await;
+    let ticket = host
+        .mesh
+        .issue_ticket("v", &["device:fake".to_string()], false, None, false)
+        .await
+        .unwrap();
+    let ticket = Ticket::decode(&ticket).unwrap();
+
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .relay_mode(RelayMode::Disabled)
+        .alpns(vec![SYNC_ALPN.to_vec()])
+        .bind()
+        .await
+        .unwrap();
+    let conn = endpoint
+        .connect(host.mesh.addr(), ENROL_ALPN)
+        .await
+        .unwrap();
+    let (mut send, mut recv) = conn.open_bi().await.unwrap();
+    let code = EnrolReq { code: ticket.code };
+    send.write_all(&serde_json::to_vec(&code).unwrap())
+        .await
+        .unwrap();
+    send.finish().unwrap();
+    let raw = recv.read_to_end(1 << 20).await.unwrap();
+    conn.close(0u32.into(), b"done");
+    assert!(serde_json::from_slice::<EnrolReply>(&raw).unwrap().ok);
+
+    let (in_flight, max_in_flight, served) = (
+        Arc::new(AtomicUsize::new(0)),
+        Arc::new(AtomicUsize::new(0)),
+        Arc::new(AtomicUsize::new(0)),
+    );
+    let server = endpoint.clone();
+    let (now, max, total) = (in_flight.clone(), max_in_flight.clone(), served.clone());
+    tokio::spawn(async move {
+        while let Some(incoming) = server.accept().await {
+            let (now, max, total) = (now.clone(), max.clone(), total.clone());
+            tokio::spawn(async move {
+                let Ok(conn) = incoming.await else { return };
+                while let Ok((mut send, mut recv)) = conn.accept_bi().await {
+                    let _ = recv.read_to_end(1 << 20).await;
+                    max.fetch_max(now.fetch_add(1, SeqCst) + 1, SeqCst);
+                    total.fetch_add(1, SeqCst);
+                    tokio::time::sleep(Duration::from_millis(300)).await;
+                    now.fetch_sub(1, SeqCst);
+                    let reply = Reply {
+                        ok: true,
+                        entries: Some(vec![]),
+                        ..Reply::default()
+                    };
+                    let _ = send.write_all(&serde_json::to_vec(&reply).unwrap()).await;
+                    let _ = send.finish();
+                }
+            });
+        }
+    });
+
+    let conn = endpoint.connect(host.mesh.addr(), SYNC_ALPN).await.unwrap();
+    for _ in 0..50 {
+        let (mut send, mut recv) = conn.open_bi().await.unwrap();
+        let changed = SyncReq::Changed {
+            vault: ticket.vault.clone(),
+        };
+        send.write_all(&serde_json::to_vec(&changed).unwrap())
+            .await
+            .unwrap();
+        send.finish().unwrap();
+        let reply: Reply =
+            serde_json::from_slice(&recv.read_to_end(1 << 20).await.unwrap()).unwrap();
+        assert!(reply.ok);
+    }
+    conn.close(0u32.into(), b"done");
+
+    eventually("the first pull", || served.load(SeqCst) >= 1).await;
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    assert_eq!(max_in_flight.load(SeqCst), 1);
+    // The burst coalesces into the running pull plus at most one re-pull.
+    assert!(
+        served.load(SeqCst) <= 2,
+        "served {} manifests",
+        served.load(SeqCst)
+    );
+}
