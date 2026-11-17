@@ -1,7 +1,9 @@
-import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rename } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { commitAndPush, ensureWorkingCopy } from '@fluffmind/integrations'
+import { writeFileAtomic } from './atomic-write'
 import { assertWithinContentRoots } from './content-roots'
+import { publishMeshChanges } from './mesh-peer-bootstrap'
 import { InvalidNoteIdError, resolveNoteFilePath } from './note-id'
 import { invalidateVaultIndex } from './service'
 import { publishVaultInvalidate } from './vault-invalidate'
@@ -115,23 +117,22 @@ export async function publishNoteToCanonical(
     await mkdir(dirname(targetPath), { recursive: true })
 
     if (removeDraft) {
-      // Move (LWW overwrite if target exists)
-      try {
-        await rm(targetPath, { force: true })
-      }
-      catch {
-        // ignore
-      }
+      // Move; rename replaces an existing target atomically (LWW overwrite).
       await rename(sourcePath, targetPath)
     }
     else {
       const raw = await readFile(sourcePath, 'utf-8')
-      await writeFile(targetPath, raw, 'utf-8')
+      await writeFileAtomic(targetPath, raw)
     }
 
     if (config.syncMode === 'mesh-live') {
       invalidateVaultIndex(workspaceId)
       publishVaultInvalidate(workspaceId, { reason: 'note-publish', noteId: targetId })
+      // Rename on publish = new canonical entry (published) + tombstone for the draft.
+      await publishMeshChanges(workspaceId, `${writer.kind}:${writer.id}`, [
+        { noteId: targetId },
+        ...(removeDraft ? [{ noteId: sourceId, deleted: true }] : []),
+      ])
       return { sourceId, targetId, committed: false, pushed: false }
     }
 

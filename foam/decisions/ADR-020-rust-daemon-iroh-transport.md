@@ -122,6 +122,40 @@ and uses **iroh**.
 | Signatures | Per-writer manifests signed; no per-message signatures (each writer serves only its own files) | Same signed manifests, **required**: the host forwards other writers' manifests, so the origin key must stay checkable after a hop; plus `canPublish` for root entries |
 | Mobile | UniFFI Kotlin host (neomind ADR-020) | Not planned; a UniFFI facade stays possible later |
 
+## Implementation notes (PLAN-151, 2026-11-17)
+
+Decisions taken while building §3–8; they refine, not contradict, the sections above.
+
+- **Signatures are per entry, not per manifest.** Each `path → (hash | tombstone, mtimeMs,
+  published, writer)` entry is signed by its origin key over `vault id + fields`, so a peer can
+  forward entries from several origins and every receiver still verifies each one; the vault id
+  in the signed bytes stops replay across vaults. The hub serves its whole entry list.
+- **Two vault ids.** The local id (Nuxt workspace id, or `default` for `--vault`) never crosses
+  the wire; peers know the vault by a random 32-byte *mesh id* created on first attach and carried
+  in tickets. The first enrol adopts the ticket's mesh id (own entries are re-signed).
+- **Grants.** The issuer decides what the enrollee may author (`--writer`, `--can-publish`) and
+  asks for its own grant on the enrollee's side (`--self-can-publish`, default writers
+  `<default writer>, user:*, agent:*`); the enrollee records it from the enrol reply.
+  Writer grants are exact `kind:id` or `kind:*`.
+- **Disk ownership.** The daemon applies remote entries (atomic write + mtime = entry mtime) and
+  notifies Nuxt over SSE with `persisted: true`; Nuxt only invalidates. A local file that is
+  newer than the remote entry and not yet announced is never overwritten.
+- **Config.** `PUT /v1/vaults/:id` attaches (`mesh-live`) or detaches; detach is a no-op for an
+  unknown vault, in-flight pulls stop applying, and a re-attach re-pulls. Attached vaults
+  persist in `<data dir>/vaults/<id>.json` (with the allow-list and entry index) and re-attach at
+  boot, so sync runs headless.
+- **Transport options.** `FLUFFMIND_RELAY_URL` → custom relay (peers dial through it, ticket
+  carries it); `FLUFFMIND_MESH_DIRECT=1` → no relay; neither → n0 presets (dev fallback).
+  mDNS LAN discovery uses `iroh-mdns-address-lookup` (non-fatal; `FLUFFMIND_MESH_MDNS=0`).
+  Relay TLS roots are configurable in `MeshOptions::relay_ca_tls` (private CA; tests use the
+  in-process relay of `iroh::test_utils`).
+- **Known limits / follow-ups.** (1) Allow-lists are per link: device↔device through the host
+  needs the two devices enrolled to each other (a host-vouched grant gossip is a follow-up).
+  (2) No peer revocation yet. (3) Only changes announced through the daemon HTTP API sync; files
+  that pre-exist an attach are not scanned. (4) Pending enrol codes live in memory (a restart
+  invalidates open tickets). (5) Whole index JSON rewrite per change (fine for note-sized
+  vaults). (6) No Nuxt enrol UI (CLI + HTTP only).
+
 ## Alternatives considered
 
 | Alternative | Why rejected |

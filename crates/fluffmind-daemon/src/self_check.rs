@@ -46,6 +46,7 @@ pub async fn run() -> Result<(), String> {
     let app = router(Config {
         vault: vault.path().to_path_buf(),
         default_writer: "device:solo".into(),
+        mesh: None,
         token: None,
     });
 

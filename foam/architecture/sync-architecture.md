@@ -49,7 +49,7 @@ flowchart TB
     Agent["Agent\nwriters/agent/tokenId"]
   end
 
-  Daemon -.->|"TCP hub today → iroh (ADR-020)"| OtherDevice
+  Daemon -.->|"iroh + relay (ADR-020)"| OtherDevice
   Nuxt -.->|"hub replica\nnot content master"| OtherDevice
   Agent --> Nuxt
   Agent -.-> Daemon
@@ -158,7 +158,7 @@ Landed uncommitted on working tree (run `cursor-fallback-20261114T122534Z-669242
 | Task | Result |
 | ---- | ------ |
 | H1 UI↔daemon | `NUXT_PUBLIC_DAEMON_URL` → `/__daemon` proxy → autosave PUT daemon |
-| H2 transport | Localhost **TCP** hub behind `MeshSyncTransport`; iroh still deferred |
+| H2 transport | Localhost **TCP** hub behind `MeshSyncTransport` — removed in #151, replaced by iroh in the Rust daemon |
 | H3 folders | mesh-live create/rename/delete skip Git + WS invalidate |
 
 ### Still to do (product feel / next sessions)
@@ -169,9 +169,9 @@ Runtime decided 2026-11-17: **Rust `fluffmind-daemon` + iroh**
 | Order | Gap | Issue / plan | Why |
 | ----- | --- | ------------ | --- |
 | ✓ | Rust daemon, HTTP parity; Node daemon retired | [#150](https://github.com/chatondearu/fluffmind/issues/150) · [[../../plans/PLAN-150-rust-daemon-parity|PLAN-150]] | Swap runtime under an unchanged contract |
-| 2 | Real iroh + relay behind `MeshSyncTransport`; delete TCP hub | [#151](https://github.com/chatondearu/fluffmind/issues/151) · [[../../plans/PLAN-151-iroh-transport-relay|PLAN-151]] | Multi-device / NAT / offline catch-up |
+| ✓ | Real iroh + relay behind `MeshSyncTransport`; TCP hub deleted | [#151](https://github.com/chatondearu/fluffmind/issues/151) · [[../../plans/PLAN-151-iroh-transport-relay|PLAN-151]] | Multi-device / NAT / offline catch-up (see "Mesh daemon" below) |
 | 3 | Package: portable sidecar, Coolify `sync` + `relay` services | [#152](https://github.com/chatondearu/fluffmind/issues/152) · [[../../plans/PLAN-152-daemon-packaging|PLAN-152]] | Users get it without dev setup |
-| ✓ | Operator smoke mesh-live + daemon dogfood | [#155](https://github.com/chatondearu/fluffmind/pull/155) | Done: `pnpm --filter @fluffmind/web run test:mesh-smoke` (daemon → TCP hub → apply → WS → publish; rogue canonical rejected; git-live ↔ mesh-live rollback). Port to iroh in #151 |
+| ✓ | Operator smoke mesh-live + daemon dogfood | [#155](https://github.com/chatondearu/fluffmind/pull/155) | Done: `pnpm --filter @fluffmind/web run test:mesh-smoke` (now over `InMemoryMeshHub`: apply → WS → publish; rogue canonical rejected; git-live ↔ mesh-live rollback). Real iroh coverage lives in `cargo test` (`tests/mesh.rs`, `tests/mesh_http.rs`) |
 | Later | Same-note CRDT | — | Out of PRD-042 |
 | Later | Supersede ADR-002 after real migrates | — | Per ADR-018 |
 
@@ -180,10 +180,12 @@ Mesh apply rejects canonical paths and ignores updates on git-live workspaces
 
 ### Suggested next session
 
-Pick up [#151](https://github.com/chatondearu/fluffmind/issues/151) (PLAN-151: iroh + relay).
+Pick up [#152](https://github.com/chatondearu/fluffmind/issues/152) (PLAN-152: packaging — portable
+sidecar, Coolify `sync` + `relay` services).
 
-Breadcrumb: *Rust daemon parity shipped (#150) — next = #151 iroh, then #152 packaging.* The mesh
-smoke's daemon leg is a TCP peer stand-in until #151 gives the daemon a mesh.
+Breadcrumb: *iroh + relay shipped in the Rust daemon (#151) — next = #152 packaging.* Follow-ups
+noted in ADR-020 "Implementation notes" (allow-list gossip for device↔device through the host,
+peer revocation, Nuxt enrol UI, initial scan of pre-existing files).
 
 ## Code map (quick)
 
@@ -195,7 +197,37 @@ smoke's daemon leg is a TCP peer stand-in until #151 gives the daemon a mesh.
 | WS invalidate | `vault-invalidate.ts`, `/ws/vault`, `useVaultInvalidate` |
 | migrate API | `GET\|PATCH /api/workspaces/sync-mode`, `WorkspaceSyncModeSection` |
 | daemon | `crates/fluffmind-daemon/` (Rust, ADR-020; contract smoke `scripts/daemon-contract-smoke.mjs`; writer-prefix case table `crates/fluffmind-daemon/tests/fixtures/writer-cases.json`, read by cargo test and `writer-cases.test.ts`) |
-| mesh stub / TCP hub | `packages/integrations/src/mesh/` (`InMemoryMeshHub`, `startTcpMeshHub`) |
-| apply path | `mesh-apply.ts`, `mesh-peer-bootstrap.ts`, plugin `mesh-peer` (the Rust daemon has no mesh publish until PLAN-151) |
+| mesh transports | `packages/integrations/src/mesh/` (`InMemoryMeshHub` for tests, `DaemonMeshTransport` + `putDaemonVault` for the Rust daemon) |
+| mesh peer (iroh) | `crates/fluffmind-daemon/src/mesh/` (`entry` signed entries + apply policy, `ticket` enrolment, `proto` wire types, `mod` endpoint + notify-then-pull, `vault` persisted state) |
+| apply path | `mesh-apply.ts` (`persisted` events only invalidate), `mesh-peer-bootstrap.ts` (config push + binding), plugin `mesh-peer` |
 | UI↔daemon | `useDaemonNotes`, `daemon-proxy.ts` (`/__daemon` Nitro route, checked per request, portable/solo only), `NUXT_PUBLIC_DAEMON_URL`, `FLUFFMIND_DAEMON_TOKEN` |
 | folder mesh-live | `folders.ts`, `mutations.commitMutation` |
+
+## Mesh daemon (PLAN-151)
+
+```mermaid
+flowchart LR
+  subgraph Host["Host (hosted)"]
+    Nuxt1["Nuxt"] -->|"POST /v1/mesh/changed\nPUT /v1/vaults/:id"| D1["fluffmind-daemon"]
+    D1 -->|"GET /v1/events (SSE)"| Nuxt1
+  end
+  subgraph Device["Device (portable)"]
+    D2["fluffmind-daemon"]
+  end
+  D1 <-->|"iroh: fluffmind/sync/1\nnotify → manifest → blobs"| D2
+  D1 -. "relay (FLUFFMIND_RELAY_URL)" .- Relay["iroh-relay"]
+  D2 -. relay .- Relay
+```
+
+- **Enrol**: `fluffmind-daemon ticket --writer device:laptop` on one side prints a ticket
+  (`fm1.…`: EndpointId + relay + vault id + one-time code, 15 min, single use, rate limited);
+  `fluffmind-daemon enrol <ticket>` on the other redeems it. Each side records the other in the
+  vault allow-list with the writers it may author and a `canPublish` grant (devices: no by
+  default; a host passes `--self-can-publish` so its publishes are accepted).
+- **Sync**: a change makes the origin send `Changed`; peers pull the manifest (signed entries),
+  keep entries that pass the apply policy and win LWW, fetch blobs (BLAKE3 checked against the
+  signed hash) and write atomically. Fallback pull on startup, on attach and every
+  `FLUFFMIND_SYNC_INTERVAL_SECS` (60 s).
+- **Apply policy** (per entry): origin in the allow-list, signature valid for this vault,
+  `writers/<kind>/<id>/` only for a writer that origin may author, root paths only when
+  `published` **and** the origin has `canPublish`, content roots respected.

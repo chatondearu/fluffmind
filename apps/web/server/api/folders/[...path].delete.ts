@@ -1,5 +1,6 @@
 import { isAuthEnabled, requireWorkspacePermission } from '../../utils/auth'
 import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
+import { resolveSessionWriterId } from '../../vault/hosted-writer'
 import { deleteVaultFolder } from '../../vault/mutations'
 
 export default defineEventHandler(async (event) => {
@@ -17,7 +18,7 @@ export default defineEventHandler(async (event) => {
     : 'default'
 
   try {
-    return await deleteVaultFolder(workspaceId, folderPath, recursive)
+    return await deleteVaultFolder(workspaceId, folderPath, recursive, await resolveSessionWriterId(event))
   }
   catch (error) {
     rethrowVaultMutationError(error)

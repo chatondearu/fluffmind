@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, utimes, writeFile, mkdir } from 'node:fs/promise
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createInMemoryMeshHub } from '@fluffmind/integrations'
+import { createInMemoryMeshHub, type MeshFileUpdate } from '@fluffmind/integrations'
 
 const mocks = vi.hoisted(() => ({
   resolveWorkspaceConfig: vi.fn(),
@@ -65,18 +65,26 @@ describe('mesh-apply', () => {
     const remote = hub.join('remote')
     bindWorkspaceMeshTransport('ws-1', local)
 
-    const pending = new Promise<{ path: string, content: string }>((resolve) => {
+    const pending = new Promise<MeshFileUpdate>((resolve) => {
       remote.onUpdate(u => resolve(u))
     })
 
-    await publishLocalMeshNote('ws-1', 'writers/user/a/hello', '# hi\n', 42)
+    await publishLocalMeshNote('ws-1', 'writers/user/a/hello', '# hi\n', { writer: 'user:a', mtimeMs: 42 })
     const got = await pending
     expect(got).toMatchObject({
       path: 'writers/user/a/hello.md',
       content: '# hi\n',
       mtimeMs: 42,
       peerId: 'local',
+      writer: 'user:a',
+      published: false,
+      deleted: false,
     })
+
+    // Canonical paths always carry published: true; tombstones set deleted.
+    const tombstone = new Promise<MeshFileUpdate>(resolve => remote.onUpdate(resolve))
+    await publishLocalMeshNote('ws-1', 'notes/a', '', { writer: 'user:a', deleted: true })
+    expect(await tombstone).toMatchObject({ path: 'notes/a.md', published: true, deleted: true })
 
     await remote.close()
   })
@@ -136,6 +144,41 @@ describe('mesh-apply', () => {
       mtimeMs: Date.now(),
       peerId: 'other',
     })).rejects.toMatchObject({ name: 'WriterPrefixViolationError' })
+    expect(mocks.publishVaultInvalidate).not.toHaveBeenCalled()
+  })
+
+  it('persisted updates only invalidate — the daemon already wrote the file', async () => {
+    const canonical = join(vaultPath, 'notes/a.md')
+    await mkdir(dirname(canonical), { recursive: true })
+    await writeFile(canonical, 'daemon wrote this\n', 'utf-8')
+
+    const result = await applyMeshFileUpdate('ws-1', {
+      path: 'notes/a.md',
+      content: '',
+      mtimeMs: 1,
+      peerId: 'daemon:ws-1',
+      persisted: true,
+    })
+    await applyMeshFileUpdate('ws-1', {
+      path: 'writers/user/a/gone.md',
+      content: '',
+      mtimeMs: 1,
+      peerId: 'daemon:ws-1',
+      persisted: true,
+      deleted: true,
+    })
+
+    expect(result).toEqual({ applied: true, noteId: 'notes/a' })
+    expect(await readFile(canonical, 'utf-8')).toBe('daemon wrote this\n')
+    expect(mocks.invalidateVaultIndex).toHaveBeenCalledTimes(2)
+    expect(mocks.publishVaultInvalidate).toHaveBeenCalledWith('ws-1', { reason: 'note-write', noteId: 'notes/a' })
+    expect(mocks.publishVaultInvalidate).toHaveBeenCalledWith('ws-1', { reason: 'note-write', noteId: 'writers/user/a/gone' })
+  })
+
+  it('ignores persisted updates on a git-live workspace', async () => {
+    mocks.resolveWorkspaceConfig.mockResolvedValue({ path: vaultPath, branch: 'main', contentRoots: [], syncMode: 'git-live' })
+    const result = await applyMeshFileUpdate('ws-1', { path: 'notes/a.md', content: '', mtimeMs: 1, peerId: 'd', persisted: true })
+    expect(result.applied).toBe(false)
     expect(mocks.publishVaultInvalidate).not.toHaveBeenCalled()
   })
 

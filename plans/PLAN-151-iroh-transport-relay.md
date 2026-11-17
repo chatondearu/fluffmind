@@ -1,6 +1,6 @@
 # PLAN-151 — iroh transport + relay behind MeshSyncTransport
 
-- **Status**: draft
+- **Status**: implemented (PR pending merge) — see ADR-020 "Implementation notes"
 - **PRD**: [[../prd/PRD-042-sync-rethink|PRD-042]] (approved; OQ2 resolved by ADR-020)
 - **ADR**: [[../foam/decisions/ADR-020-rust-daemon-iroh-transport|ADR-020]]
 - **GitHub**: [#151](https://github.com/chatondearu/fluffmind/issues/151) · map [#141](https://github.com/chatondearu/fluffmind/issues/141)
@@ -54,38 +54,38 @@ daemon config). Remote updates are persisted by the daemon; the SSE event lets
 
 ## Tasks
 
-- [ ] **T1 — Two daemons, one file, direct.** Key generation (0600), vault config, iroh
+- [x] **T1 — Two daemons, one file, direct.** Key generation (0600), vault config, iroh
       endpoint with `FLUFFMIND_MESH_DIRECT=1`; hard-coded allow-list in a test; a write on
       A lands on B via `Changed` → manifest pull → blob fetch. Acceptance: Rust
       integration test with two in-process endpoints.
-- [ ] **T2 — Enrolment.** `fluffmind/enrol/1`: ticket = EndpointId + relay + vault id +
+- [x] **T2 — Enrolment.** `fluffmind/enrol/1`: ticket = EndpointId + relay + vault id +
       one-time code; TTL, single-use, per-source rate limit, opaque refusal, secrets
       redacted from logs; both sides add each other to the vault allow-list with the
       enrollee's writer identities and an explicit `canPublish` grant (default false for
       devices). CLI `ticket` / `enrol` + token-gated HTTP routes.
       Acceptance: tests for redeem, replay refused, expired refused, stranger refused.
-- [ ] **T3 — Apply rules on the wire.** Manifest signed by origin key; receiver rejects a
+- [x] **T3 — Apply rules on the wire.** Manifest signed by origin key; receiver rejects a
       `writers/<kind>/<id>/` entry whose origin is not allowed for that writer, a root
       entry not marked `published`, a `published` root entry from a key without
       `canPublish` (self-asserted flag), and paths outside content roots; forwarding through
       a third peer keeps the origin check valid. Acceptance: tests per rejection + forward
       through hub.
-- [ ] **T4 — Catch-up + LWW + tombstones.** Fallback pull on reconnect and on an
+- [x] **T4 — Catch-up + LWW + tombstones.** Fallback pull on reconnect and on an
       interval; LWW by `mtimeMs`, tie broken by BLAKE3 for determinism. Deletes and renames
       are tombstones (`deleted`, `mtimeMs`; rename = tombstone + new entry): a newer
       tombstone removes the file on peers, an older one loses to a newer write. Offline
       peer converges after reconnect. Acceptance: tests with B offline during A's write,
       delete, and draft rename on publish.
-- [ ] **T5 — Relay.** `FLUFFMIND_RELAY_URL` (n0 public as dev fallback); peers dial each
+- [x] **T5 — Relay.** `FLUFFMIND_RELAY_URL` (n0 public as dev fallback); peers dial each
       other through a local `iroh-relay --dev` at the pinned version. Acceptance: test or
       scripted smoke with direct addresses disabled.
-- [ ] **T6 — Daemon ↔ Nuxt events + config.** `POST /v1/mesh/changed { vault, path,
+- [x] **T6 — Daemon ↔ Nuxt events + config.** `POST /v1/mesh/changed { vault, path,
       writer, published, deleted }` (re-hash or tombstone, then notify); `PUT
       /v1/vaults/:id { syncMode, contentRoots, path }` replaces the daemon's view of a
       vault (a non-`mesh-live` vault is detached); `GET /v1/events` SSE `{ vault, path,
       mtimeMs, deleted, persisted: true }`. Acceptance: HTTP tests, including a vault
       flipped back to `git-live` stops syncing.
-- [ ] **T7 — `DaemonMeshTransport` (TS) + Nuxt wiring.** Implements `MeshSyncTransport`
+- [x] **T7 — `DaemonMeshTransport` (TS) + Nuxt wiring.** Implements `MeshSyncTransport`
       (update shape gains `writer`, `published`, `deleted`); Nuxt binds it per mesh-live
       workspace when `FLUFFMIND_DAEMON_URL` is set. Publish to canonical sends
       `published: true` (the only caller that does); folder delete/rename and the draft
@@ -95,7 +95,7 @@ daemon config). Remote updates are persisted by the daemon; the SSE event lets
       `persisted`. Nuxt writes atomically (temp + rename). Acceptance: vitest with a stub
       HTTP server; hosted dogfood: write on device daemon → browser on host refreshes;
       publish on host → canonical file appears on the device.
-- [ ] **T8 — Delete TCP hub.** Remove `startTcpMeshHub`, `connectTcpMeshPeer`, daemon
+- [x] **T8 — Delete TCP hub.** Remove `startTcpMeshHub`, `connectTcpMeshPeer`, daemon
       TCP publish, `MESH_TCP_*` from code, env examples and compose files; keep
       `InMemoryMeshHub`. Acceptance: `rg MESH_TCP` empty outside history docs;
       `pnpm lint typecheck test` green.
@@ -122,12 +122,12 @@ daemon config). Remote updates are persisted by the daemon; the SSE event lets
 4. **Daemon HTTP events**: `/v1/mesh/changed`, `/v1/events`
 5. **`MeshSyncTransport` adapter** on the Nuxt side
 
-- [ ] `cargo test` covers seams 1–4
-- [ ] vitest covers seam 5 (stub daemon)
-- [ ] Manual: two machines on different networks through a self-hosted relay
+- [x] `cargo test` covers seams 1–4 (`tests/mesh.rs`, `tests/mesh_http.rs`, unit tests in `src/mesh/`)
+- [x] vitest covers seam 5 (stub daemon: `packages/integrations/src/mesh/daemon.test.ts`)
+- [ ] Manual: two machines on different networks through a self-hosted relay — **not run** (needs a deployed `iroh-relay`, PLAN-152); the in-process relay test (`t5_peers_sync_through_a_relay_with_direct_addresses_disabled`) covers the relay path
 
 ## Verification
 
-- [ ] `mise exec -- cargo fmt --check && mise exec -- cargo clippy --all-targets -- -D warnings && mise exec -- cargo test`
-- [ ] `mise exec -- pnpm lint && mise exec -- pnpm typecheck && mise exec -- pnpm test`
-- [ ] Foam: ADR-016 TCP addendum marked removed; sync-architecture "Still to do" updated
+- [x] `mise exec -- cargo fmt --check && mise exec -- cargo clippy --all-targets -- -D warnings && mise exec -- cargo test`
+- [x] `mise exec -- pnpm lint && mise exec -- pnpm typecheck && mise exec -- pnpm test`
+- [x] Foam: ADR-016 TCP addendum marked removed; sync-architecture "Still to do" updated

@@ -1,6 +1,7 @@
 import { readJsonBody } from '../../utils/read-json-body'
 import { isAuthEnabled, requireWorkspacePermission } from '../../utils/auth'
 import { rethrowVaultMutationError } from '../../utils/vault-mutation-error'
+import { resolveSessionWriterId } from '../../vault/hosted-writer'
 import { renameVaultFolder } from '../../vault/mutations'
 
 export default defineEventHandler(async (event) => {
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
     : 'default'
 
   try {
-    return await renameVaultFolder(workspaceId, oldPath, newPath)
+    return await renameVaultFolder(workspaceId, oldPath, newPath, await resolveSessionWriterId(event))
   }
   catch (error) {
     rethrowVaultMutationError(error)

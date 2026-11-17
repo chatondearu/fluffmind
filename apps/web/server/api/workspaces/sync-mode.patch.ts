@@ -1,4 +1,5 @@
 import { readJsonBody } from '../../utils/read-json-body'
+import { syncWorkspaceDaemonConfig } from '../../vault/mesh-peer-bootstrap'
 import {
   requireSyncModeInput,
   setWorkspaceSyncMode,
@@ -29,6 +30,10 @@ export default defineEventHandler(async (event) => {
   const syncMode = requireSyncModeInput(body.syncMode)
 
   const result = await setWorkspaceSyncMode(authority.workspaceId, syncMode)
+  // Postgres stays the source of truth; the daemon attaches/detaches the vault to match.
+  await syncWorkspaceDaemonConfig(authority.workspaceId).catch((error: unknown) => {
+    console.error(`[mesh] failed to push sync mode to the daemon for ${authority.workspaceId}:`, error)
+  })
   await auditAdminAction(authority, 'workspace.syncMode.patch', {
     syncMode: result.syncMode,
     previousSyncMode: result.previousSyncMode,

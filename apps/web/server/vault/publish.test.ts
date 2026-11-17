@@ -39,6 +39,7 @@ vi.mock('./content-roots', () => ({
   assertWithinContentRoots: () => undefined,
 }))
 
+const { bindWorkspaceMeshTransport, unbindWorkspaceMeshTransport } = await import('./mesh-apply')
 const {
   defaultPublishTargetId,
   isUnderWritersTree,
@@ -108,6 +109,25 @@ describe('publishNoteToCanonical — mesh-live', () => {
       reason: 'note-publish',
       noteId: 'hello',
     })
+  })
+
+  it('notifies the mesh: published canonical path + tombstone for the draft', async () => {
+    const publish = vi.fn(async (_update: object) => {})
+    bindWorkspaceMeshTransport('ws-1', { peerId: 'fake', publish, onUpdate: () => () => {}, close: async () => {} })
+    try {
+      const sourceId = 'writers/user/alice/shared'
+      await seedDraft(sourceId, '# Shared\n')
+
+      await publishNoteToCanonical('ws-1', { sourceId, writer: 'user:alice' })
+
+      expect(publish.mock.calls.map(([u]) => u)).toMatchObject([
+        { path: 'shared.md', writer: 'user:alice', published: true, deleted: false },
+        { path: `${sourceId}.md`, writer: 'user:alice', published: false, deleted: true },
+      ])
+    }
+    finally {
+      await unbindWorkspaceMeshTransport('ws-1')
+    }
   })
 
   it('rejects publishing into writers/ or from outside the prefix', async () => {

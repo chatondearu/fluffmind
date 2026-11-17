@@ -2,6 +2,7 @@ import { getDb, workspaceConfig } from '@fluffmind/db'
 import { eq } from 'drizzle-orm'
 
 import { normalizeContentRoots } from '../vault/content-roots'
+import { syncWorkspaceDaemonConfig } from '../vault/mesh-peer-bootstrap'
 
 export class ContentRootsImmutableError extends Error {
   constructor() {
@@ -52,6 +53,9 @@ export async function setWorkspaceContentRootsIfAllowed(
       .update(workspaceConfig)
       .set({ contentRoots })
       .where(eq(workspaceConfig.organizationId, organizationId))
+    await syncWorkspaceDaemonConfig(organizationId).catch((error: unknown) => {
+      console.error(`[mesh] failed to push content roots to the daemon for ${organizationId}:`, error)
+    })
   }
 
   return contentRoots

@@ -6,11 +6,20 @@
 /** Whole-file update — first PRD granularity (LWW is applied by the peer, not the wire). */
 export interface MeshFileUpdate {
   path: string
+  /** File body. Empty (ignored) when `deleted` or `persisted`: the file is already on disk / gone. */
   content: string
   /** Milliseconds since epoch; higher wins for last-writer-wins per path. */
   mtimeMs: number
   /** Origin peer id (for debugging / ignore-echo). */
   peerId: string
+  /** `kind:id` of the writer that produced the change (outbound to the daemon). */
+  writer?: string
+  /** Canonical (non-`writers/`) path change from the explicit publish action (ADR-017). */
+  published?: boolean
+  /** Tombstone: the file was removed. */
+  deleted?: boolean
+  /** Inbound: the daemon already wrote/removed the file; consumers must not rewrite it. */
+  persisted?: boolean
 }
 
 export type MeshFileUpdateHandler = (update: MeshFileUpdate) => void

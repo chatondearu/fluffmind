@@ -14,6 +14,7 @@ fn app(vault: &std::path::Path, token: Option<&str>) -> Router {
     router(Config {
         vault: vault.to_path_buf(),
         default_writer: "device:solo".into(),
+        mesh: None,
         token: token.map(Into::into),
     })
 }

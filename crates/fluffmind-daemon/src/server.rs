@@ -4,20 +4,24 @@
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use axum::body::Bytes;
 use axum::extract::rejection::BytesRejection;
-use axum::extract::{DefaultBodyLimit, Query, Request, State};
+use axum::extract::{DefaultBodyLimit, Path as UrlPath, Query, Request, State};
 use axum::http::{header, StatusCode};
 use axum::middleware::{self, Next};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use tokio_stream::wrappers::BroadcastStream;
+use tokio_stream::StreamExt;
 
+use crate::fsio::write_atomic;
+use crate::mesh::{Mesh, MeshError};
 use crate::writer::{
     assert_note_id_writable_by_writer, note_id_for_mesh_writer, parse_writer_identity,
     resolve_note_file_path, NoteError,
@@ -26,15 +30,17 @@ use crate::writer::{
 /// Notes are text; this only bounds a runaway client.
 const BODY_LIMIT: usize = 16 * 1024 * 1024;
 
+/// Local id of the `--vault` folder in the mesh registry.
+pub const DEFAULT_VAULT_ID: &str = "default";
+
 pub struct Config {
     pub vault: PathBuf,
     pub default_writer: String,
+    /// The mesh peer (ADR-020); `None` serves the plain HTTP facade only.
+    pub mesh: Option<Mesh>,
     /// Bearer token; `None` disables the gate (loopback only, enforced at startup).
     pub token: Option<String>,
 }
-
-/// Distinguishes concurrent temp files in one process.
-static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 type Shared = Arc<Config>;
 
@@ -49,6 +55,18 @@ impl ApiError {
 impl From<NoteError> for ApiError {
     fn from(error: NoteError) -> Self {
         Self(StatusCode::BAD_REQUEST, error.to_string())
+    }
+}
+
+impl From<MeshError> for ApiError {
+    fn from(error: MeshError) -> Self {
+        let status = match error {
+            MeshError::Invalid(_) => StatusCode::BAD_REQUEST,
+            MeshError::NotFound(_) => StatusCode::NOT_FOUND,
+            MeshError::Refused(_) => StatusCode::FORBIDDEN,
+            MeshError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        Self(status, error.to_string())
     }
 }
 
@@ -69,6 +87,13 @@ pub fn router(config: Config) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/v1/notes", get(get_note).put(put_note))
+        .route("/v1/mesh", get(get_mesh))
+        .route("/v1/mesh/changed", post(post_changed))
+        .route("/v1/events", get(get_events))
+        .route("/v1/vaults", get(list_vaults))
+        .route("/v1/vaults/{id}", put(put_vault))
+        .route("/v1/vaults/{id}/tickets", post(post_ticket))
+        .route("/v1/vaults/{id}/enrol", post(post_enrol))
         .fallback(not_found)
         .method_not_allowed_fallback(not_found)
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
@@ -117,7 +142,17 @@ async fn health(State(config): State<Shared>) -> Json<Value> {
         "vaultPath": config.vault.to_string_lossy(),
         "defaultWriter": config.default_writer,
         "syncMode": "mesh-live",
+        "mesh": config.mesh.as_ref().map(Mesh::info),
     }))
+}
+
+/// Empty body = `{}`. Keeps the `{ error }` shape for the 413 raised by the body limit.
+fn json_body(body: Result<Bytes, BytesRejection>) -> Result<Value, ApiError> {
+    let body = body.map_err(|e| ApiError(e.status(), e.body_text()))?;
+    if body.iter().all(u8::is_ascii_whitespace) {
+        return Ok(json!({}));
+    }
+    serde_json::from_slice(&body).map_err(|_| ApiError::bad_request("Invalid JSON body"))
 }
 
 fn non_blank_str(value: Option<&Value>) -> Option<&str> {
@@ -130,13 +165,7 @@ async fn put_note(
     State(config): State<Shared>,
     body: Result<Bytes, BytesRejection>,
 ) -> Result<Response, ApiError> {
-    // Keep the `{ error }` shape for the 413 raised by the body limit.
-    let body = body.map_err(|e| ApiError(e.status(), e.body_text()))?;
-    let body: Value = if body.iter().all(u8::is_ascii_whitespace) {
-        json!({})
-    } else {
-        serde_json::from_slice(&body).map_err(|_| ApiError::bad_request("Invalid JSON body"))?
-    };
+    let body = json_body(body)?;
     let Some(id) = non_blank_str(body.get("id")) else {
         return Err(ApiError::bad_request("Body must include string \"id\""));
     };
@@ -149,6 +178,18 @@ async fn put_note(
         non_blank_str(body.get("writer")).map_or(config.default_writer.as_str(), str::trim);
 
     let result = write_note_local(&config.vault, id, content, writer).await?;
+    // The note is saved either way; a mesh hiccup only delays the announcement (the
+    // interval pull still converges).
+    if let Some(mesh) = &config.mesh {
+        let path = format!("{}.md", result.id);
+        match mesh
+            .local_changed(DEFAULT_VAULT_ID, &path, writer, false, false)
+            .await
+        {
+            Ok(_) | Err(MeshError::NotFound(_)) => {}
+            Err(e) => eprintln!("[mesh] could not announce {path}: {e}"),
+        }
+    }
     let status = if result.created {
         StatusCode::CREATED
     } else {
@@ -219,19 +260,7 @@ pub async fn write_note_local(
 
     let path = resolve_note_file_path(vault, &note_id)?;
     let created = !tokio::fs::try_exists(&path).await?;
-    let dir = path.parent().unwrap_or(vault);
-    tokio::fs::create_dir_all(dir).await?;
-
-    let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
-    let tmp = dir.join(format!(".fluffmind-{}-{seq}.tmp", std::process::id()));
-    let written = match tokio::fs::write(&tmp, content).await {
-        Ok(()) => tokio::fs::rename(&tmp, &path).await,
-        Err(e) => Err(e),
-    };
-    if let Err(e) = written {
-        let _ = tokio::fs::remove_file(&tmp).await;
-        return Err(e.into());
-    }
+    write_atomic(&path, content.as_bytes()).await?;
 
     Ok(WriteResult {
         id: note_id,
@@ -239,4 +268,152 @@ pub async fn write_note_local(
         content_hash: format!("{:x}", Sha256::digest(content.as_bytes())),
         created,
     })
+}
+
+// ----- mesh routes (ADR-020 §2): all behind the bearer gate ---------------------------
+
+fn mesh(config: &Config) -> Result<&Mesh, ApiError> {
+    config.mesh.as_ref().ok_or(ApiError(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "Mesh is not running".into(),
+    ))
+}
+
+fn str_list(value: Option<&Value>, field: &str) -> Result<Option<Vec<String>>, ApiError> {
+    let Some(value) = value.filter(|v| !v.is_null()) else {
+        return Ok(None);
+    };
+    value
+        .as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .map(Some)
+        .ok_or_else(|| ApiError::bad_request(&format!("\"{field}\" must be an array of strings")))
+}
+
+async fn get_mesh(State(config): State<Shared>) -> Result<Json<Value>, ApiError> {
+    let mesh = mesh(&config)?;
+    Ok(Json(
+        json!({ "mesh": mesh.info(), "vaults": mesh.attached() }),
+    ))
+}
+
+async fn list_vaults(State(config): State<Shared>) -> Result<Json<Value>, ApiError> {
+    Ok(Json(json!({ "vaults": mesh(&config)?.attached() })))
+}
+
+/// Nuxt pushes the vault config (Postgres stays the source of truth): `mesh-live`
+/// (re)attaches, anything else detaches. A detach of an unknown vault is a no-op success.
+async fn put_vault(
+    State(config): State<Shared>,
+    UrlPath(id): UrlPath<String>,
+    body: Result<Bytes, BytesRejection>,
+) -> Result<Json<Value>, ApiError> {
+    let mesh = mesh(&config)?;
+    let body = json_body(body)?;
+    match body.get("syncMode").and_then(Value::as_str) {
+        Some("mesh-live") => {
+            let Some(path) = non_blank_str(body.get("path")) else {
+                return Err(ApiError::bad_request("Body must include string \"path\""));
+            };
+            let roots = str_list(body.get("contentRoots"), "contentRoots")?.unwrap_or_default();
+            let info = mesh.attach(&id, Path::new(path), &roots).await?;
+            Ok(Json(json!({
+                "id": id, "syncMode": "mesh-live", "attached": true, "meshVault": info.mesh_vault,
+            })))
+        }
+        Some("git-live") => {
+            mesh.detach(&id).await?;
+            Ok(Json(
+                json!({ "id": id, "syncMode": "git-live", "attached": false, "meshVault": null }),
+            ))
+        }
+        _ => Err(ApiError::bad_request(
+            "\"syncMode\" must be \"mesh-live\" or \"git-live\"",
+        )),
+    }
+}
+
+/// Nuxt tells the daemon a vault file changed (hosted write, delete/rename, publish).
+async fn post_changed(
+    State(config): State<Shared>,
+    body: Result<Bytes, BytesRejection>,
+) -> Result<Json<Value>, ApiError> {
+    let mesh = mesh(&config)?;
+    let body = json_body(body)?;
+    let (Some(vault), Some(path), Some(writer)) = (
+        non_blank_str(body.get("vault")),
+        non_blank_str(body.get("path")),
+        non_blank_str(body.get("writer")),
+    ) else {
+        return Err(ApiError::bad_request(
+            "Body must include string \"vault\", \"path\" and \"writer\"",
+        ));
+    };
+    let flag = |name: &str| body.get(name).and_then(Value::as_bool).unwrap_or(false);
+    let changed = mesh
+        .local_changed(
+            vault,
+            path,
+            writer.trim(),
+            flag("published"),
+            flag("deleted"),
+        )
+        .await?;
+    Ok(Json(json!({ "ok": true, "changed": changed })))
+}
+
+/// SSE: a remote update was persisted by the daemon (Nuxt invalidates its index).
+async fn get_events(
+    State(config): State<Shared>,
+) -> Result<Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>>, ApiError>
+{
+    let events = BroadcastStream::new(mesh(&config)?.subscribe())
+        // A lagged receiver only misses events; Nuxt re-indexes on reconnect anyway.
+        .filter_map(Result::ok)
+        .map(|event| Ok(Event::default().data(serde_json::to_string(&event).unwrap_or_default())));
+    Ok(Sse::new(events).keep_alive(KeepAlive::default()))
+}
+
+async fn post_ticket(
+    State(config): State<Shared>,
+    UrlPath(id): UrlPath<String>,
+    body: Result<Bytes, BytesRejection>,
+) -> Result<Json<Value>, ApiError> {
+    let mesh = mesh(&config)?;
+    let body = json_body(body)?;
+    let writers = str_list(body.get("writers"), "writers")?.unwrap_or_default();
+    let self_writers = str_list(body.get("selfWriters"), "selfWriters")?;
+    let flag = |name: &str| body.get(name).and_then(Value::as_bool).unwrap_or(false);
+    let ticket = mesh
+        .issue_ticket(
+            &id,
+            &writers,
+            flag("canPublish"),
+            self_writers,
+            flag("selfCanPublish"),
+        )
+        .await?;
+    Ok(Json(json!({ "ticket": ticket })))
+}
+
+async fn post_enrol(
+    State(config): State<Shared>,
+    UrlPath(id): UrlPath<String>,
+    body: Result<Bytes, BytesRejection>,
+) -> Result<Json<Value>, ApiError> {
+    let mesh = mesh(&config)?;
+    let body = json_body(body)?;
+    let Some(ticket) = non_blank_str(body.get("ticket")) else {
+        return Err(ApiError::bad_request("Body must include string \"ticket\""));
+    };
+    let peer = mesh.enrol(&id, ticket).await?;
+    Ok(Json(json!({
+        "peer": peer,
+        "meshVault": mesh.mesh_vault_id(&id).await,
+    })))
 }

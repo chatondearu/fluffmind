@@ -22,8 +22,10 @@ pnpm workspaces + Turborepo.
 - `apps/web` — the Nuxt app. Everything runnable today lives here.
 - `packages/design-system` — Reka UI + UnoCSS + Material Design 3 tokens. Has real
   content.
-- `crates/fluffmind-daemon` — the portable sync daemon in **Rust** (ADR-020): HTTP
-  `GET /health`, `PUT|GET /v1/notes`, no Git. A Cargo workspace at the repo root,
+- `crates/fluffmind-daemon` — the sync daemon in **Rust** (ADR-020): HTTP
+  `GET /health`, `PUT|GET /v1/notes`, plus the mesh surface (`PUT /v1/vaults/:id`,
+  `POST /v1/mesh/changed`, `GET /v1/events` SSE, ticket/enrol routes) over an **iroh** peer
+  (`src/mesh/`: signed entries, enrolment, notify-then-pull sync, relay). No Git. A Cargo workspace at the repo root,
   deliberately **outside** pnpm/Turborepo (`pnpm lint|test` do not cover it; CI has a
   separate `rust` job). Writer-prefix rules live in both TS (`apps/web/server/vault/`) and
   Rust and are pinned by one shared case table — change a rule in both.
@@ -32,7 +34,9 @@ pnpm workspaces + Turborepo.
   each in — P3, P2). Don't add content there until that phase's plan says so.
 - `packages/integrations` — has real content since P1: Git plumbing
   (`ensureWorkingCopy`/`commitAndPush`, backing `writeToWorkspace`) via `simple-git`.
-  GitHub OAuth/API and the MCP SDK wrapper are still unimplemented (P2/P5).
+  GitHub OAuth/API and the MCP SDK wrapper are still unimplemented (P2/P5). Its `mesh/`
+  folder holds `InMemoryMeshHub` (tests) and `DaemonMeshTransport` (HTTP client of the Rust
+  daemon — Nuxt never links iroh; the former TCP hub and `MESH_TCP_*` are gone).
 
 There is deliberately **no separate `vault-engine` package**: that logic lives in
 `apps/web/server/vault/` because it currently has exactly one consumer. Don't extract
@@ -59,7 +63,9 @@ pnpm typecheck   # turbo run typecheck
 
 Or scoped to one package: `pnpm --filter @fluffmind/web run dev`.
 
-The Rust daemon (Rust pinned in `mise.toml` / flake): `mise exec -- cargo fmt --check`,
+The Rust daemon (Rust pinned in `mise.toml` / flake; iroh pinned to an exact version in
+`crates/fluffmind-daemon/Cargo.toml` — bump monthly / on RUSTSEC, same as the relay):
+`mise exec -- cargo fmt --check`,
 `mise exec -- cargo clippy --all-targets -- -D warnings`, `mise exec -- cargo test`,
 `mise exec -- cargo run -p fluffmind-daemon -- --self-check`.
 
@@ -78,6 +84,14 @@ P2 env vars are now part of the standard environment shape:
   route except `/health`); **required** when the daemon binds a non-loopback `--host`.
 - `SYNC_MODE` (optional, default `git-live`) — auth-off live path (`mesh-live` skips
   Git commit/push on note save; PRD-042). Auth-on uses `workspace_config.sync_mode`.
+- `FLUFFMIND_DAEMON_URL` (optional, Nuxt side) — Rust daemon base URL; when set, mesh-live
+  workspaces push their config (`PUT /v1/vaults/:id`) and bind a `DaemonMeshTransport`.
+  `FLUFFMIND_DAEMON_TOKEN` is sent as the bearer (server-side only).
+- Daemon-side mesh env: `FLUFFMIND_RELAY_URL` (self-hosted `iroh-relay`; n0 public relays are
+  a dev fallback), `FLUFFMIND_MESH_DIRECT=1` (no relay: LAN / tests), `FLUFFMIND_MESH_MDNS=0`
+  (disable LAN discovery), `FLUFFMIND_SYNC_INTERVAL_SECS` (fallback pull, default 60),
+  `FLUFFMIND_DAEMON_DATA` (node key `node.key` 0600 + `vaults/*.json`, default
+  `~/.fluffmind-daemon`).
 - `WORKSPACES_ROOT` (optional, default `/data/workspaces`) — per-workspace vault root.
 - `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` (required when auth is enabled).
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` (required for GitHub OAuth login).
