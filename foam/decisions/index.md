@@ -23,6 +23,7 @@
 | [[ADR-017-path-ownership-layout|ADR-017]] | Path ownership layout (writers + canonical root) | accepted |
 | [[ADR-018-sync-transition-dual-mode|ADR-018]] | Sync transition: dual-mode then supersede live Git | accepted |
 | [[ADR-019-hosted-multi-browser-coherence|ADR-019]] | Hosted multi-browser vault coherence | accepted |
+| [[ADR-020-rust-daemon-iroh-transport|ADR-020]] | Rust sync daemon + iroh transport (amends ADR-016) | accepted |
 
 Template: [[ADR-template|ADR-template]]
 

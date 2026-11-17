@@ -1,6 +1,6 @@
 # ADR-016 — Live sync transport (mesh peers, not Git)
 
-- **Status**: accepted
+- **Status**: accepted — amended 2026-11-17 by [[ADR-020-rust-daemon-iroh-transport|ADR-020]] (§1: library = iroh 1.x, runtime = Rust daemon; TCP hub of the H2 addendum to be removed)
 - **Date**: 2026-11-13
 - **Tags**: #architecture #data #sync
 

@@ -8,8 +8,12 @@
 - **Depends on**: [[../foam/decisions/ADR-016-live-sync-transport|ADR-016]],
   [[../foam/decisions/ADR-017-path-ownership-layout|ADR-017]],
   [[../foam/decisions/ADR-018-sync-transition-dual-mode|ADR-018]],
-  [[../foam/decisions/ADR-019-hosted-multi-browser-coherence|ADR-019]]
-- **Plan**: [[../plans/PLAN-042-sync-rethink|PLAN-042]]
+  [[../foam/decisions/ADR-019-hosted-multi-browser-coherence|ADR-019]],
+  [[../foam/decisions/ADR-020-rust-daemon-iroh-transport|ADR-020]] (runtime + library, 2026-11-17)
+- **Plan**: [[../plans/PLAN-042-sync-rethink|PLAN-042]]; next slices
+  [[../plans/PLAN-150-rust-daemon-parity|PLAN-150]] ([#150](https://github.com/chatondearu/fluffmind/issues/150)) →
+  [[../plans/PLAN-151-iroh-transport-relay|PLAN-151]] ([#151](https://github.com/chatondearu/fluffmind/issues/151)) →
+  [[../plans/PLAN-152-daemon-packaging|PLAN-152]] ([#152](https://github.com/chatondearu/fluffmind/issues/152))
 - **Origin**: [[../foam/architecture/rethink-sync|Rethink sync]]
 
 ## Problem
@@ -52,6 +56,7 @@ Users need:
 
 - Character-level CRDT / same-note realtime collab (Loro) in this PRD
 - Picking concrete mesh library / Rust-vs-Node runtime (plan + later ADR; explore 6C)
+  _(decided outside this PRD's first slices: Rust daemon + iroh, ADR-020, 2026-11-17)_
 - Dimensioning the sync engine for Neomind (soft compatibility only)
 - Replacing the block editor or [[../foam/decisions/ADR-008-inline-rich-contenteditable|ADR-008]]
 - Deleting ADR-007: locks stay for **non-live** server jobs (admin, Git export, seed)
@@ -110,6 +115,7 @@ Users need:
 - [[../foam/decisions/ADR-017-path-ownership-layout|ADR-017]] Path ownership layout
 - [[../foam/decisions/ADR-018-sync-transition-dual-mode|ADR-018]] Dual-mode transition
 - [[../foam/decisions/ADR-019-hosted-multi-browser-coherence|ADR-019]] Hosted browsers
+- [[../foam/decisions/ADR-020-rust-daemon-iroh-transport|ADR-020]] Rust daemon + iroh transport
 - Supersede-pending live path: [[../foam/decisions/ADR-002-server-side-git-sync|ADR-002]]
 - Locks retained non-live: [[../foam/decisions/ADR-007-distributed-workspace-lock|ADR-007]]
 - [[../foam/decisions/ADR-001-markdown-git-source-of-truth|ADR-001]],
@@ -120,10 +126,15 @@ Users need:
 ## Open questions
 
 1. Exact dirname encoding for `writers/<id>/` (escaping user/agent ids)
-2. Concrete mesh library + runtime (iroh / other; Node vs Rust daemon)
+2. ~~Concrete mesh library + runtime (iroh / other; Node vs Rust daemon)~~ —
+   **Resolved 2026-11-17** (owner): Rust `fluffmind-daemon` + iroh 1.x + self-hosted
+   relay; Nuxt talks to it over localhost HTTP. See
+   [[../foam/decisions/ADR-020-rust-daemon-iroh-transport|ADR-020]], slices #150 → #151.
 3. Migrate/opt-in UX copy and rollback rules for dual-mode
-4. Whether portable package (PRD-032) gains a bundled/sidecar daemon in the same
-   milestone or a follow-up
+4. ~~Whether portable package (PRD-032) gains a bundled/sidecar daemon in the same
+   milestone or a follow-up~~ — **Resolved 2026-11-17**: sidecar binary in every
+   portable archive, shipped as a follow-up slice after iroh
+   ([#152](https://github.com/chatondearu/fluffmind/issues/152), ADR-020 §9).
 5. Graph / global-node indexing changes beyond today’s derived Maps (if any)
 
 ## Success metrics
