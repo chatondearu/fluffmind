@@ -156,6 +156,60 @@ async fn token_gate_guards_every_route_but_health() {
     let body = json!({ "id": "a", "content": "x" }).to_string();
     let (status, _) = send(&app, Method::PUT, "/v1/notes", Some("s3cret"), Some(&body)).await;
     assert_eq!(status, StatusCode::CREATED);
+
+    // RFC 9110: the auth scheme is case-insensitive.
+    let request = Request::builder()
+        .uri("/v1/notes?id=a")
+        .header(header::AUTHORIZATION, "bearer s3cret")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn oversized_body_is_413_with_error_json() {
+    let vault = tempfile::tempdir().unwrap();
+    let body = json!({ "id": "a", "content": "x".repeat(17 * 1024 * 1024) }).to_string();
+    let (status, body) = send(
+        &app(vault.path(), None),
+        Method::PUT,
+        "/v1/notes",
+        None,
+        Some(&body),
+    )
+    .await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert!(body["error"].is_string(), "{body}");
+}
+
+#[tokio::test]
+async fn failed_write_leaves_no_temp_file() {
+    let vault = tempfile::tempdir().unwrap();
+    // The target path is a directory, so the rename fails after the temp file is written.
+    let dir = vault.path().join("writers/device/solo/a.md");
+    std::fs::create_dir_all(&dir).unwrap();
+    let body = json!({ "id": "a", "content": "x" }).to_string();
+    let (status, _) = send(
+        &app(vault.path(), None),
+        Method::PUT,
+        "/v1/notes",
+        None,
+        Some(&body),
+    )
+    .await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    let leftovers = std::fs::read_dir(dir.parent().unwrap())
+        .unwrap()
+        .filter(|e| {
+            e.as_ref()
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".tmp")
+        })
+        .count();
+    assert_eq!(leftovers, 0);
 }
 
 #[test]
