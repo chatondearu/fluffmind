@@ -109,7 +109,12 @@ daemon_healthy() {
 
 stop_daemon() {
   [[ -f "$DAEMON_PID_FILE" ]] || return 0
-  stop_pid "$(cat "$DAEMON_PID_FILE" 2>/dev/null || true)"
+  local pid
+  pid="$(cat "$DAEMON_PID_FILE" 2>/dev/null || true)"
+  # Guard against a recycled pid (e.g. after a reboot): only kill our daemon.
+  if [[ -n "$pid" ]] && ps -p "$pid" -o comm= 2>/dev/null | grep -q fluffmind-daemon; then
+    stop_pid "$pid"
+  fi
   rm -f "$DAEMON_PID_FILE"
 }
 
@@ -117,8 +122,10 @@ stop_daemon() {
 start_daemon() {
   [[ "$USE_DAEMON" == "1" ]] || return 0
   if [[ ! -x "$DAEMON_BIN" ]]; then
-    echo "error: sync daemon not found at $DAEMON_BIN (use --no-daemon)" >&2
-    exit 1
+    # Archive built with --no-daemon: fall back to Git-live solo (ADR-018).
+    echo "warning: sync daemon not found at $DAEMON_BIN — running without it (Git-live)" >&2
+    USE_DAEMON=0
+    return 0
   fi
   # Reap a daemon left behind by a crashed launcher.
   stop_daemon
