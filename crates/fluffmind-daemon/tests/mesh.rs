@@ -4,10 +4,14 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use fluffmind_daemon::mesh::proto::{Reply, SyncReq, SYNC_ALPN};
+use fluffmind_daemon::mesh::entry::{now_ms, Entry};
+use fluffmind_daemon::mesh::proto::{
+    Blob, EnrolReply, EnrolReq, Reply, SyncReq, ENROL_ALPN, SYNC_ALPN,
+};
+use fluffmind_daemon::mesh::ticket::Ticket;
 use fluffmind_daemon::mesh::{Mesh, MeshError, MeshOptions};
 use iroh::endpoint::presets;
-use iroh::{Endpoint, EndpointAddr, RelayMode};
+use iroh::{Endpoint, EndpointAddr, RelayMode, SecretKey};
 
 struct Node {
     mesh: Mesh,
@@ -419,4 +423,96 @@ async fn t5_peers_sync_through_a_relay_with_direct_addresses_disabled() {
         b.mesh.info().relay_home.is_some(),
         "endpoint is homed on the relay"
     );
+}
+
+/// An enrolled but hostile peer: signs one valid entry, then answers every `Fetch` with a
+/// blob for a path nobody asked for. The puller must give up instead of re-asking forever.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn pull_gives_up_on_a_peer_serving_out_of_scope_blobs() {
+    let dir = tempfile::tempdir().unwrap();
+    let host = node(dir.path(), "host").await;
+    let ticket = host
+        .mesh
+        .issue_ticket("v", &["device:fake".to_string()], false, None, false)
+        .await
+        .unwrap();
+    let ticket = Ticket::decode(&ticket).unwrap();
+
+    let secret = SecretKey::generate();
+    let endpoint = Endpoint::builder(presets::Minimal)
+        .relay_mode(RelayMode::Disabled)
+        .secret_key(secret.clone())
+        .alpns(vec![SYNC_ALPN.to_vec()])
+        .bind()
+        .await
+        .unwrap();
+
+    // Enrol through the real ticket flow so the host allow-lists this key.
+    let conn = endpoint
+        .connect(host.mesh.addr(), ENROL_ALPN)
+        .await
+        .unwrap();
+    let (mut send, mut recv) = conn.open_bi().await.unwrap();
+    let code = EnrolReq { code: ticket.code };
+    send.write_all(&serde_json::to_vec(&code).unwrap())
+        .await
+        .unwrap();
+    send.finish().unwrap();
+    let raw = recv.read_to_end(1 << 20).await.unwrap();
+    conn.close(0u32.into(), b"done");
+    let reply: EnrolReply = serde_json::from_slice(&raw).unwrap();
+    assert!(reply.ok);
+
+    let entry = Entry::sign(
+        &secret,
+        &ticket.vault,
+        "writers/device/fake/in.md",
+        "device:fake",
+        Some(blake3::hash(b"in").to_hex().to_string()),
+        now_ms(),
+        false,
+    );
+    let fetches = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counter = fetches.clone();
+    tokio::spawn(async move {
+        while let Some(incoming) = endpoint.accept().await {
+            let (entry, counter) = (entry.clone(), counter.clone());
+            tokio::spawn(async move {
+                let Ok(conn) = incoming.await else { return };
+                while let Ok((mut send, mut recv)) = conn.accept_bi().await {
+                    let raw = recv.read_to_end(1 << 20).await.unwrap();
+                    let reply = match serde_json::from_slice::<SyncReq>(&raw).unwrap() {
+                        SyncReq::Fetch { .. } => {
+                            counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                            Reply {
+                                ok: true,
+                                blobs: Some(vec![Blob {
+                                    path: "writers/device/fake/out.md".into(),
+                                    data: data_encoding::BASE64.encode(b"out"),
+                                }]),
+                                ..Reply::default()
+                            }
+                        }
+                        _ => Reply {
+                            ok: true,
+                            entries: Some(vec![entry.clone()]),
+                            ..Reply::default()
+                        },
+                    };
+                    send.write_all(&serde_json::to_vec(&reply).unwrap())
+                        .await
+                        .unwrap();
+                    send.finish().unwrap();
+                }
+            });
+        }
+    });
+
+    // `sync_now` awaits a whole pull: it must return (it never did before the progress guard).
+    tokio::time::timeout(Duration::from_secs(10), host.mesh.sync_now())
+        .await
+        .expect("pull is stuck on a peer that makes no progress");
+    assert!(fetches.load(std::sync::atomic::Ordering::SeqCst) >= 1);
+    assert!(!host.file("writers/device/fake/in.md").exists());
+    assert!(!host.file("writers/device/fake/out.md").exists());
 }

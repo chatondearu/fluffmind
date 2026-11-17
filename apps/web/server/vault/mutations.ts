@@ -24,10 +24,6 @@ type MutationInvalidate = {
 }
 
 /**
- * Tell the daemon about removed/new notes after a mesh-live mutation (best-effort).
- * `writer` is the session writer; auth-off solo falls back to the device id.
- */
-/**
  * mesh-live (ADR-017): drafts belong to their writer, and only the publish action turns a
  * draft canonical — a rename must not smuggle one past the canPublish grant.
  */
@@ -40,6 +36,10 @@ function assertMeshMutation(syncMode: string, writer: string | undefined, from: 
     throw new InvalidNoteIdError('Publish a draft with the publish action; it cannot be renamed onto a canonical path')
 }
 
+/**
+ * Tell the daemon about removed/new notes after a mesh-live mutation (best-effort).
+ * `writer` is the session writer; auth-off solo falls back to the device id.
+ */
 async function notifyMesh(workspaceId: string, writer: string | undefined, changes: MeshChange[]) {
   const solo = `device:${process.env.SYNC_WRITER_DEVICE?.trim() || 'solo'}`
   await publishMeshChanges(workspaceId, writer ?? solo, changes)
