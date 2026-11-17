@@ -126,8 +126,9 @@ flowchart LR
   NuxtSolo --> Files
 ```
 
-**Gap:** daemon HTTP exists (Rust `fluffmind-daemon --self-check`); Nuxt UI is
-**not** yet the thin client exclusively talking to the daemon.
+**Gap:** the daemon now ships in every portable archive and the launcher wires the UI to it,
+but Nuxt UI is **not** yet the thin client exclusively talking to the daemon (the Nuxt vault
+API stays for reads and non-daemon paths).
 
 ## Decision stack
 
@@ -170,7 +171,7 @@ Runtime decided 2026-11-17: **Rust `fluffmind-daemon` + iroh**
 | ----- | --- | ------------ | --- |
 | ✓ | Rust daemon, HTTP parity; Node daemon retired | [#150](https://github.com/chatondearu/fluffmind/issues/150) · [[../../plans/PLAN-150-rust-daemon-parity|PLAN-150]] | Swap runtime under an unchanged contract |
 | ✓ | Real iroh + relay behind `MeshSyncTransport`; TCP hub deleted | [#151](https://github.com/chatondearu/fluffmind/issues/151) · [[../../plans/PLAN-151-iroh-transport-relay|PLAN-151]] | Multi-device / NAT / offline catch-up (see "Mesh daemon" below) |
-| 3 | Package: portable sidecar, Coolify `sync` + `relay` services | [#152](https://github.com/chatondearu/fluffmind/issues/152) · [[../../plans/PLAN-152-daemon-packaging|PLAN-152]] | Users get it without dev setup |
+| ✓ | Package: portable sidecar, Coolify `sync` + `relay` services | [#152](https://github.com/chatondearu/fluffmind/issues/152) · [[../../plans/PLAN-152-daemon-packaging|PLAN-152]] | Users get it without dev setup (see "Packaging" below) |
 | ✓ | Operator smoke mesh-live + daemon dogfood | [#155](https://github.com/chatondearu/fluffmind/pull/155) | Done: `pnpm --filter @fluffmind/web run test:mesh-smoke` (now over `InMemoryMeshHub`: apply → WS → publish; rogue canonical rejected; git-live ↔ mesh-live rollback). Real iroh coverage lives in `cargo test` (`tests/mesh.rs`, `tests/mesh_http.rs`) |
 | Later | Same-note CRDT | — | Out of PRD-042 |
 | Later | Supersede ADR-002 after real migrates | — | Per ADR-018 |
@@ -178,14 +179,22 @@ Runtime decided 2026-11-17: **Rust `fluffmind-daemon` + iroh**
 Mesh apply rejects canonical paths and ignores updates on git-live workspaces
 (ADR-017); peer-to-writer binding tracked in [#154](https://github.com/chatondearu/fluffmind/issues/154).
 
+### Packaging (PLAN-152)
+
+- **Portable**: every archive bundles `bin/fluffmind-daemon` (native build per OS runner;
+  linux-x64 static musl). The launcher starts it on `127.0.0.1:8787`, waits for `/health`,
+  exports `NUXT_PUBLIC_DAEMON_URL`, starts Nuxt, and stops both on exit. `--no-daemon` keeps
+  Git-live solo; `--readonly` skips the daemon (its API has no read-only gate).
+- **Hosted / Coolify**: `sync` service (Dockerfile target `daemon`, static musl) beside `web`,
+  same volumes + `sync-data` for the node key, internal network only, generated bearer token;
+  optional `relay` service (`iroh-relay` at the pinned version, plain HTTP behind the Coolify
+  proxy) enabled with the `relay` compose profile.
+
 ### Suggested next session
 
-Pick up [#152](https://github.com/chatondearu/fluffmind/issues/152) (PLAN-152: packaging — portable
-sidecar, Coolify `sync` + `relay` services).
-
-Breadcrumb: *iroh + relay shipped in the Rust daemon (#151) — next = #152 packaging.* Follow-ups
-noted in ADR-020 "Implementation notes" (allow-list gossip for device↔device through the host,
-peer revocation, Nuxt enrol UI, initial scan of pre-existing files).
+Follow-ups noted in ADR-020 "Implementation notes" (allow-list gossip for device↔device
+through the host, peer revocation, Nuxt enrol UI, initial scan of pre-existing files), and
+the manual cross-network relay check (needs a deployed relay).
 
 ## Code map (quick)
 

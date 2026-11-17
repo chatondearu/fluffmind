@@ -48,12 +48,24 @@ Requires **Git on PATH**. Node is embedded. Auth/Postgres are disabled.
 `--readonly` (or `VAULT_READONLY=true`) rejects note/folder mutations with HTTP 403.
 Background PID/log: `data/fluffmind.pid` / `data/fluffmind.log`.
 
+**Sync daemon sidecar** ([ADR-020](./foam/decisions/ADR-020-rust-daemon-iroh-transport.md)):
+each archive bundles `bin/fluffmind-daemon`. The launcher starts it on `127.0.0.1:8787`,
+waits for `/health`, points the UI at it (`NUXT_PUBLIC_DAEMON_URL`) and stops it with the app.
+Saved notes land under `<vault>/writers/device/solo/…` with no Git commit per save; the node
+key and mesh state live in `data/daemon/`, the log in `data/fluffmind-daemon.log`.
+`--no-daemon` keeps the previous Git-live solo behaviour, `--daemon-port <n>` moves the port,
+and `--readonly` skips the daemon (its HTTP API does not honour `VAULT_READONLY`). A crashed
+launcher can leave the daemon running: the next `start`/`stop` reaps it (Windows: Ctrl+C in
+`run` mode skips cleanup, same recovery).
+
 Build a package locally:
 
 ```sh
 pnpm install
 pnpm package:portable                    # current OS/arch
 pnpm package:portable -- --target all  # or darwin-arm64|linux-x64|…
+# The daemon is a host-native Rust build: it needs cargo for the current target; other
+# targets need `--daemon-bin <cross-built binary>`, or `--no-daemon` to skip it.
 
 # Then from the repo (uses dist/portable/fluffmind-<os>-<arch>/):
 pnpm portable:start                      # background
@@ -103,7 +115,25 @@ optionally, deploy.
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | for GitHub login | GitHub **OAuth App** (identity) |
 | `GITHUB_SYNC_TOKEN_SECRET` | recommended | Encrypts workspace PAT links at rest |
 | `SYNC_MODE` | optional | Solo / auth-off live path: `git-live` (default) or `mesh-live` ([PRD-042](./prd/PRD-042-sync-rethink.md)). Auth-on uses per-workspace `sync_mode`. |
-| `FLUFFMIND_DAEMON_URL` / `FLUFFMIND_DAEMON_TOKEN` | for mesh-live peers | Base URL (+ bearer) of the Rust `fluffmind-daemon` ([ADR-020](./foam/decisions/ADR-020-rust-daemon-iroh-transport.md)). Nuxt pushes vault config and mesh-live changes to it; the daemon syncs with peers over iroh (relay: daemon-side `FLUFFMIND_RELAY_URL`). Peers join with `fluffmind-daemon ticket` / `enrol`. Server-side only. |
+| `FLUFFMIND_DAEMON_URL` / `FLUFFMIND_DAEMON_TOKEN` | wired by compose | Base URL (+ bearer) of the Rust `fluffmind-daemon` ([ADR-020](./foam/decisions/ADR-020-rust-daemon-iroh-transport.md)). In the Coolify stack these point at the `sync` service and the token is generated: leave them alone. Nuxt pushes vault config and mesh-live changes to it; the daemon syncs with peers over iroh. Peers join with `fluffmind-daemon ticket` / `enrol`. Server-side only. |
+| `FLUFFMIND_RELAY_URL` | optional | Public URL of your `iroh-relay` (see **Relay** below); read by `sync`. n0 public relays are a dev fallback when unset. |
+| `FLUFFMIND_MESH_DIRECT` / `FLUFFMIND_SYNC_INTERVAL_SECS` / `SYNC_WRITER_DEVICE` | optional | `sync` tuning: no-relay LAN mode, fallback pull interval (default 60 s), writer device id (default `solo`; also read by `web`). |
+
+**Sync service.** The compose file also runs `sync`: the Rust `fluffmind-daemon`
+([ADR-020](./foam/decisions/ADR-020-rust-daemon-iroh-transport.md) §9), built from the
+Dockerfile `daemon` target (static musl). It is a separate service from `web`, mounts the same
+`vault-data` / `workspaces-data` volumes plus `sync-data` (its node key — the peer identity;
+**keep this volume**), and has no public domain: `web` reaches it at `http://sync:8787` with a
+bearer token Coolify generates (`SERVICE_PASSWORD_SYNC`). Git-live workspaces ignore it; it
+only serves `mesh-live` ones. `SYNC_WRITER_DEVICE` (optional) is passed to both services.
+Enrol a device with `fluffmind-daemon ticket` / `enrol` against the daemon.
+
+**Relay (optional, off by default).** For peers on different networks, self-host an
+`iroh-relay` (same version as the `iroh` pin in `crates/fluffmind-daemon/Cargo.toml`): set
+`COMPOSE_PROFILES=relay` in Coolify so the `relay` service starts, give it the domain Coolify
+generates for port 3340 (the proxy terminates TLS; the relay itself speaks plain HTTP — never
+publish it without a proxy), then set `FLUFFMIND_RELAY_URL` to that `https://…` URL for the
+`sync` service and for portable daemons. Locally: `docker compose --profile relay up`.
 
 GitHub OAuth App callback URL: `{BETTER_AUTH_URL}/api/auth/callback/github`.  
 First signup on an empty instance becomes admin and can create the first workspace.
@@ -298,7 +328,7 @@ More detail: [`apps/docs/guide/mcp.md`](./apps/docs/guide/mcp.md).
 GitHub Releases are produced by [`.github/workflows/release-portable.yml`](.github/workflows/release-portable.yml).
 
 1. Push a version tag: `git tag v0.1.0 && git push origin v0.1.0`
-2. The workflow builds portable archives on four runners (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win-x64`) and attaches them to the release, plus `SHA256SUMS`.
+2. The workflow builds portable archives on four runners (`darwin-arm64`, `darwin-x64`, `linux-x64`, `win-x64`), each with its `fluffmind-daemon` sidecar built natively (`linux-x64` is static musl), runs a launcher smoke (`scripts/portable-smoke.mjs`), and attaches the archives, the standalone `fluffmind-daemon-<target>` binaries and `SHA256SUMS` to the release.
 3. Or run the workflow manually (**Actions → Release portable → Run workflow**) without creating a GitHub Release (artifacts only). Tag pushes both build **and** publish a Release.
 
 Each asset is an unzip-and-run solo package (embedded Node 22, no Postgres). See [Portable solo](#portable-solo-no-docker-no-postgres) above for end-user instructions.

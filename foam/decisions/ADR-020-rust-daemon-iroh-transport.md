@@ -163,6 +163,32 @@ Decisions taken while building §3–8; they refine, not contradict, the section
   bounds brute force; the host re-issues the ticket once the window ends. (11) `/__daemon` (browser proxy) only
   forwards `/health` and `/v1/notes`; every mesh route is server-side.
 
+## Implementation notes (PLAN-152, 2026-11-17)
+
+Decisions taken while packaging §9; they refine, not contradict, the sections above.
+
+- **Build per OS runner, not cross-compiled.** `release-portable.yml` builds the daemon natively
+  on each of the four runners and bundles it with `scripts/package-portable.mjs --daemon-bin`;
+  zigbuild was not needed. linux-x64 targets `x86_64-unknown-linux-musl` (static: no dependency
+  on the runner's glibc). `[profile.release]` sets `strip` + `lto = "thin"`; the binary is
+  ≈ 16 MB uncompressed on darwin-arm64 (the ≈ 4–8 MB estimate above was low).
+- **Launcher lifecycle.** The launcher starts the daemon on loopback, waits for `/health`,
+  exports `NUXT_PUBLIC_DAEMON_URL`, and stops it with the app (`run`: traps; `start`/`stop`: pid
+  file). `--no-daemon` keeps Git-live solo. `--readonly` also skips the daemon, because its
+  `PUT /v1/notes` has no read-only gate. A port clash fails the launch loudly rather than
+  silently degrading. shortcut: no parent-pid watchdog in the daemon; a SIGKILLed launcher (or
+  Ctrl+C in the Windows `run` mode) can orphan it, and the next `start`/`stop` reaps it.
+- **The daemon handles SIGTERM** (graceful shutdown), which `docker stop` and the launcher send.
+- **Hosted `sync`.** Same Dockerfile, target `daemon` (declared before `runner`, which must stay
+  the last stage). It runs `--vault /data/vault` — the auth-off `default` vault — and Nuxt pushes
+  every other workspace with its path over `PUT /v1/vaults/:id`, so both services mount the same
+  volumes at the same paths. `sync-data` holds `node.key`: losing it changes the `EndpointId` and
+  un-trusts every enrolled peer. Coolify generates the bearer token (`SERVICE_PASSWORD_SYNC`).
+- **Relay.** Dockerfile target `relay` wraps `n0computer/iroh-relay` at the `iroh` pin with a
+  plain-HTTP config (`deploy/iroh-relay.toml`): TLS is terminated by the Coolify proxy and QUIC
+  address discovery (which needs relay-side TLS) is off. It sits behind the `relay` compose
+  profile, so it is off by default.
+
 ## Alternatives considered
 
 | Alternative | Why rejected |

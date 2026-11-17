@@ -134,7 +134,9 @@ Users need:
 4. ~~Whether portable package (PRD-032) gains a bundled/sidecar daemon in the same
    milestone or a follow-up~~ — **Resolved 2026-11-17**: sidecar binary in every
    portable archive, shipped as a follow-up slice after iroh
-   ([#152](https://github.com/chatondearu/fluffmind/issues/152), ADR-020 §9).
+   ([#152](https://github.com/chatondearu/fluffmind/issues/152), ADR-020 §9) —
+   **Shipped** ([[../plans/PLAN-152-daemon-packaging|PLAN-152]]): sidecar in every archive,
+   `sync` + optional `relay` compose services.
 5. Graph / global-node indexing changes beyond today’s derived Maps (if any)
 
 ## Success metrics

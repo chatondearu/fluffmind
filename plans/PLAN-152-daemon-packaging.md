@@ -1,6 +1,6 @@
 # PLAN-152 — Package the Rust daemon (portable sidecar, Coolify service, relay)
 
-- **Status**: draft
+- **Status**: in review
 - **PRD**: [[../prd/PRD-042-sync-rethink|PRD-042]] (OQ4) · [[../prd/PRD-032-portable-solo-package|PRD-032]]
 - **ADR**: [[../foam/decisions/ADR-020-rust-daemon-iroh-transport|ADR-020]] §9
 - **GitHub**: [#152](https://github.com/chatondearu/fluffmind/issues/152) · map [#141](https://github.com/chatondearu/fluffmind/issues/141)
