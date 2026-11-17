@@ -11,6 +11,8 @@ set "DEFAULT_VAULT=%ROOT%\vault"
 set "DATA_DIR=%ROOT%\data"
 set "PID_FILE=%DATA_DIR%\fluffmind.pid"
 set "LOG_FILE=%DATA_DIR%\fluffmind.log"
+set "DAEMON_BIN=%ROOT%\bin\fluffmind-daemon.exe"
+set "DAEMON_PS1=%ROOT%\bin\fluffmind-daemon.ps1"
 
 set "VAULT="
 if not defined PORT set "PORT=3000"
@@ -18,6 +20,9 @@ if not defined HOST set "HOST=127.0.0.1"
 set "OPEN_BROWSER=1"
 set "READONLY=0"
 set "CMD=run"
+set "USE_DAEMON=1"
+if not defined FLUFFMIND_DAEMON_PORT set "FLUFFMIND_DAEMON_PORT=8787"
+set "DAEMON_PORT=%FLUFFMIND_DAEMON_PORT%"
 
 :parse
 if "%~1"=="" goto after_parse
@@ -69,6 +74,17 @@ if /I "%~1"=="--readonly" (
   shift
   goto parse
 )
+if /I "%~1"=="--no-daemon" (
+  set "USE_DAEMON=0"
+  shift
+  goto parse
+)
+if /I "%~1"=="--daemon-port" (
+  set "DAEMON_PORT=%~2"
+  shift
+  shift
+  goto parse
+)
 if /I "%~1"=="--help" goto usage
 if /I "%~1"=="-h" goto usage
 echo Unknown argument: %~1
@@ -78,7 +94,8 @@ goto usage
 echo Fluffmind portable ^(solo mode — no Docker, no Postgres^)
 echo.
 echo Usage:
-echo   fluffmind [command] [--vault path] [--port n] [--host addr] [--readonly] [--no-open] [--help]
+echo   fluffmind [command] [--vault path] [--port n] [--host addr] [--readonly] [--no-open]
+echo             [--no-daemon] [--daemon-port n] [--help]
 echo.
 echo Commands:
 echo   run      Foreground ^(default; Ctrl+C stops^)
@@ -87,7 +104,8 @@ echo   stop     Stop background instance
 echo   status   Show background status
 echo.
 echo Vault: --vault, else VAULT_PATH env, else ^<package^>\vault
-echo Options: --readonly rejects vault mutations ^(VAULT_READONLY=true^)
+echo Options: --readonly rejects vault mutations ^(VAULT_READONLY=true; implies --no-daemon^)
+echo          --no-daemon skips the sync daemon sidecar ^(Git-live solo^); --daemon-port sets its port ^(8787^)
 echo Requires: git on PATH
 exit /b 1
 
@@ -133,13 +151,19 @@ set "NITRO_PORT=%PORT%"
 if "%READONLY%"=="1" set "VAULT_READONLY=true"
 
 set "READONLY_LABEL=no"
-if /I "%VAULT_READONLY%"=="true" set "READONLY_LABEL=yes"
+if /I "%VAULT_READONLY%"=="true" (
+  set "READONLY_LABEL=yes"
+  REM The daemon's PUT /v1/notes does not honour VAULT_READONLY: keep it out of read-only runs.
+  set "USE_DAEMON=0"
+)
 
 set "URL=http://%HOST%:%PORT%"
 
 if /I "%CMD%"=="start" goto do_start
 
 REM Foreground (run)
+call :daemon_start
+if errorlevel 1 exit /b 1
 echo Fluffmind solo
 echo   vault: %VAULT_PATH%
 echo   readonly: %READONLY_LABEL%
@@ -151,7 +175,24 @@ if "%OPEN_BROWSER%"=="1" (
 )
 
 "%NODE_BIN%" "%SERVER_ENTRY%"
-exit /b %ERRORLEVEL%
+set "NODE_RC=%ERRORLEVEL%"
+call :daemon_stop
+exit /b %NODE_RC%
+
+:daemon_start
+if not "%USE_DAEMON%"=="1" exit /b 0
+if not exist "%DAEMON_BIN%" (
+  echo error: sync daemon not found at %DAEMON_BIN% ^(use --no-daemon^)
+  exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%DAEMON_PS1%" start -Root "%ROOT%" -Vault "%VAULT_PATH%" -Port %DAEMON_PORT%
+if errorlevel 1 exit /b 1
+set "NUXT_PUBLIC_DAEMON_URL=http://127.0.0.1:%DAEMON_PORT%"
+exit /b 0
+
+:daemon_stop
+powershell -NoProfile -ExecutionPolicy Bypass -File "%DAEMON_PS1%" stop -Root "%ROOT%"
+exit /b 0
 
 :do_status
 powershell -NoProfile -Command ^
@@ -171,9 +212,12 @@ powershell -NoProfile -Command ^
   "try { Stop-Process -Id $procId -Force -ErrorAction Stop } catch {};" ^
   "Remove-Item -LiteralPath '%PID_FILE%' -Force -ErrorAction SilentlyContinue;" ^
   "Write-Host 'Stopped.'"
+call :daemon_stop
 exit /b 0
 
 :do_start
+call :daemon_start
+if errorlevel 1 exit /b 1
 powershell -NoProfile -Command ^
   "if (Test-Path -LiteralPath '%PID_FILE%') {" ^
   "  $old = Get-Content -LiteralPath '%PID_FILE%' -ErrorAction SilentlyContinue;" ^
