@@ -1,0 +1,7 @@
+# Self-hosted iroh relay config (PLAN-152 T4, ADR-020 §8): plain HTTP on purpose.
+# TLS is terminated by the Coolify proxy; never publish this port without it.
+# QUIC address discovery needs TLS on the relay itself, so it is off behind a proxy.
+http_bind_addr = "0.0.0.0:3340"
+enable_relay = true
+enable_quic_addr_discovery = false
+enable_metrics = false

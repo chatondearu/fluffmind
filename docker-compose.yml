@@ -18,8 +18,11 @@ services:
     environment:
       VAULT_PATH: /vault
       VAULT_READONLY: ${VAULT_READONLY:-}
-      FLUFFMIND_DAEMON_URL: ${FLUFFMIND_DAEMON_URL:-}
-      FLUFFMIND_DAEMON_TOKEN: ${FLUFFMIND_DAEMON_TOKEN:-}
+      SYNC_MODE: ${SYNC_MODE:-}
+      SYNC_WRITER_DEVICE: ${SYNC_WRITER_DEVICE:-}
+      # Nuxt -> `sync` over the compose network only (the daemon port is not published).
+      FLUFFMIND_DAEMON_URL: ${FLUFFMIND_DAEMON_URL:-http://sync:8787}
+      FLUFFMIND_DAEMON_TOKEN: ${FLUFFMIND_DAEMON_TOKEN:-dev-daemon-token}
       GIT_REMOTE_URL: ${GIT_REMOTE_URL:-}
       GIT_BRANCH: ${GIT_BRANCH:-main}
       AUTH_DISABLED: ${AUTH_DISABLED:-true}
@@ -59,6 +62,48 @@ services:
       postgres:
         condition: service_healthy
 
+  # Rust sync daemon (ADR-020 §9): a separate service from `web`, same /vault and
+  # workspaces volumes. No published port: only `web` reaches it, with the bearer token.
+  sync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: daemon
+    restart: unless-stopped
+    # The bind-mounted vault is host/root-owned in dev (web runs as root here too).
+    user: root
+    command: ['--host', '0.0.0.0', '--vault', '/vault']
+    environment:
+      # Dev-only default, safe because the port is internal; set a real one in .env.
+      FLUFFMIND_DAEMON_TOKEN: ${FLUFFMIND_DAEMON_TOKEN:-dev-daemon-token}
+      FLUFFMIND_RELAY_URL: ${FLUFFMIND_RELAY_URL:-}
+      FLUFFMIND_MESH_DIRECT: ${FLUFFMIND_MESH_DIRECT:-}
+      FLUFFMIND_SYNC_INTERVAL_SECS: ${FLUFFMIND_SYNC_INTERVAL_SECS:-}
+      SYNC_WRITER_DEVICE: ${SYNC_WRITER_DEVICE:-}
+    volumes:
+      - ${VAULT_PATH}:/vault
+      - workspaces-data:/data/workspaces
+      # Node key = peer identity: keep it across rebuilds.
+      - sync-data:/data/daemon
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:8787/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Optional self-hosted iroh relay (ADR-020 §8): `docker compose --profile relay up`.
+  # Plain HTTP on 3340 (dev); production TLS goes through the Coolify proxy.
+  relay:
+    profiles: [relay]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: relay
+    restart: unless-stopped
+    ports:
+      - '3340:3340'
+
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -82,3 +127,4 @@ services:
 volumes:
   postgres-data:
   workspaces-data:
+  sync-data:

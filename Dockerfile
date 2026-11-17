@@ -43,6 +43,39 @@ WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile
 
+# ---- Sync daemon (ADR-020 §9): static musl binary, separate `sync` compose service ----
+# Build with `--target daemon`. Declared before `runner` so a plain `docker build .`
+# (no --target, e.g. Coolify) still resolves to the web image, the last stage.
+FROM rust:1.99.1-alpine AS daemon-builder
+# build-base: `ring` compiles C/asm; musl-dev alone has no compiler.
+RUN apk add --no-cache build-base
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates
+RUN cargo build --release --locked -p fluffmind-daemon
+
+FROM alpine:3.22 AS daemon
+# Same uid/gid as the web image: both services share the /data volumes. Dirs are created
+# here so a fresh named volume inherits the ownership whichever service mounts it first.
+RUN addgroup -S -g 1001 nodejs && adduser -S -u 1001 -G nodejs fluffmind \
+  && mkdir -p /data/daemon /data/vault /data/workspaces \
+  && chown -R fluffmind:nodejs /data
+COPY --from=daemon-builder /src/target/release/fluffmind-daemon /usr/local/bin/fluffmind-daemon
+USER fluffmind
+# Node key (node.key) + per-vault mesh state: mount a volume, the key is the peer identity.
+ENV FLUFFMIND_DAEMON_DATA=/data/daemon
+EXPOSE 8787
+# Off-loopback bind: FLUFFMIND_DAEMON_TOKEN is required (the daemon refuses to start without).
+ENTRYPOINT ["fluffmind-daemon"]
+CMD ["--host", "0.0.0.0", "--vault", "/data/vault"]
+
+# ---- Self-hosted iroh relay (ADR-020 §8): keep the tag equal to the `iroh` pin in
+# crates/fluffmind-daemon/Cargo.toml. Plain HTTP behind the Coolify proxy (TLS there).
+FROM n0computer/iroh-relay:v1.4.1 AS relay
+COPY deploy/iroh-relay.toml /etc/iroh-relay.toml
+ENTRYPOINT ["/iroh-relay"]
+CMD ["--config-path", "/etc/iroh-relay.toml"]
+
 # ---- Runtime image: Nitro's node-server output is fully self-contained ----------
 FROM node:22-alpine AS runner
 WORKDIR /app
