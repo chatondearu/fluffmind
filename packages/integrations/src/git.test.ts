@@ -21,7 +21,7 @@ describe('ensureWorkingCopy with empty remote', () => {
   it('inits locally when the remote has no branches (no auto_init README)', async () => {
     const bare = await tempDir('fluff-bare-')
     const work = await tempDir('fluff-work-')
-    await simpleGit().init(['--bare', bare])
+    await simpleGit().init(['--bare', '--initial-branch', 'main', bare])
 
     const git = await ensureWorkingCopy({
       path: work,
@@ -46,7 +46,7 @@ describe('ensureWorkingCopy with empty remote', () => {
   it('pushes existing local history onto an empty remote without rebase conflict', async () => {
     const bare = await tempDir('fluff-bare-')
     const work = await tempDir('fluff-work-')
-    await simpleGit().init(['--bare', bare])
+    await simpleGit().init(['--bare', '--initial-branch', 'main', bare])
 
     // Simulate vault bootstrapped before GitHub link (local welcome commit, no remote).
     const local = simpleGit(work)
@@ -98,7 +98,7 @@ describe('pullFromRemote with divergent branches', () => {
     const bare = await tempDir('fluff-pull-bare-')
     const remoteWork = await tempDir('fluff-pull-remote-')
     const localWork = await tempDir('fluff-pull-local-')
-    await simpleGit().init(['--bare', bare])
+    await simpleGit().init(['--bare', '--initial-branch', 'main', bare])
 
     const seed = simpleGit(remoteWork)
     await seed.clone(bare, remoteWork)
@@ -141,7 +141,7 @@ describe('pullFromRemote with divergent branches', () => {
     const bare = await tempDir('fluff-pull-conflict-bare-')
     const remoteWork = await tempDir('fluff-pull-conflict-remote-')
     const localWork = await tempDir('fluff-pull-conflict-local-')
-    await simpleGit().init(['--bare', bare])
+    await simpleGit().init(['--bare', '--initial-branch', 'main', bare])
 
     const seed = simpleGit(remoteWork)
     await seed.clone(bare, remoteWork)
@@ -200,7 +200,7 @@ describe('resetHardToRemote', () => {
     const bare = await tempDir('fluff-reset-bare-')
     const remoteWork = await tempDir('fluff-reset-remote-')
     const localWork = await tempDir('fluff-reset-local-')
-    await simpleGit().init(['--bare', bare])
+    await simpleGit().init(['--bare', '--initial-branch', 'main', bare])
 
     const seedGit = await ensureWorkingCopy({ path: remoteWork, remoteUrl: bare, branch: 'main' })
     await writeFile(join(remoteWork, 'remote.md'), '# remote\n', 'utf-8')
