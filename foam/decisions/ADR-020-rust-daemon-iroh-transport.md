@@ -30,22 +30,34 @@ and uses **iroh**.
    The Nuxt app stays Node and never links iroh.
 2. **Nuxt ↔ daemon = HTTP**, same API as today's daemon so the UI (`NUXT_PUBLIC_DAEMON_URL`,
    `/__daemon` proxy, `useDaemonNotes`) is unchanged: `GET /health`, `PUT /v1/notes`,
-   `GET /v1/notes` with the same writer-prefix rules ([[ADR-017-path-ownership-layout|ADR-017]])
-   and status codes. The mesh slice adds `POST /v1/mesh/changed` (Nuxt tells the daemon a
-   vault file changed: hosted writes, publish) and `GET /v1/events` (SSE: the daemon tells
-   Nuxt a remote update landed → index invalidate + `/ws/vault`). On the Nuxt side this is
-   one more `MeshSyncTransport` implementation (`DaemonMeshTransport`); `mesh-apply` keeps
-   its role. Bind `127.0.0.1` by default; a bearer token (`FLUFFMIND_DAEMON_TOKEN`) is
-   **required** when bound to a non-loopback address (hosted internal network).
+   `GET /v1/notes` with the same writer-prefix rules ([[ADR-017-path-ownership-layout|ADR-017]]),
+   response fields (including `contentHash`) and status codes. The mesh slice adds
+   `POST /v1/mesh/changed { vault, path, writer, published, deleted }` (Nuxt tells the
+   daemon a vault file changed: hosted writes, deletes/renames, and **publish** — the only
+   caller that sets `published: true`), `PUT /v1/vaults/:id` (Nuxt pushes vault config, §7)
+   and `GET /v1/events` (SSE: the daemon tells Nuxt a remote update landed → index
+   invalidate + `/ws/vault`). On the Nuxt side this is one more `MeshSyncTransport`
+   implementation (`DaemonMeshTransport`, whose update shape gains `writer`, `published`,
+   `deleted`); `mesh-apply` keeps its role. Bind `127.0.0.1` by default; a bearer token
+   (`FLUFFMIND_DAEMON_TOKEN`) is **required** when bound to a non-loopback address (hosted
+   internal network). When a token is set, `/health` returns only `{ ok }` (no `vaultPath`).
+   **Browser reach**: the `/__daemon` proxy exists only for portable/solo (daemon URL set
+   **and** auth off) and never carries the token; hosted Nuxt calls the daemon server-side
+   only.
 3. **Disk ownership**: the daemon persists remote updates itself (sync must work with no UI
    open). Nuxt keeps writing its own mesh-live writes (hosted drafts, publish) and notifies
-   the daemon; it does not re-write files the daemon already applied.
+   the daemon; it does not re-write files the daemon already applied. Both sides write
+   **atomically** (temp file in the same directory + rename): Nuxt's lock is per process and
+   does not cover the daemon.
 4. **Transport: iroh 1.x pinned to an exact version** (start from neomind's pin, bump
    monthly / on RUSTSEC). ALPNs `fluffmind/enrol/1` and `fluffmind/sync/1` — one versioned
    ALPN per protocol; a wire change bumps the suffix. mDNS on LAN. `iroh-docs` and
    `iroh-gossip` are not used (same reasons as neomind ADR-009 §6/§9).
 5. **Sync protocol = notify, then pull** (neomind ADR-009 §9 pattern): per vault, each
-   writer prefix has a manifest `path → (BLAKE3, mtimeMs)` signed by the origin peer key; a
+   writer prefix has a manifest `path → (BLAKE3 | deleted, mtimeMs, published?)` signed by
+   the origin peer key; deletions and renames are **LWW tombstones** (`deleted: true` +
+   `mtimeMs`, a rename = tombstone on the old path + entry on the new one), so a delete wins
+   over an older write and stale files do not linger on peers; a
    changed peer sends `Changed { vault, writer }` to online peers, which pull the manifest
    and the newer blobs; fallback pull on reconnect and on a slow interval. Granularity stays
    **whole-file LWW per path** ([[ADR-016-live-sync-transport|ADR-016]] §4). Any peer (the
@@ -54,16 +66,25 @@ and uses **iroh**.
 6. **Identity & trust (no master)**: ed25519 key per daemon install (= `EndpointId`, 0600
    in the daemon data dir). Each vault keeps an **allow-list of peer keys**, each bound to
    the writer identities it may author (`device:<id>`; the host key authors hosted
-   `user:*` and `agent:*`). Enrolment: a ticket (EndpointId + relay URL + vault id +
+   `user:*` and `agent:*`) and a **`canPublish` grant** (may it author canonical root
+   entries). The host key gets `canPublish` for its hosted workspaces; a device gets it only
+   when the enrolling side grants it explicitly. Enrolment: a ticket (EndpointId + relay URL + vault id +
    one-time code; TTL, single-use, rate-limited — neomind PRD-88 controls). Unlike neomind
    there is **no master, roster epoch or handover**: the host is a hub replica, not a
    master ([[ADR-016-live-sync-transport|ADR-016]] §2).
 7. **Apply rules** (enforce [[ADR-017-path-ownership-layout|ADR-017]] on the wire): a
    `writers/<kind>/<id>/` path is accepted only when the manifest's origin key is allowed
    for that writer; a canonical (root) path is accepted only from a manifest entry marked
-   `published` — produced by an explicit publish on the origin peer. Sync apply never turns
-   a writer-prefix update into a canonical write. [[ADR-012-workspace-content-roots|ADR-012]]
-   content roots still filter what a vault exposes.
+   `published` **and** signed by a key holding `canPublish` — `published` is set only by
+   the explicit publish action on the origin peer (Nuxt `publishNoteToCanonical` →
+   `/v1/mesh/changed { published: true }`), never by an ordinary save, and a self-asserted
+   flag from a key without the grant is refused. Sync apply never turns a writer-prefix
+   update into a canonical write. [[ADR-012-workspace-content-roots|ADR-012]] content roots
+   still filter what a vault exposes. **Vault config has one source of truth**: hosted, the
+   Postgres workspace config (`syncMode`, `contentRoots`) stays the master copy and Nuxt
+   pushes it to the daemon (`PUT /v1/vaults/:id`) on boot and on every change (ADR-018
+   dual-mode toggle included); the daemon serves only `mesh-live` vaults it was told about.
+   Portable (no DB), the daemon's own config file is the source.
 8. **Relay**: self-hosted `iroh-relay` at the same pinned version, configured by
    `FLUFFMIND_RELAY_URL`; n0 public relays are a **dev fallback** only;
    `FLUFFMIND_MESH_DIRECT=1` disables relays for LAN / tests. One relay deployment may be
@@ -80,7 +101,8 @@ and uses **iroh**.
 10. **Build tooling**: Cargo workspace at the repo root (`Cargo.toml`, `crates/*`), outside
     pnpm workspaces and Turborepo (cargo has its own cache). Rust pinned in `mise.toml`
     and the flake devShell. CI gets a Rust job (`cargo fmt --check`,
-    `cargo clippy -- -D warnings`, `cargo test`); `Cargo.lock` committed.
+    `cargo clippy -- -D warnings`, `cargo test`); `Cargo.lock` committed. Locally, run
+    cargo through Mise (`mise exec -- cargo …`).
 11. **Migration from the TS daemon**: (a) Rust daemon reaches HTTP parity, proven by a
     contract smoke (the assertions of today's `--self-check`) run against the binary, then
     the Node daemon files are deleted; (b) iroh lands behind `DaemonMeshTransport`, then
@@ -97,6 +119,7 @@ and uses **iroh**.
 | Vaults | One memory per agent | Several vaults (projects / workspaces) per daemon |
 | Local client | CLI over a unix socket | Nuxt web app over localhost HTTP (+ SSE) |
 | Hosted | VPS agent = master | Coolify `web` + `sync` services; browsers never run a daemon |
+| Signatures | Per-writer manifests signed; no per-message signatures (each writer serves only its own files) | Same signed manifests, **required**: the host forwards other writers' manifests, so the origin key must stay checkable after a hop; plus `canPublish` for root entries |
 | Mobile | UniFFI Kotlin host (neomind ADR-020) | Not planned; a UniFFI facade stays possible later |
 
 ## Alternatives considered
