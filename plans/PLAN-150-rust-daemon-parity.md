@@ -28,7 +28,8 @@ Swap the portable daemon runtime from Node to Rust under an **unchanged HTTP con
 
 - Cargo workspace + `fluffmind-daemon` crate, toolchain pins, CI job
 - HTTP parity: `GET /health`, `PUT /v1/notes`, `GET /v1/notes`; same CLI flags and `SYNC_WRITER_DEVICE` env
-- Optional bearer token (`FLUFFMIND_DAEMON_TOKEN`), mandatory when bind is non-loopback
+- Optional bearer token (`FLUFFMIND_DAEMON_TOKEN`), mandatory when bind is non-loopback; `/__daemon` proxy limited to portable/solo, token never exposed to browsers
+- `contentHash` in the PUT response (UI autosave depends on it)
 - Shared writer-prefix case table consumed by TS and Rust tests
 - Delete the Node daemon once the contract smoke passes against the binary
 
@@ -36,7 +37,7 @@ Swap the portable daemon runtime from Node to Rust under an **unchanged HTTP con
 
 - iroh, relay, `/v1/mesh/*`, `/v1/events` (PLAN-151)
 - Portable archive / Docker image (PLAN-152)
-- Any change to `apps/web` UI code
+- Any change to `apps/web` UI components (the proxy registration change in T5 is server config)
 
 ## Technical approach
 
@@ -50,7 +51,7 @@ base URL, so the same checks gate the Node → Rust swap.
 
 - [ ] **T1 — Toolchain + empty binary.** Root Cargo workspace, crate builds a `--help`
       binary; Rust pinned in `mise.toml` and flake devShell; `Cargo.lock` committed;
-      `target/` ignored. Acceptance: `cargo run -p fluffmind-daemon -- --help` prints usage.
+      `target/` ignored. Acceptance: `mise exec -- cargo run -p fluffmind-daemon -- --help` prints usage.
 - [ ] **T2 — Writer identity + path resolution.** Rust equivalents of
       `parseWriterIdentity` / `noteIdForMeshWriter` / `resolveNoteFilePath` driven by a
       shared JSON case table (inputs → expected id or error kind) that the existing TS
@@ -58,15 +59,20 @@ base URL, so the same checks gate the Node → Rust swap.
       the same table.
 - [ ] **T3 — HTTP parity.** `GET /health` (`ok`, `vaultPath`, `defaultWriter`,
       `syncMode: "mesh-live"`), `PUT /v1/notes` (201 created / 200 updated, body
-      `{ id, path, created, committed:false, pushed:false }`), `GET /v1/notes?id&writer`
-      (200 / 404 / 400), JSON `{ error }` on failure. Acceptance: contract smoke green.
+      `{ id, path, created, committed:false, pushed:false, contentHash }` — `contentHash` =
+      sha256 hex of the raw file, read by the UI autosave), `GET /v1/notes?id&writer`
+      (200 / 404 / 400), JSON `{ error }` on failure. Files written atomically (temp +
+      rename). Acceptance: contract smoke green, and it asserts `contentHash`.
 - [ ] **T4 — CLI parity + self-check.** Flags `--vault --port --host --writer
       --self-check --help`; `--self-check` runs the contract against a temp vault and
       prints `self-check: ok`. Acceptance: `fluffmind-daemon --self-check` exits 0.
-- [ ] **T5 — Token gate.** `FLUFFMIND_DAEMON_TOKEN` checked as `Authorization: Bearer`
-      on every route except `/health`; startup refuses a non-loopback `--host` without a
-      token. Nuxt `/__daemon` proxy forwards the header when the env is set. Acceptance:
-      unit tests for 401 and for the startup refusal.
+- [ ] **T5 — Token gate + browser reach.** `FLUFFMIND_DAEMON_TOKEN` checked as
+      `Authorization: Bearer` on every route except `/health`; with a token set, `/health`
+      returns only `{ ok }`. Startup refuses a non-loopback `--host` without a token. Nuxt
+      registers the `/__daemon` proxy **only** when the daemon URL is set **and** auth is
+      off (portable/solo), and the proxy never forwards the token; hosted code reaches the
+      daemon server-side only. Acceptance: unit tests for 401, the bare `/health`, the
+      startup refusal, and a Nuxt check that `/__daemon` is absent when auth is on.
 - [ ] **T6 — CI.** Rust job: `cargo fmt --check`, `cargo clippy --all-targets -- -D
       warnings`, `cargo test`, `fluffmind-daemon --self-check`. Acceptance: job green on PR.
 - [ ] **T7 — Retire Node daemon.** Docs/scripts point at the Rust binary; delete
@@ -96,7 +102,7 @@ base URL, so the same checks gate the Node → Rust swap.
 
 ## Verification
 
-- [ ] `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test`
-- [ ] `cargo run -p fluffmind-daemon -- --self-check`
+- [ ] `mise exec -- cargo fmt --check && mise exec -- cargo clippy --all-targets -- -D warnings && mise exec -- cargo test`
+- [ ] `mise exec -- cargo run -p fluffmind-daemon -- --self-check`
 - [ ] `mise exec -- pnpm lint && mise exec -- pnpm typecheck && mise exec -- pnpm test`
 - [ ] Foam: ADR-020 unchanged or amended; sync-architecture code map updated

@@ -42,7 +42,7 @@ the release workflow (cross builds via `cargo zigbuild` or per-OS runners — pi
 places it next to the embedded Node. Launchers start the daemon on loopback, wait for
 `/health`, export `NUXT_PUBLIC_DAEMON_URL`, start Nuxt, and stop the daemon on exit.
 Hosted: `web` reaches `sync` at `FLUFFMIND_DAEMON_URL=http://sync:8787` with
-`FLUFFMIND_DAEMON_TOKEN`; `sync` mounts `workspaces-data`; only the relay is public.
+`FLUFFMIND_DAEMON_TOKEN` (server-side only; no `/__daemon` proxy when auth is on); `sync` mounts `workspaces-data`; only the relay is public.
 
 ## Tasks
 
@@ -85,5 +85,6 @@ Hosted: `web` reaches `sync` at `FLUFFMIND_DAEMON_URL=http://sync:8787` with
 ## Verification
 
 - [ ] Release workflow green with four daemon artifacts
+- [ ] `mise exec -- cargo build --release -p fluffmind-daemon`
 - [ ] `mise exec -- pnpm lint && mise exec -- pnpm build`
 - [ ] PRD-032 / PRD-042 updated (OQ4 shipped); foam sync-architecture updated
