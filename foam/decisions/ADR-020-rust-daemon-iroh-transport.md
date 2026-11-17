@@ -154,7 +154,13 @@ Decisions taken while building §3–8; they refine, not contradict, the section
   (2) No peer revocation yet. (3) Only changes announced through the daemon HTTP API sync; files
   that pre-exist an attach are not scanned. (4) Pending enrol codes live in memory (a restart
   invalidates open tickets). (5) Whole index JSON rewrite per change (fine for note-sized
-  vaults). (6) No Nuxt enrol UI (CLI + HTTP only).
+  vaults). (6) No Nuxt enrol UI (CLI + HTTP only). (7) Any allow-listed peer reads the whole vault index
+  and blobs, drafts of other writers included (the allow-list scopes *authoring*, not reading).
+  (8) Path checks are lexical: a symlinked directory inside a vault is followed. (9) Tombstones
+  are never garbage-collected; the index file is rewritten per change. (10) The enrol limiter is
+  keyed by `EndpointId`, which a stranger can mint: a flood can lock a live ticket out for the
+  window (guessing the 60-bit code stays infeasible). (11) `/__daemon` (browser proxy) only
+  forwards `/health` and `/v1/notes`; every mesh route is server-side.
 
 ## Alternatives considered
 

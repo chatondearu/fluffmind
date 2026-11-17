@@ -71,6 +71,7 @@ export {
   DaemonHttpError,
   DaemonMeshTransport,
   putDaemonVault,
+  listDaemonVaults,
 } from './mesh/index'
 export type {
   MeshFileUpdate,

@@ -29,8 +29,8 @@ use crate::fsio::{mtime_ms, set_mtime_ms, write_atomic};
 use crate::writer::{parse_writer_identity, resolve_note_file_path};
 use entry::{check_policy, check_remote, now_ms, Entry, Grant};
 use proto::{
-    Blob, EnrolReply, EnrolReq, Reply, SyncReq, ENROL_ALPN, FETCH_BATCH, FETCH_BUDGET, MAX_REPLY,
-    MAX_REQUEST, SYNC_ALPN,
+    Blob, EnrolReply, EnrolReq, Reply, SyncReq, ENROL_ALPN, FETCH_BATCH, FETCH_BUDGET, MAX_BLOB,
+    MAX_REPLY, MAX_REQUEST, SYNC_ALPN,
 };
 use ticket::{now_secs, Pending, Pendings, RedeemLimiter, Ticket, REFUSED, TICKET_TTL_SECS};
 use vault::{normalize_content_roots, random_hex32, valid_local_id, Vault, VaultData};
@@ -94,6 +94,15 @@ pub struct MeshOptions {
     /// Tests only: drop the IP transports so every byte goes through the relay (T5).
     #[doc(hidden)]
     pub relay_only: bool,
+}
+
+/// What happened to one remote entry.
+enum Applied {
+    Yes,
+    /// Lost LWW against what we hold: nothing to do, nothing to retry.
+    Stale,
+    /// Not applied but worth retrying: detached, or a newer unannounced local edit.
+    Skipped,
 }
 
 /// A remote update that landed on disk (what `GET /v1/events` streams to Nuxt).
@@ -335,6 +344,10 @@ impl Mesh {
                 .lock()
                 .unwrap()
                 .retain(|(v, _), _| v != &data.mesh_id);
+            if data.path != path {
+                // The index describes files of the old folder; start clean (peers re-pull).
+                data.entries.clear();
+            }
             data.path = path.to_path_buf();
             data.content_roots = content_roots;
             data.attached = true;
@@ -449,7 +462,10 @@ impl Mesh {
                 }
                 Err(e) => return Err(e.into()),
             };
-            let modified = mtime_ms(&file).await?;
+            // Peers refuse far-future entries; a restored file must still sync.
+            let modified = mtime_ms(&file)
+                .await?
+                .min(now_ms().saturating_add(entry::MAX_FUTURE_SKEW_MS));
             (Some(blake3::hash(&bytes).to_hex().to_string()), modified)
         };
 
@@ -611,6 +627,8 @@ impl Mesh {
             },
         );
         vault.save(&data).map_err(internal)?;
+        // New allow-list entry: manifests rejected earlier must be re-evaluated.
+        self.inner.clear_digests(&data.mesh_id);
         drop(data);
 
         self.spawn_pull_all(vault);
@@ -673,6 +691,13 @@ async fn call<Req: Serialize, Res: serde::de::DeserializeOwned>(
 }
 
 impl Inner {
+    fn clear_digests(&self, mesh_id: &str) {
+        self.digests
+            .lock()
+            .unwrap()
+            .retain(|(v, _), _| v != mesh_id);
+    }
+
     /// Is `peer` in the allow-list of any attached vault?
     async fn knows_peer(&self, peer: &str) -> bool {
         let vaults: Vec<Arc<Vault>> = self.vaults.read().unwrap().values().cloned().collect();
@@ -853,71 +878,68 @@ impl Inner {
             }
         }
 
-        let mut blobs: HashMap<String, Vec<u8>> = HashMap::new();
-        let mut pending: Vec<String> = wanted
-            .iter()
-            .filter(|e| !e.is_tombstone())
-            .map(|e| e.path.clone())
-            .collect();
-        while !pending.is_empty() {
-            let batch: Vec<String> = pending.iter().take(FETCH_BATCH).cloned().collect();
-            let reply: Reply = call(
-                conn,
-                &SyncReq::Fetch {
-                    vault: mesh_id.to_string(),
-                    paths: batch.clone(),
-                },
-            )
-            .await?;
-            let got = reply.blobs.unwrap_or_default();
-            if !reply.ok || got.is_empty() {
-                // The peer lost a file since its manifest: retry on the next pull.
-                return Err("peer could not serve the requested blobs".into());
-            }
-            for blob in got {
-                let Ok(bytes) = BASE64.decode(blob.data.as_bytes()) else {
-                    continue;
-                };
-                pending.retain(|p| p != &blob.path);
-                blobs.insert(blob.path, bytes);
-            }
-            // Paths the peer skipped (budget) stay in `pending` and go in the next batch;
-            // a path it dropped entirely is caught by the empty-batch check above.
-            pending.retain(|p| !batch.contains(p) || blobs.contains_key(p));
-        }
-
         let mut applied = 0;
-        // Remember the manifest only when every wanted entry was handled: a failure (or a
-        // detach mid-pull) must be retried by the next pull, not masked by the digest.
+        // Remember the manifest only when every wanted entry was handled: a failure, a skipped
+        // local edit or a detach mid-pull must be retried by the next pull, not masked.
         let mut complete = true;
-        for entry in wanted {
-            let bytes = if entry.is_tombstone() {
-                None
-            } else {
-                match blobs.remove(&entry.path) {
+        let mut tally =
+            |outcome: Result<Applied, String>, path: &str, complete: &mut bool| match outcome {
+                Ok(Applied::Yes) => applied += 1,
+                Ok(Applied::Stale) => {}
+                Ok(Applied::Skipped) => *complete = false,
+                Err(e) => {
+                    warn!("apply of {path} failed: {e}");
+                    *complete = false;
+                }
+            };
+
+        let (tombstones, live): (Vec<Entry>, Vec<Entry>) =
+            wanted.into_iter().partition(Entry::is_tombstone);
+        for entry in tombstones {
+            let path = entry.path.clone();
+            tally(self.apply(vault, entry, None).await, &path, &mut complete);
+        }
+        // Apply per batch: a large vault is never held in memory, and one unservable blob
+        // costs only its own entry.
+        for batch in live.chunks(FETCH_BATCH) {
+            let mut remaining: Vec<&Entry> = batch.iter().collect();
+            while !remaining.is_empty() {
+                let reply: Reply = call(
+                    conn,
+                    &SyncReq::Fetch {
+                        vault: mesh_id.to_string(),
+                        paths: remaining.iter().map(|e| e.path.clone()).collect(),
+                    },
+                )
+                .await?;
+                let got = reply.blobs.unwrap_or_default();
+                if !reply.ok || got.is_empty() {
+                    break; // the peer cannot serve the rest (lost, edited, oversized)
+                }
+                for blob in got {
+                    let Some(pos) = remaining.iter().position(|e| e.path == blob.path) else {
+                        continue;
+                    };
+                    let entry = remaining.swap_remove(pos).clone();
+                    let bytes = BASE64.decode(blob.data.as_bytes()).ok();
                     // The signed hash is the integrity check across forwarding hops.
-                    Some(bytes)
-                        if Some(blake3::hash(&bytes).to_hex().to_string()) == entry.hash =>
-                    {
-                        Some(bytes)
-                    }
-                    _ => {
+                    let ok = bytes
+                        .as_ref()
+                        .is_some_and(|b| Some(blake3::hash(b).to_hex().to_string()) == entry.hash);
+                    if ok {
+                        let path = entry.path.clone();
+                        tally(self.apply(vault, entry, bytes).await, &path, &mut complete);
+                    } else {
                         warn!(
                             "blob for {} from {peer} does not match its signed hash",
                             entry.path
                         );
                         complete = false;
-                        continue;
                     }
                 }
-            };
-            match self.apply(vault, entry, bytes).await {
-                Ok(true) => applied += 1,
-                Ok(false) => {}
-                Err(e) => {
-                    warn!("apply failed: {e}");
-                    complete = false;
-                }
+            }
+            if !remaining.is_empty() {
+                complete = false;
             }
         }
         if complete && vault.data.lock().await.attached {
@@ -933,15 +955,15 @@ impl Inner {
         vault: &Vault,
         entry: Entry,
         bytes: Option<Vec<u8>>,
-    ) -> Result<bool, String> {
+    ) -> Result<Applied, String> {
         let mut data = vault.data.lock().await;
         // A pull that started before `detach` (syncMode flipped, ADR-018) must not write.
         if !data.attached {
-            return Ok(false);
+            return Ok(Applied::Skipped);
         }
         let held = data.entries.get(&entry.path).cloned();
         if held.as_ref().is_some_and(|h| !entry.beats(h)) {
-            return Ok(false);
+            return Ok(Applied::Stale);
         }
         let note_id = entry.note_id()?;
         let file = resolve_note_file_path(&data.path, &note_id).map_err(|e| e.to_string())?;
@@ -955,7 +977,7 @@ impl Inner {
                 .map(|b| blake3::hash(&b).to_hex().to_string());
             let tracked = held.as_ref().is_some_and(|h| h.hash == disk_hash);
             if !tracked && disk_hash != entry.hash && disk_mtime > entry.mtime_ms {
-                return Ok(false);
+                return Ok(Applied::Skipped);
             }
         }
 
@@ -984,7 +1006,7 @@ impl Inner {
         data.entries.insert(entry.path.clone(), entry);
         vault.save(&data)?;
         let _ = self.events.send(event);
-        Ok(true)
+        Ok(Applied::Yes)
     }
 
     // ----- server side -----------------------------------------------------------------
@@ -1037,8 +1059,8 @@ impl Inner {
                     let Ok(bytes) = tokio::fs::read(&file).await else {
                         continue;
                     };
-                    if blake3::hash(&bytes).to_hex().as_str() != hash {
-                        continue; // changed on disk, not yet re-announced
+                    if bytes.len() > MAX_BLOB || blake3::hash(&bytes).to_hex().as_str() != hash {
+                        continue; // oversized, or changed on disk and not yet re-announced
                     }
                     if !blobs.is_empty() && bytes.len() > budget {
                         break;
@@ -1079,7 +1101,7 @@ impl Inner {
         let vault = self.vaults.read().unwrap().get(&pending.vault).cloned();
         let Some(vault) = vault else { return refused() };
         let mut data = vault.data.lock().await;
-        data.peers.insert(
+        let previous = data.peers.insert(
             remote.to_string(),
             Grant {
                 writers: pending.writers,
@@ -1089,8 +1111,14 @@ impl Inner {
             },
         );
         if vault.save(&data).is_err() {
+            // Do not allow-list a peer that was told it was refused.
+            match previous {
+                Some(grant) => data.peers.insert(remote.to_string(), grant),
+                None => data.peers.remove(remote),
+            };
             return refused();
         }
+        self.clear_digests(&data.mesh_id);
         EnrolReply {
             ok: true,
             vault: Some(data.mesh_id.clone()),

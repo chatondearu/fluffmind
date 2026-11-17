@@ -55,7 +55,18 @@ export function bindWorkspaceMeshTransport(
       console.error(`[mesh-apply] failed for ${workspaceId}:`, error)
     })
   })
-  peers.set(workspaceId, { transport, unsub })
+  // Missed events (stream lag / reconnect): re-read the vault instead of trusting increments.
+  const unsubResync = transport.onResync?.(() => {
+    invalidateVaultIndex(workspaceId)
+    publishVaultInvalidate(workspaceId, { reason: 'index' })
+  })
+  peers.set(workspaceId, {
+    transport,
+    unsub: () => {
+      unsub()
+      unsubResync?.()
+    },
+  })
 }
 
 export async function unbindWorkspaceMeshTransport(workspaceId: string): Promise<void> {

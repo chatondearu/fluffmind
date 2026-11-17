@@ -13,6 +13,8 @@ export interface DaemonClientOptions {
   token?: string
   /** Initial SSE reconnect delay (doubles up to 10s). Default 500ms. */
   reconnectMs?: number
+  /** Timeout of one HTTP call to the daemon. Default 5s. */
+  requestTimeoutMs?: number
 }
 
 export interface DaemonVaultConfig {
@@ -54,10 +56,12 @@ async function requestJson<T>(
   path: string,
   body: unknown,
 ): Promise<T> {
+  // Callers run inside the workspace write lock: a hung daemon must not block writes forever.
   const response = await fetch(`${baseUrl(options.url)}${path}`, {
     method,
     headers: { 'content-type': 'application/json', ...authHeaders(options.token) },
-    body: JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(options.requestTimeoutMs ?? 5000),
   })
   const text = await response.text()
   let parsed: unknown
@@ -77,6 +81,12 @@ async function requestJson<T>(
   return parsed as T
 }
 
+/** `GET /v1/vaults` — ids of the vaults the daemon currently syncs. */
+export async function listDaemonVaults(options: DaemonClientOptions): Promise<string[]> {
+  const reply = await requestJson<{ vaults?: string[] }>(options, 'GET', '/v1/vaults', undefined)
+  return reply?.vaults ?? []
+}
+
 /** `PUT /v1/vaults/:id` — replace the daemon's view of a vault (non-mesh-live detaches it). */
 export function putDaemonVault(
   options: DaemonClientOptions,
@@ -86,7 +96,7 @@ export function putDaemonVault(
   return requestJson<DaemonVaultState>(options, 'PUT', `/v1/vaults/${encodeURIComponent(vaultId)}`, config)
 }
 
-type SseEvent = { vault: string, path: string, mtimeMs: number, deleted?: boolean }
+type SseEvent = { vault?: string, path?: string, mtimeMs: number, deleted?: boolean, resync?: boolean }
 type SseListener = (event: SseEvent) => void
 
 /** One streaming reader per daemon (url + token), fanned out to per-vault listeners. */
@@ -116,6 +126,7 @@ class SharedEventReader {
 
   private async run(controller: AbortController): Promise<void> {
     let delay = this.options.reconnectMs ?? 500
+    let dropped = false
     while (!controller.signal.aborted) {
       try {
         const response = await fetch(`${baseUrl(this.options.url)}/v1/events`, {
@@ -125,11 +136,15 @@ class SharedEventReader {
         if (!response.ok || !response.body)
           throw new DaemonHttpError(response.status, `daemon GET /v1/events failed (${response.status})`)
         delay = this.options.reconnectMs ?? 500
+        // Events were missed while the stream was down: ask consumers to re-read.
+        if (dropped)
+          this.dispatch('data: {"resync":true}')
         await this.consume(response.body, controller.signal)
       }
       catch {
         // Dropped or refused: fall through to the backoff below.
       }
+      dropped = true
       if (controller.signal.aborted)
         return
       await new Promise(resolve => setTimeout(resolve, delay))
@@ -171,7 +186,7 @@ class SharedEventReader {
     catch {
       return
     }
-    if (typeof event.vault !== 'string' || typeof event.path !== 'string')
+    if (event.resync !== true && (typeof event.vault !== 'string' || typeof event.path !== 'string'))
       return
     for (const listener of this.listeners)
       listener(event)
@@ -222,7 +237,7 @@ export class DaemonMeshTransport implements MeshSyncTransport {
 
   onUpdate(handler: MeshFileUpdateHandler): () => void {
     const unsub = sharedReader(this.options).subscribe((event) => {
-      if (event.vault !== this.options.vault)
+      if (event.resync || event.vault !== this.options.vault || event.path === undefined)
         return
       handler({
         path: event.path,
@@ -232,6 +247,19 @@ export class DaemonMeshTransport implements MeshSyncTransport {
         deleted: event.deleted === true,
         persisted: true,
       })
+    })
+    const release = () => {
+      this.unsubs.delete(release)
+      unsub()
+    }
+    this.unsubs.add(release)
+    return release
+  }
+
+  onResync(handler: () => void): () => void {
+    const unsub = sharedReader(this.options).subscribe((event) => {
+      if (event.resync)
+        handler()
     })
     const release = () => {
       this.unsubs.delete(release)

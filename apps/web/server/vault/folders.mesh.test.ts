@@ -144,6 +144,17 @@ describe('mutations notify the mesh — mesh-live', () => {
     ])
   })
 
+  it('drafts belong to their writer and cannot be renamed onto a canonical path', async () => {
+    await seed('writers/user/alice/a')
+    await expect(deleteNoteFromWorkspace('ws-1', 'writers/user/alice/a', 'user:bob'))
+      .rejects.toThrow(/outside writer prefix/)
+    await expect(renameNoteInWorkspace('ws-1', 'writers/user/alice/a', 'notes/a', 'user:alice'))
+      .rejects.toThrow(/publish action/)
+    await expect(renameVaultFolder('ws-1', 'writers/user/alice', 'notes', 'user:alice'))
+      .rejects.toThrow(/publish action/)
+    expect(sent()).toEqual([])
+  })
+
   it('folder rename and recursive delete cover every note under the folder', async () => {
     await seed('docs/x')
     await seed('docs/deep/y')

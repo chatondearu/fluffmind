@@ -13,6 +13,8 @@ pub const MAX_REQUEST: usize = 1024 * 1024;
 pub const MAX_REPLY: usize = 128 * 1024 * 1024;
 /// Soft cap of raw blob bytes per `Fetch` reply (at least one blob is always sent).
 pub const FETCH_BUDGET: usize = 16 * 1024 * 1024;
+/// Larger files are never served (a note is text); keeps replies under `MAX_REPLY`.
+pub const MAX_BLOB: usize = 32 * 1024 * 1024;
 pub const FETCH_BATCH: usize = 32;
 
 /// Refusal for strangers, unknown vaults and malformed requests alike (no oracle).

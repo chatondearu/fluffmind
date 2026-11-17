@@ -5,7 +5,9 @@
  * shortcut: no retry loop if the daemon is down at boot — the next mesh write re-attaches.
  */
 import {
+  DaemonHttpError,
   DaemonMeshTransport,
+  listDaemonVaults,
   putDaemonVault,
   type DaemonClientOptions,
 } from '@fluffmind/integrations'
@@ -100,16 +102,45 @@ export async function publishMeshChanges(
 ): Promise<void> {
   if (changes.length === 0)
     return
-  try {
+  const send = async () => {
     await ensureWorkspaceMeshPeer(workspaceId)
-    for (const change of changes) {
-      await publishLocalMeshNote(workspaceId, change.noteId, '', {
-        writer: writerFromNoteId(change.noteId) ?? actor,
-        deleted: change.deleted,
-      })
+    // Chunked: a folder delete is one POST per note and runs inside the workspace lock.
+    for (let i = 0; i < changes.length; i += 16) {
+      await Promise.all(changes.slice(i, i + 16).map(change =>
+        publishLocalMeshNote(workspaceId, change.noteId, '', {
+          writer: writerFromNoteId(change.noteId) ?? actor,
+          deleted: change.deleted,
+        })))
+    }
+  }
+  try {
+    try {
+      await send()
+    }
+    catch (error) {
+      // The daemon lost this vault (restart with a wiped data dir): re-attach and retry once.
+      if (!(error instanceof DaemonHttpError) || error.status !== 404)
+        throw error
+      attached.delete(workspaceId)
+      await send()
     }
   }
   catch (error) {
     console.error(`[mesh] daemon notify failed for ${workspaceId}:`, error)
+  }
+}
+
+/**
+ * Boot reconcile: the daemon persists attached vaults, so one whose `syncMode` flip never
+ * reached it would keep syncing into a Git working copy (ADR-018). Detach every daemon vault
+ * that is not in `meshLive`.
+ */
+export async function detachStaleDaemonVaults(meshLive: Set<string>): Promise<void> {
+  const options = daemonOptions()
+  if (!options)
+    return
+  for (const id of await listDaemonVaults(options)) {
+    if (!meshLive.has(id))
+      await putDaemonVault(options, id, { syncMode: 'git-live', contentRoots: [], path: '' })
   }
 }
