@@ -673,20 +673,23 @@ fn validate_writer_pattern(pattern: &str) -> MeshResult<()> {
 
 // ----- wire helpers -------------------------------------------------------------------
 
-/// One request/reply on a fresh bi-stream.
+/// One request/reply on a fresh bi-stream, bounded by `REQUEST_TIMEOUT`: a live peer that
+/// never answers must not freeze the (sequential) pull of every other peer and vault.
 async fn call<Req: Serialize, Res: serde::de::DeserializeOwned>(
     conn: &Connection,
     request: &Req,
 ) -> Result<Res, String> {
-    let (mut send, mut recv) = conn.open_bi().await.map_err(|e| e.to_string())?;
-    send.write_all(&serde_json::to_vec(request).map_err(|e| e.to_string())?)
+    let exchange = async {
+        let (mut send, mut recv) = conn.open_bi().await.map_err(|e| e.to_string())?;
+        send.write_all(&serde_json::to_vec(request).map_err(|e| e.to_string())?)
+            .await
+            .map_err(|e| e.to_string())?;
+        send.finish().map_err(|e| e.to_string())?;
+        recv.read_to_end(MAX_REPLY).await.map_err(|e| e.to_string())
+    };
+    let raw = tokio::time::timeout(REQUEST_TIMEOUT, exchange)
         .await
-        .map_err(|e| e.to_string())?;
-    send.finish().map_err(|e| e.to_string())?;
-    let raw = recv
-        .read_to_end(MAX_REPLY)
-        .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|_| "peer request timed out".to_string())??;
     serde_json::from_slice(&raw).map_err(|e| format!("bad reply: {e}"))
 }
 
@@ -916,6 +919,7 @@ impl Inner {
                 if !reply.ok || got.is_empty() {
                     break; // the peer cannot serve the rest (lost, edited, oversized)
                 }
+                let before = remaining.len();
                 for blob in got {
                     let Some(pos) = remaining.iter().position(|e| e.path == blob.path) else {
                         continue;
@@ -936,6 +940,9 @@ impl Inner {
                         );
                         complete = false;
                     }
+                }
+                if remaining.len() == before {
+                    break; // out-of-scope blobs only: no progress, so a hostile peer cannot loop us
                 }
             }
             if !remaining.is_empty() {
